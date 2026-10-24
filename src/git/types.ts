@@ -1,0 +1,66 @@
+// Die Typen des Git-Moduls. Das Modul importiert nichts aus React oder TanStack, damit es später
+// auch in einem Server-Prozess oder in Electron läuft.
+
+/** Ein Commit des Workshop-Repos, in der Reihenfolge der Historie. */
+export interface Commit {
+  sha: string;
+  /** Die Nummer des Schritts vor dem Doppelpunkt, etwa `25e`. Ein Commit ohne Schritt hat keine. */
+  step: string | null;
+  /** Der Titel ohne die Nummer des Schritts. */
+  title: string;
+  author: string;
+  date: string;
+}
+
+/** Repo, Worktree und Branch, wie sie die Kopfzeile nennt. */
+export interface RepoInfo {
+  repo: string;
+  worktree: string;
+  branch: string;
+}
+
+/** Ein Branch, der auf einen Commit zeigt: ein lokaler oder einer eines Remotes. */
+export interface Ref {
+  name: string;
+  kind: 'local' | 'remote';
+  sha: string;
+}
+
+export type DiffLineKind = 'context' | 'added' | 'removed';
+
+/** Ein Bereich von Zeichen einer Zeile, in UTF-16-Einheiten; `end` gehört nicht mehr dazu. */
+export interface LinePart {
+  start: number;
+  end: number;
+}
+
+/** Eine Zeile des Diffs. Die Nummern zählen ab 1, eine Seite ohne die Zeile hat keine Nummer. */
+export interface DiffLine {
+  kind: DiffLineKind;
+  oldNumber: number | null;
+  newNumber: number | null;
+  text: string;
+  /** Die Teile, die sich von der Partnerzeile unterscheiden; leer ohne Partner. */
+  parts: LinePart[];
+}
+
+/** Ein Abschnitt um Änderungen herum, mit der Zahl der ausgelassenen Zeilen davor. */
+export interface Hunk {
+  skippedBefore: number;
+  lines: DiffLine[];
+}
+
+export type FileKind = 'changed' | 'added' | 'deleted';
+
+/** Der Vergleich einer Datei zwischen zwei Commits. */
+export interface DiffFile {
+  path: string;
+  kind: FileKind;
+  added: number;
+  removed: number;
+  /** Alle Zeilen beider Fassungen, in der Reihenfolge der Datei. */
+  whole: DiffLine[];
+  /** Der Text vorher und nachher, leer für eine Seite ohne die Datei. */
+  oldText: string;
+  newText: string;
+}

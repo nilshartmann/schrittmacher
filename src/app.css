@@ -1,0 +1,897 @@
+/* Farben des Codes und des Diffs aus agent-lab (variables.css, review.css), Schrift wie in Fork. */
+
+:root {
+  color-scheme: light;
+
+  --ground: #f1f3f5;
+  --surface: #ffffff;
+  --ink: #1d232c;
+  --quiet: #5a6270;
+  --sign: #8a919c;
+  --line: #d8dce2;
+  --line-soft: #e5e8ec;
+  --hover: #eceff2;
+  --selected: #dfe5ee;
+  --accent: #3e5c9a;
+  --accent-tint: #e8edf6;
+  --between: #f3f5f9;
+
+  /* Die Farben des Diffs wie in Fork. */
+  --diff-removed: #ffe4e4;
+  --diff-added: #e2fbe2;
+  --diff-removed-part: #fcb6b6;
+  --diff-added-part: #a6efa6;
+  --diff-removed-ink: #c83a3a;
+  --diff-added-ink: #2e8b2e;
+  /* Die Zeichen der Arten von Dateien wie in Fork. */
+  --kind-changed: #ffc700;
+  --kind-added: #2ac650;
+  --kind-deleted: #ff453a;
+  --diff-empty: #f6f7f8;
+  --diff-gap: #f4f5f7;
+
+  --code-keyword: #2770c0;
+  --code-type: #367b42;
+  --code-string: #3d9189;
+  --code-number: #3778b7;
+  --code-constant: #2770c0;
+  --code-escape: #012339;
+  --code-comment: #969896;
+  --code-doc-tag: #a56416;
+  --code-todo: #969896;
+  --code-annotation: #1e4c84;
+  --code-function: #a44185;
+  --code-call: #a44185;
+  --code-parameter: #012339;
+  --code-property: #a44185;
+  --code-regexp: #3d9189;
+  --code-jsx-tag: #a56416;
+  --code-jsx-attribute: #2770c0;
+  --code-heading: #a44185;
+  --code-marker: #2770c0;
+  --code-strong: #1d232c;
+  --code-emphasis: #1d232c;
+  --code-strikethrough: #1d232c;
+  --code-markdown-code: #3d9189;
+  --code-link-text: #2770c0;
+  --code-url: #2770c0;
+  --code-quote: #3d9189;
+  --code-json-key: #2770c0;
+
+  --font-ui: system-ui, -apple-system, sans-serif;
+  --font-code: "MonoLisa", ui-monospace, monospace;
+  --size-ui: 14px;
+  --size-small: 12px;
+  /* Groß genug für den Pencil auf dem iPad. */
+  --target: 36px;
+  --header-height: 48px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: var(--size-ui);
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Kopfzeile */
+
+.header {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 12px;
+  height: var(--header-height);
+  padding: 0 8px 0 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  white-space: nowrap;
+}
+
+.header-where {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 0 1 auto;
+  color: var(--quiet);
+  font-size: var(--size-small);
+}
+
+.header-repo {
+  overflow: hidden;
+  max-width: 220px;
+  text-overflow: ellipsis;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.header-sep {
+  color: var(--sign);
+}
+
+.header-comparison {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.header-step {
+  font-weight: 700;
+}
+
+.header-arrow {
+  color: var(--sign);
+}
+
+.header-comparison-free .header-step {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--accent-tint);
+  color: var(--accent);
+}
+
+.header-title {
+  overflow: hidden;
+  min-width: 0;
+  text-overflow: ellipsis;
+  color: var(--quiet);
+}
+
+.header-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+
+.segmented {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface);
+}
+
+.segmented > button {
+  min-width: var(--target);
+  height: var(--target);
+  padding: 0 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.segmented > button:hover:not(:disabled, [aria-pressed='true']) {
+  background: var(--hover);
+}
+
+.segmented > button[aria-pressed='true'] {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.segmented > button:disabled,
+.tool:disabled {
+  color: var(--sign);
+  cursor: default;
+  opacity: 0.5;
+}
+
+.segmented-value {
+  min-width: 3ch;
+  padding: 0 2px;
+  color: var(--quiet);
+  font-size: var(--size-small);
+  text-align: center;
+}
+
+.tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: var(--target);
+  height: var(--target);
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.tool:hover:not(:disabled) {
+  background: var(--hover);
+}
+
+.tool[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent-tint);
+  color: var(--accent);
+}
+
+.tool-count {
+  color: var(--quiet);
+  font-size: var(--size-small);
+}
+
+/* Spalten unter der Kopfzeile */
+
+.body {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* Commits als Band über Dateien und Diff */
+
+.commit-band {
+  display: flex;
+  flex: none;
+  min-height: 0;
+  background: var(--surface);
+}
+
+.commit-scroll {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.commit-table {
+  min-width: 100%;
+  /* Sonst markiert der ⇧-Klick den Text zwischen zwei Commits. */
+  user-select: none;
+  -webkit-user-select: none;
+  border-collapse: collapse;
+  white-space: nowrap;
+}
+
+.commit {
+  height: 22px;
+  background: var(--surface);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.commit td {
+  padding: 0 8px;
+  /* Die Badges decken den Titel mit der Farbe der Zeile ab. */
+  background: inherit;
+}
+
+.commit:hover {
+  background: var(--hover);
+}
+
+.commit-between {
+  background: var(--between);
+}
+
+.commit-from {
+  background: var(--accent-tint);
+}
+
+.commit-to {
+  background: var(--selected);
+}
+
+.commit-from > td:first-child,
+.commit-to > td:first-child {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.commit-step {
+  width: 1%;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Der Titel nimmt die Breite, die übrig bleibt; die Angaben dahinter stehen rechts. */
+.commit-title {
+  position: relative;
+  width: 100%;
+}
+
+.refs {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  display: flex;
+  padding-left: 8px;
+  transform: translateY(-50%);
+  background: inherit;
+}
+
+.commit-meta {
+  color: var(--quiet);
+  font-size: var(--size-small);
+}
+
+.commit-sha {
+  font-family: var(--font-code);
+}
+
+/* Branches als Badge rechts in der Spalte des Titels. Der Branch des Worktrees ist kräftiger. */
+.ref {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-right: 6px;
+  white-space: nowrap;
+  padding: 0 5px;
+  border: 1px solid #e3b45a;
+  border-radius: 4px;
+  background: #fff6e2;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.ref-remote {
+  border-color: #d3d7de;
+  background: #f4f5f7;
+  color: var(--quiet);
+}
+
+.ref-current {
+  border-color: #d08a00;
+  font-weight: 600;
+}
+
+.ref-sign {
+  font-size: 11px;
+}
+
+.height-splitter {
+  position: relative;
+  flex: none;
+  height: 9px;
+  margin: -4px 0;
+  z-index: 3;
+  cursor: row-resize;
+  touch-action: none;
+}
+
+.height-splitter::before {
+  content: '';
+  position: absolute;
+  top: 4px;
+  right: 0;
+  left: 0;
+  height: 1px;
+  background: var(--line);
+}
+
+.height-splitter:hover::before,
+.height-splitter:active::before {
+  top: 3px;
+  height: 3px;
+  background: var(--accent);
+}
+
+/* Dateien */
+
+.file-list {
+  display: flex;
+  flex-direction: column;
+  flex: none;
+  min-height: 0;
+  background: var(--surface);
+}
+
+.file-list ol {
+  flex: 1 1 auto;
+  margin: 0;
+  padding: 2px 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.file {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  height: 22px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 0;
+  font-size: 13px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.file:hover {
+  background: var(--hover);
+}
+
+.file[aria-current='true'] {
+  background: var(--selected);
+}
+
+.file-kind {
+  flex: none;
+  width: 16px;
+  line-height: 16px;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.file-kind-changed {
+  background: var(--kind-changed);
+}
+
+.file-kind-added {
+  background: var(--kind-added);
+}
+
+.file-kind-deleted {
+  background: var(--kind-deleted);
+}
+
+.amount {
+  display: inline-flex;
+  gap: 4px;
+  flex: none;
+  font-size: var(--size-small);
+  font-variant-numeric: tabular-nums;
+}
+
+.amount-added {
+  color: var(--diff-added-ink);
+}
+
+.amount-removed {
+  color: var(--diff-removed-ink);
+}
+
+.diff-column {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+  background: var(--surface);
+}
+
+.file-bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 4px 0 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.file-path {
+  display: flex;
+  min-width: 0;
+  overflow: hidden;
+  flex: 0 1 auto;
+  min-width: 0;
+  font-family: var(--font-code);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+/* Ein Pfad kürzt vorn, wenn es eng wird, damit der Dateiname bleibt. */
+.path {
+  display: flex;
+  overflow: hidden;
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.path-folder {
+  overflow: hidden;
+  min-width: 0;
+  color: var(--quiet);
+  text-overflow: ellipsis;
+  direction: rtl;
+}
+
+.path-name {
+  flex: none;
+}
+
+.file-path .path-name {
+  font-weight: 600;
+}
+
+.file-tools {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+}
+
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 30px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--quiet);
+  cursor: pointer;
+}
+
+.icon-button:hover:not(:disabled) {
+  background: var(--hover);
+}
+
+.icon-button[aria-pressed='true'] {
+  background: var(--accent-tint);
+  color: var(--accent);
+}
+
+.icon-button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.file-bar .file-path {
+  margin-right: auto;
+}
+
+.preset {
+  width: auto;
+  padding: 0 6px;
+  font-size: var(--size-small);
+  font-variant-numeric: tabular-nums;
+}
+
+.tooltip {
+  position: fixed;
+  z-index: 10;
+  max-width: min(640px, calc(100vw - 8px));
+  padding: 4px 8px;
+  border-radius: 5px;
+  background: #2b313b;
+  color: #ffffff;
+  font-size: var(--size-small);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+}
+
+.empty {
+  margin: 24px;
+  color: var(--quiet);
+}
+
+/* Diff */
+
+.diff {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  font-family: var(--font-code);
+  font-size: var(--code-size, 14px);
+  line-height: 1.5;
+}
+
+.pane {
+  overflow: auto;
+  min-width: 0;
+  overscroll-behavior: contain;
+}
+
+.pane {
+  /* Die Balken stehen immer da, sonst springt der Text, sobald einer erscheint. */
+  overflow-x: scroll;
+}
+
+/* Die linke Spalte folgt der rechten nach oben und unten und braucht dafür keinen eigenen Balken. */
+.pane-old {
+  flex: 0 0 calc(var(--share) * 100%);
+  overflow-y: hidden;
+}
+
+.pane-new {
+  flex: 1 1 0;
+  overflow-y: scroll;
+}
+
+/* Die Zeilen sind so breit wie die längste, damit ihr Hintergrund beim Scrollen zur Seite mitgeht. */
+.pane-lines {
+  width: max-content;
+  min-width: 100%;
+}
+
+.divider {
+  position: relative;
+  flex: none;
+  width: 9px;
+  margin: 0 -4px;
+  z-index: 2;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.divider::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 4px;
+  width: 1px;
+  background: var(--line);
+}
+
+.divider:hover::before,
+.divider:active::before {
+  left: 3px;
+  width: 3px;
+  background: var(--accent);
+}
+
+.line {
+  display: flex;
+  /* Jede Zeile ist eine Zeile hoch, auch eine leere; so stehen beide Seiten auf gleicher Höhe. */
+  height: 1.5em;
+}
+
+.number {
+  position: sticky;
+  left: 0;
+  flex: none;
+  /* Wie in Fork: klein und grau auf weißem Grund, mit einer feinen Linie zum Code. Die Farbe der
+     Zeile beginnt erst beim Code. */
+  width: calc(var(--number-width) + 20px);
+  margin-right: 6px;
+  padding: 0 8px 0 4px;
+  border-right: 1px solid var(--line-soft);
+  background: var(--surface);
+  color: #b0b5bd;
+  font-size: 0.75em;
+  line-height: calc(1.5em / 0.75);
+  text-align: right;
+  /* Beim Markieren und Kopieren bleiben die Nummern außen vor. */
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.text {
+  flex: 1 1 auto;
+  padding-right: 12px;
+  white-space: pre;
+}
+
+/* Der Teil einer Zeile, der sich von der Partnerzeile unterscheidet, ohne Rundung und Abstand,
+   damit die Zeichen in ihrer Spalte bleiben. */
+.line-removed .part {
+  background: var(--diff-removed-part);
+}
+
+.line-added .part {
+  background: var(--diff-added-part);
+}
+
+/* Mit Umbruch füllt eine lange Zeile die Breite und rückt die Fortsetzung etwas ein. */
+.diff-wrap .pane-lines {
+  width: auto;
+}
+
+.diff-wrap .line {
+  height: auto;
+  min-height: 1.5em;
+}
+
+.diff-wrap .text {
+  min-width: 0;
+  padding-left: 2ch;
+  text-indent: -2ch;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.line-added .text {
+  background: var(--diff-added);
+}
+
+.line-removed .text {
+  background: var(--diff-removed);
+}
+
+/* Untereinander ohne entfernte Zeilen zeigt ein roter Strich, wo Zeilen entfernt wurden. */
+.line-removed-before .text {
+  box-shadow: inset 0 2px 0 var(--diff-removed-ink);
+}
+
+
+
+.line-empty {
+  user-select: none;
+  -webkit-user-select: none;
+  background: repeating-linear-gradient(135deg, var(--diff-empty) 0 6px, #eef0f2 6px 7px);
+}
+
+
+
+.gap {
+  display: flex;
+  align-items: center;
+  height: 22px;
+  padding-left: 4px;
+  border-top: 1px solid var(--line-soft);
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--diff-gap);
+  color: var(--sign);
+  font-family: var(--font-ui);
+  font-size: 11px;
+  line-height: 20px;
+  white-space: nowrap;
+}
+
+/* Ein Klick auf ⋯ klappt die ausgelassenen Zeilen auf und wieder ein. */
+.gap-toggle {
+  flex: none;
+  height: 20px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.gap-toggle:hover {
+  background: var(--hover);
+  color: var(--accent);
+}
+
+/* Die Überschrift des Abschnitts wie bei Git, etwa die Klasse oder die Methode. Sie lässt sich
+   markieren und kopieren. */
+.gap-heading {
+  margin-left: 6px;
+  font-family: var(--font-code);
+  font-size: calc(var(--code-size, 14px) * 0.9);
+  white-space: pre;
+}
+
+/* Farben des Codes wie in IntelliJ IDEA, aus review.css von agent-lab. */
+
+.code-keyword {
+  color: var(--code-keyword);
+  font-style: italic;
+}
+
+.code-type {
+  color: var(--code-type);
+}
+
+.code-string {
+  color: var(--code-string);
+}
+
+.code-number {
+  color: var(--code-number);
+}
+
+.code-constant {
+  color: var(--code-constant);
+  font-style: italic;
+}
+
+.code-escape {
+  color: var(--code-escape);
+  font-weight: 500;
+}
+
+.code-comment {
+  color: var(--code-comment);
+}
+
+.code-doc-tag {
+  color: var(--code-doc-tag);
+}
+
+.code-todo {
+  color: var(--code-todo);
+  font-weight: 500;
+}
+
+.code-annotation {
+  color: var(--code-annotation);
+}
+
+.code-function,
+.code-call,
+.code-property {
+  color: var(--code-function);
+}
+
+.code-parameter {
+  color: var(--code-parameter);
+}
+
+.code-regexp {
+  color: var(--code-regexp);
+}
+
+.code-jsx-tag {
+  color: var(--code-jsx-tag);
+}
+
+.code-jsx-attribute {
+  color: var(--code-jsx-attribute);
+}
+
+.code-heading {
+  color: var(--code-heading);
+}
+
+.code-marker {
+  color: var(--code-marker);
+}
+
+.code-strong {
+  color: var(--code-strong);
+  font-weight: 500;
+}
+
+.code-emphasis {
+  color: var(--code-emphasis);
+  font-style: italic;
+}
+
+.code-strikethrough {
+  color: var(--code-strikethrough);
+  text-decoration: line-through;
+}
+
+.code-markdown-code {
+  color: var(--code-markdown-code);
+}
+
+.code-link-text {
+  color: var(--code-link-text);
+  text-decoration: underline;
+}
+
+.code-url {
+  color: var(--code-url);
+  text-decoration: underline;
+}
+
+.code-quote {
+  color: var(--code-quote);
+}
+
+.code-json-key {
+  color: var(--code-json-key);
+}
