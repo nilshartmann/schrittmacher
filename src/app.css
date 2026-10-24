@@ -118,12 +118,191 @@ button {
   font-size: var(--size-small);
 }
 
-.header-repo {
+.header-start {
+  display: flex;
+  flex: none;
+  gap: 6px;
+}
+
+/* Repo, Worktree und Branch als Knöpfe, die wie Text aussehen und ein Menü öffnen. */
+.crumb {
+  display: inline-flex;
+  align-items: center;
+  height: var(--target);
+  max-width: 260px;
+  padding: 0 6px;
   overflow: hidden;
-  max-width: 220px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--quiet);
+  font-size: var(--size-small);
   text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+button.crumb:hover,
+.crumb[aria-expanded='true'] {
+  background: var(--hover);
+}
+
+.crumb-plain {
+  cursor: default;
+}
+
+.crumb-repo {
+  overflow: hidden;
   color: var(--ink);
   font-weight: 600;
+  text-overflow: ellipsis;
+}
+
+/* Ein Branch, der nicht ausgecheckt ist, in der Farbe der Branch-Badges. */
+.crumb-foreign {
+  height: 24px;
+  border-color: #e3b45a;
+  background: #fff6e2;
+  color: var(--ink);
+}
+
+button.crumb-foreign:hover,
+.crumb-foreign[aria-expanded='true'] {
+  background: #ffeec4;
+}
+
+/* Menüs unter der Kopfzeile */
+
+.menu {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.menu-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  width: min(520px, calc(100vw - 24px));
+  max-height: calc(100vh - var(--header-height) - 16px);
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+  box-shadow: 0 8px 28px rgb(0 0 0 / 18%);
+  color: var(--ink);
+  font-size: var(--size-ui);
+  white-space: normal;
+}
+
+.menu-scroll {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.menu-section {
+  padding: 8px 8px 4px 34px;
+  color: var(--quiet);
+  font-size: var(--size-small);
+  font-weight: 600;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-height: var(--target);
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.menu-item:hover {
+  background: var(--hover);
+}
+
+.menu-item[aria-current='true'] {
+  background: var(--selected);
+}
+
+.menu-check {
+  flex: none;
+  width: 20px;
+  color: var(--accent);
+  text-align: center;
+}
+
+.menu-text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.menu-main,
+.menu-sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.menu-sub,
+.menu-where {
+  color: var(--quiet);
+  font-size: var(--size-small);
+}
+
+.menu-aside {
+  flex: none;
+  color: var(--quiet);
+  font-weight: 700;
+}
+
+.menu-toggle .menu-check {
+  color: var(--quiet);
+}
+
+.menu-input {
+  width: 100%;
+  height: var(--target);
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
+
+.menu-panel > .menu-input {
+  flex: none;
+  margin-bottom: 4px;
+}
+
+.menu-form {
+  display: flex;
+  flex: none;
+  gap: 6px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.menu-note {
+  margin: 8px 8px 8px 34px;
+  color: var(--quiet);
+  font-size: var(--size-small);
+}
+
+.menu-error {
+  color: var(--diff-removed-ink);
 }
 
 .header-sep {
@@ -338,6 +517,9 @@ button {
 /* Branches als Badge rechts in der Spalte des Titels. Der Branch des Worktrees ist kräftiger. */
 .ref {
   display: inline-flex;
+  cursor: pointer;
+  color: inherit;
+  font-family: var(--font-ui);
   align-items: center;
   gap: 3px;
   margin-right: 6px;

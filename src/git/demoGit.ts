@@ -5,7 +5,7 @@ import type { MemoryRepo } from './demoRepo';
 import { runGit } from './process';
 
 /** Das Verzeichnis mit den Testdaten; es wird bei jedem Start des Servers neu angelegt. */
-const BASE = join(tmpdir(), 'schrittmacher-testdaten');
+export const DEMO_BASE = join(tmpdir(), 'schrittmacher-testdaten');
 
 /**
  * Die Umgebung für den Aufbau. Ohne die Konfiguration des Benutzers laufen keine Hooks und keine
@@ -30,9 +30,9 @@ function environment(date: string): Record<string, string> {
  * Workshop mit Worktrees. Geschrieben wird dabei nur im eigenen Verzeichnis unter `tmpdir()`.
  */
 export async function buildDemoRepo(repo: MemoryRepo): Promise<string> {
-  const main = join(BASE, repo.info.repo);
-  const worktree = join(BASE, `${repo.info.repo}-worktrees`, repo.info.branch);
-  await rm(BASE, { recursive: true, force: true });
+  const main = join(DEMO_BASE, repo.info.repo);
+  const worktree = join(DEMO_BASE, `${repo.info.repo}-worktrees`, repo.info.branch);
+  await rm(DEMO_BASE, { recursive: true, force: true });
   await mkdir(main, { recursive: true });
   const git = (args: string[], date = repo.commits[0]?.date ?? '') => runGit(main, args, environment(date));
 

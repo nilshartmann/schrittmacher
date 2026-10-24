@@ -12,8 +12,10 @@ Der ursprüngliche Auftrag steht in `docs/auftrag-klick-dummy.md`, offene Punkte
 
 - TanStack Start im SPA-Modus, React, TypeScript `strict`, Vite, pnpm
 - `pnpm dev`: Server mit den Testdaten aus `src/git/demoRepo.ts`, beim Start als Repo mit Worktree
-  unter `$TMPDIR/schrittmacher-testdaten` aufgebaut
-- `pnpm dev:wjax`: Server mit einem echten Worktree (`SCHRITTMACHER_REPO`)
+  unter `$TMPDIR/schrittmacher-testdaten` aufgebaut, mit eigenem Speicher daneben
+- `pnpm dev:echt`: Server mit den echten Repos aus `~/.config/schrittmacher/config.json`; dort liegt
+  auch der Zustand (`state.json`), ein anderer Ordner mit `SCHRITTMACHER_CONFIG=…`
+- `pnpm dev:wjax`: wie `dev:echt`, mit einem Worktree für den allerersten Start (`SCHRITTMACHER_REPO`)
 - `pnpm typecheck`: Typprüfung, vor jedem Commit
 - `pnpm screenshots`: Screenshots mit WebKit in der Fenstergröße unter Sidecar, gegen den Server
   mit Testdaten (anderer Server mit `URL=…`)

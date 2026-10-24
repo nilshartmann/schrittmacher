@@ -1,6 +1,9 @@
 import type { Comparison } from '../git/repo';
-import type { Commit, RepoInfo } from '../git/types';
+import type { Commit, Ref, RepoInfo, Worktree } from '../git/types';
+import type { ViewSearch } from '../server/store';
 import { stepLabel } from './CommitList';
+import { BranchMenu, RecentMenu, RepoMenu, WorktreeMenu } from './ViewMenus';
+import type { OpenView } from './ViewMenus';
 
 /**
  * Wie der Diff steht: beide Seiten mit dem Anteil der linken, oder alle Zeilen untereinander, mit
@@ -10,18 +13,22 @@ export type Layout = { mode: 'split'; share: number } | { mode: 'unified'; showR
 
 interface HeaderProps {
   info: RepoInfo;
+  worktrees: Worktree[];
+  refs: Ref[];
   commits: Commit[];
   comparison: Comparison;
   fontSize: number;
   onFontSize: (change: number) => void;
   filesOpen: boolean;
   onFilesOpen: () => void;
+  onOpen: OpenView;
+  onShow: (view: ViewSearch) => void;
 }
 
 /**
- * Die schmale Kopfzeile: links Repo, Worktree, Branch und der gewählte Vergleich, rechts die
+ * Die schmale Kopfzeile: links die Knöpfe für Dateiliste und zuletzt geöffnete Ansichten, dann
+ * Repo, Worktree und Branch, je mit einem Menü, und der gewählte Vergleich; rechts die
  * Schriftgröße.
- * Ganz links klappt ein Knopf die Dateiliste ein und aus.
  */
 export function Header(props: HeaderProps) {
   const { info, commits, comparison } = props;
@@ -33,24 +40,25 @@ export function Header(props: HeaderProps) {
       : commits.find((commit) => commit.sha === comparison.from);
   return (
     <header className="header">
-      <button
-        type="button"
-        className="tool"
-        aria-pressed={props.filesOpen}
-        aria-label="Dateiliste"
-        data-tip={props.filesOpen ? 'Dateiliste einklappen' : 'Dateiliste zeigen'}
-        onClick={props.onFilesOpen}
-      >
-        <SidebarIcon />
-      </button>
+      <div className="header-start">
+        <button
+          type="button"
+          className="tool"
+          aria-pressed={props.filesOpen}
+          aria-label="Dateiliste"
+          data-tip={props.filesOpen ? 'Dateiliste einklappen' : 'Dateiliste zeigen'}
+          onClick={props.onFilesOpen}
+        >
+          <SidebarIcon />
+        </button>
+        <RecentMenu info={info} onOpen={props.onOpen} />
+      </div>
       <div className="header-where">
-        <span className="header-repo" data-tip={info.repo}>
-          {info.repo}
-        </span>
+        <RepoMenu info={info} onShow={props.onShow} />
         <span className="header-sep">/</span>
-        <span data-tip="Worktree">⌂ {info.worktree}</span>
+        <WorktreeMenu info={info} worktrees={props.worktrees} onOpen={props.onOpen} />
         <span className="header-sep">/</span>
-        <span data-tip="Branch">⑂ {info.branch}</span>
+        <BranchMenu info={info} refs={props.refs} onOpen={props.onOpen} />
       </div>
       <div
         className={comparison.from === null ? 'header-comparison' : 'header-comparison header-comparison-free'}
@@ -83,6 +91,23 @@ export function Header(props: HeaderProps) {
             A+
           </button>
         </div>
+      </div>
+    </header>
+  );
+}
+
+/**
+ * Die Kopfzeile, solange keine Ansicht offen ist, etwa beim allerersten Start: nur die zuletzt
+ * geöffneten Ansichten und das Repo, dessen Menü schon offen ist.
+ */
+export function EmptyHeader({ onOpen, onShow }: { onOpen: OpenView; onShow: (view: ViewSearch) => void }) {
+  return (
+    <header className="header">
+      <div className="header-start">
+        <RecentMenu info={null} onOpen={onOpen} />
+      </div>
+      <div className="header-where">
+        <RepoMenu info={null} initiallyOpen onShow={onShow} />
       </div>
     </header>
   );

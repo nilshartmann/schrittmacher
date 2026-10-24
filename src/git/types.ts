@@ -12,11 +12,27 @@ export interface Commit {
   date: string;
 }
 
-/** Repo, Worktree und Branch, wie sie die Kopfzeile nennt. */
+/** Repo, Worktree und Branch, wie sie die Kopfzeile nennt, mit den Pfaden dazu. */
 export interface RepoInfo {
+  /** Der Name des Repos: der Ordner, in dem sein Verzeichnis `.git` liegt. */
   repo: string;
+  repoPath: string;
+  /** Der Name des Worktrees: sein Ordner. */
   worktree: string;
-  branch: string;
+  worktreePath: string;
+  /** Der Branch, dessen Commits die Liste zeigt; ohne Branch die von `HEAD`. */
+  branch: string | null;
+  /** Der Branch, der im Worktree ausgecheckt ist; keiner bei einem `HEAD` ohne Branch. */
+  checkedOut: string | null;
+}
+
+/** Ein Worktree eines Repos, wie ihn `git worktree list` nennt. */
+export interface Worktree {
+  path: string;
+  /** Der Ordner des Worktrees. */
+  name: string;
+  /** Der ausgecheckte Branch; keiner bei einem `HEAD` ohne Branch. */
+  branch: string | null;
 }
 
 /** Ein Branch, der auf einen Commit zeigt: ein lokaler oder einer eines Remotes. */

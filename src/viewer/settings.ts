@@ -1,0 +1,93 @@
+import { useEffect, useRef, useState } from 'react';
+import { saveSettings } from '../server/repo.functions';
+import { LIST_HEIGHT } from './CommitList';
+import { FILES_WIDTH } from './FileList';
+
+export const FONT_SIZES = { min: 9, max: 24, start: 12 };
+
+/** Die Zahl der Zeilen um jede Änderung, ohne „ganze Datei“. */
+export const CONTEXT = { min: 0, max: 30, start: 3, step: 3 };
+
+/**
+ * Die Einstellungen der Oberfläche. Sie gelten für alle Ansichten gleich, weil sie am Bildschirm
+ * unter Sidecar hängen und nicht am Workshop.
+ */
+export interface Settings {
+  fontSize: number;
+  wrap: boolean;
+  sideBySide: boolean;
+  /** Der Anteil der linken Seite nebeneinander. */
+  share: number;
+  showRemoved: boolean;
+  whole: boolean;
+  context: number;
+  filesOpen: boolean;
+  filesWidth: number;
+  listHeight: number;
+}
+
+const DEFAULTS: Settings = {
+  fontSize: FONT_SIZES.start,
+  wrap: false,
+  sideBySide: true,
+  share: 0.5,
+  showRemoved: true,
+  whole: false,
+  context: CONTEXT.start,
+  filesOpen: true,
+  filesWidth: FILES_WIDTH.start,
+  listHeight: LIST_HEIGHT.start,
+};
+
+/** Die Zeit in Millisekunden, nach der eine Änderung gespeichert wird, wenn keine weitere folgt. */
+const SAVE_DELAY = 400;
+
+function number(value: unknown, fallback: number, min: number, max: number): number {
+  return typeof value === 'number' && Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : fallback;
+}
+
+function flag(value: unknown, fallback: boolean): boolean {
+  return typeof value === 'boolean' ? value : fallback;
+}
+
+/** Die gespeicherten Einstellungen; was fehlt oder nicht passt, hat seine Vorgabe. */
+export function settingsOf(raw: Record<string, unknown>): Settings {
+  return {
+    fontSize: number(raw.fontSize, DEFAULTS.fontSize, FONT_SIZES.min, FONT_SIZES.max),
+    wrap: flag(raw.wrap, DEFAULTS.wrap),
+    sideBySide: flag(raw.sideBySide, DEFAULTS.sideBySide),
+    share: number(raw.share, DEFAULTS.share, 0.05, 0.95),
+    showRemoved: flag(raw.showRemoved, DEFAULTS.showRemoved),
+    whole: flag(raw.whole, DEFAULTS.whole),
+    context: number(raw.context, DEFAULTS.context, CONTEXT.min, CONTEXT.max),
+    filesOpen: flag(raw.filesOpen, DEFAULTS.filesOpen),
+    filesWidth: number(raw.filesWidth, DEFAULTS.filesWidth, FILES_WIDTH.min, 2000),
+    listHeight: number(raw.listHeight, DEFAULTS.listHeight, LIST_HEIGHT.min, 2000),
+  };
+}
+
+/**
+ * Die Einstellungen, anfangs aus `saved`, und eine Funktion, die einen Teil ändert. Jede Änderung
+ * wird kurz danach im Server gespeichert, beim Ziehen einer Trennlinie also nur am Ende.
+ */
+export function useSettings(saved: Record<string, unknown>): [Settings, (change: Partial<Settings>) => void] {
+  const [settings, setSettings] = useState(() => settingsOf(saved));
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) {
+      first.current = false;
+      return;
+    }
+    const timer = setTimeout(() => {
+      saveSettings({ data: { ...settings } }).catch((error: unknown) => {
+        console.error('Die Einstellungen ließen sich nicht speichern.', error);
+      });
+    }, SAVE_DELAY);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [settings]);
+  return [settings, (change) => {
+    setSettings((current) => ({ ...current, ...change }));
+  }];
+}

@@ -4,7 +4,8 @@
   "type": "module",
   "packageManager": "pnpm@11.9.0",
   "scripts": {
-    "dev": "vite dev --host 127.0.0.1 --port 5310",
+    "dev": "SCHRITTMACHER_DEMO=1 vite dev --host 127.0.0.1 --port 5310",
+    "dev:echt": "vite dev --host 127.0.0.1 --port 5310",
     "build": "vite build",
     "typecheck": "tsc --noEmit",
     "screenshots": "node scripts/screenshots.mjs",

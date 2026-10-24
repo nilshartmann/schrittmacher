@@ -1,12 +1,11 @@
 import { useEffect, useRef } from 'react';
 import type { MouseEvent, PointerEvent } from 'react';
+import { commitKey } from '../git/repo';
 import type { Comparison } from '../git/repo';
 import type { Commit, Ref } from '../git/types';
 
 /** Die Nummer des Schritts, für einen Commit ohne Schritt der Anfang seines SHA. */
-export function stepLabel(commit: Commit): string {
-  return commit.step ?? commit.sha.slice(0, 7);
-}
+export const stepLabel = commitKey;
 
 /**
  * Die Grenzen der Höhe des Bands in Pixeln: mindestens eine Zeile, und der Rest bleibt mindestens
@@ -17,8 +16,10 @@ export const LIST_HEIGHT = { min: 24, start: 156, restMin: 240 };
 interface CommitListProps {
   commits: Commit[];
   refs: Ref[];
-  /** Der Branch des Worktrees; sein Badge ist hervorgehoben. */
-  branch: string;
+  /** Der Branch, dessen Commits die Liste zeigt; sein Badge ist hervorgehoben. */
+  branch: string | null;
+  /** Ein Klick auf einen Badge zeigt die Commits dieses Branches. */
+  onBranch: (name: string) => void;
   comparison: Comparison;
   onChoose: (comparison: Comparison) => void;
   height: number;
@@ -89,6 +90,7 @@ export function CommitList(props: CommitListProps) {
                     <RefBadges
                       refs={props.refs.filter((ref) => ref.sha === commit.sha)}
                       branch={props.branch}
+                      onBranch={props.onBranch}
                     />
                   </td>
                   <td className="commit-meta">{commit.author}</td>
@@ -149,27 +151,56 @@ function HeightSplitter({ height, onHeight }: { height: number; onHeight: (heigh
  * Die Branches eines Commits als Badges rechts in der Spalte des Titels. Ist der Titel lang,
  * überdecken sie sein Ende.
  */
-function RefBadges({ refs, branch }: { refs: Ref[]; branch: string }) {
+function RefBadges({
+  refs,
+  branch,
+  onBranch,
+}: {
+  refs: Ref[];
+  branch: string | null;
+  onBranch: (name: string) => void;
+}) {
   if (refs.length === 0) {
     return null;
   }
   return (
     <span className="refs">
       {refs.map((ref) => (
-        <RefBadge key={ref.name} branchRef={ref} current={ref.name === branch} />
+        <RefBadge key={ref.name} branchRef={ref} current={ref.name === branch} onBranch={onBranch} />
       ))}
     </span>
   );
 }
 
-/** Ein Branch als Badge, wie in Fork: lokal mit ⑂, auf einem Remote mit ☁. */
-function RefBadge({ branchRef, current }: { branchRef: Ref; current: boolean }) {
+/**
+ * Ein Branch als Badge, wie in Fork: lokal mit ⑂, auf einem Remote mit ☁. Ein Klick zeigt seine
+ * Commits, ohne den Commit der Zeile zu wählen.
+ */
+function RefBadge({
+  branchRef,
+  current,
+  onBranch,
+}: {
+  branchRef: Ref;
+  current: boolean;
+  onBranch: (name: string) => void;
+}) {
   return (
-    <span className={`ref ref-${branchRef.kind}${current ? ' ref-current' : ''}`}>
+    <button
+      type="button"
+      className={`ref ref-${branchRef.kind}${current ? ' ref-current' : ''}`}
+      data-tip={current ? 'Die Liste zeigt diesen Branch' : `Commits von ${branchRef.name} zeigen`}
+      onClick={(event) => {
+        event.stopPropagation();
+        if (!current) {
+          onBranch(branchRef.name);
+        }
+      }}
+    >
       <span className="ref-sign" aria-hidden="true">
         {branchRef.kind === 'local' ? '⑂' : '☁'}
       </span>
       {branchRef.name}
-    </span>
+    </button>
   );
 }

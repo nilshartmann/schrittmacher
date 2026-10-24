@@ -1,4 +1,4 @@
-import type { Commit, DiffFile, Ref, RepoInfo } from './types';
+import type { Commit, DiffFile, Ref, RepoInfo, Worktree } from './types';
 
 /** Ein Vergleich von `from` nach `to`. Ohne `from` ist der Vorgänger von `to` gemeint. */
 export interface Comparison {
@@ -12,7 +12,7 @@ export interface RepoData {
   /** Die Commits vom ersten zum letzten. */
   commits: Commit[];
   refs: Ref[];
-  /** Der Commit, den die Oberfläche zuerst zeigt. */
+  /** Der Commit, den die Oberfläche ohne Wahl zeigt: der neueste. */
   start: string;
   /** Der Stand des Repos beim Laden, wie ihn `RepoSource.state` liefert. */
   state: string;
@@ -20,7 +20,8 @@ export interface RepoData {
 
 /** Eine Quelle für Repo und Vergleiche. */
 export interface RepoSource {
-  load: () => Promise<RepoData>;
+  /** Repo und Commits eines Branches; ohne Branch die Commits von `HEAD`. */
+  load: (branch: string | null) => Promise<RepoData>;
   /** Die Dateien, die sich unterscheiden, nach Pfad sortiert, vom älteren zum neueren Commit. */
   compare: (comparison: Comparison) => Promise<DiffFile[]>;
   /**
@@ -28,6 +29,7 @@ export interface RepoSource {
    * regelmäßig ab und lädt das Repo neu, wenn er nicht mehr zu `RepoData.state` passt.
    */
   state: () => Promise<string>;
+  worktrees: () => Promise<Worktree[]>;
 }
 
 /**
@@ -64,4 +66,20 @@ export function followComparison(
     return comparison;
   }
   return { from: from === to ? null : from, to };
+}
+
+/**
+ * Die Kennung eines Commits in der URL und im Gedächtnis einer Ansicht: die Nummer des Schritts,
+ * ohne Schritt die ersten sieben Zeichen des SHA. Eine Nummer übersteht einen Rebase.
+ */
+export function commitKey(commit: Commit): string {
+  return commit.step ?? commit.sha.slice(0, 7);
+}
+
+/** Der Commit zu einer Kennung: der neueste mit dieser Nummer, sonst der mit diesem Anfang des SHA. */
+export function findCommit(commits: Commit[], key: string): Commit | undefined {
+  return (
+    commits.findLast((commit) => commit.step === key) ??
+    (key.length >= 7 ? commits.find((commit) => commit.sha.startsWith(key)) : undefined)
+  );
 }

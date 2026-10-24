@@ -4,7 +4,7 @@ import type { ParsedFile } from './diffParser';
 import { markParts } from './lineParts';
 import { runGit } from './process';
 import type { Comparison, RepoData, RepoSource } from './repo';
-import type { Commit, DiffFile, DiffLine, Ref } from './types';
+import type { Commit, DiffFile, DiffLine, Ref, Worktree } from './types';
 
 /** Der Baum ohne Dateien; gegen ihn vergleicht Git den ersten Commit. */
 const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
@@ -21,16 +21,21 @@ const DATE = new Intl.DateTimeFormat('de-DE', { dateStyle: 'medium', timeStyle: 
 const CACHED_COMPARISONS = 100;
 
 /**
- * Ein echtes Repo als Quelle, gelesen über Git im Verzeichnis eines Worktrees. Die Commits sind die
- * des ausgecheckten Branches. Git ändert dabei nichts am Repo. Zuerst gezeigt wird der neueste
- * Commit, mit `startStep` der neueste mit dieser Nummer des Schritts.
+ * So viele Commits zeigt die Liste höchstens, die neuesten. Ein Workshop hat weit weniger; die
+ * Grenze schützt vor einem großen Repo, das versehentlich geöffnet wird.
  */
-export function gitSource(worktree: string, startStep?: string): RepoSource {
+const MAX_COMMITS = 1000;
+
+/**
+ * Ein echtes Repo als Quelle, gelesen über Git im Verzeichnis eines Worktrees. Git ändert dabei
+ * nichts am Repo.
+ */
+export function gitSource(worktree: string): RepoSource {
   const git = (...args: string[]) => runGit(worktree, args);
   // Zwei Commits ändern sich nie, deshalb bleibt ihr Vergleich gültig, auch nach einem Rebase.
   const cache = new Map<string, Promise<DiffFile[]>>();
   return {
-    load: () => load(git, startStep),
+    load: (branch) => load(git, worktree, branch),
     compare: async (comparison) => {
       const [older, newer] = await sides(git, comparison);
       const key = `${older}..${newer}`;
@@ -47,22 +52,56 @@ export function gitSource(worktree: string, startStep?: string): RepoSource {
       return cached;
     },
     state: () => stateOf(git),
+    worktrees: () => worktreesOf(git),
   };
 }
 
 type Git = (...args: string[]) => Promise<string>;
 
-async function load(git: Git, startStep: string | undefined): Promise<RepoData> {
-  // Der Stand wird vor allem anderen gelesen. Kommt danach ein Commit hinzu, fällt er deshalb bei
-  // der nächsten Abfrage auf.
-  const state = await stateOf(git);
-  const [commonDir, topLevel, branch, log, refs] = await Promise.all([
+/** Wo der Worktree liegt, zu welchem Repo er gehört und welcher Branch darin ausgecheckt ist. */
+export async function locate(
+  worktree: string,
+): Promise<{ repoPath: string; worktreePath: string; checkedOut: string | null }> {
+  const git = (...args: string[]) => runGit(worktree, args);
+  const [commonDir, topLevel, branch] = await Promise.all([
     git('rev-parse', '--path-format=absolute', '--git-common-dir'),
     git('rev-parse', '--show-toplevel'),
     git('branch', '--show-current'),
-    git('log', '--reverse', `--format=%H${FIELD}%an${FIELD}%aI${FIELD}%s`, 'HEAD'),
+  ]);
+  return {
+    repoPath: dirname(commonDir.trim()),
+    worktreePath: topLevel.trim(),
+    checkedOut: branch.trim() === '' ? null : branch.trim(),
+  };
+}
+
+/**
+ * Die Commits eines Branches, lokal oder auf einem Remote, unabhängig vom ausgecheckten. Ohne
+ * Branch oder mit einem, den es nicht gibt, gelten die Commits von `HEAD`; dann nennt
+ * `info.branch` den ausgecheckten Branch.
+ */
+async function load(git: Git, worktree: string, wanted: string | null): Promise<RepoData> {
+  // Der Stand wird vor allem anderen gelesen. Kommt danach ein Commit hinzu, fällt er deshalb bei
+  // der nächsten Abfrage auf.
+  const state = await stateOf(git);
+  const [where, refs] = await Promise.all([
+    locate(worktree),
     git('for-each-ref', `--format=%(refname)${FIELD}%(objectname)`, 'refs/heads', 'refs/remotes'),
   ]);
+  const allRefs = lines(refs).flatMap(refOf);
+  const found =
+    allRefs.find((ref) => ref.kind === 'local' && ref.name === wanted) ??
+    allRefs.find((ref) => ref.kind === 'remote' && ref.name === wanted);
+  const branch = found?.name ?? where.checkedOut;
+  const revision =
+    found === undefined ? 'HEAD' : `refs/${found.kind === 'local' ? 'heads' : 'remotes'}/${found.name}`;
+  const log = await git(
+    'log',
+    `--max-count=${String(MAX_COMMITS)}`,
+    '--reverse',
+    `--format=%H${FIELD}%an${FIELD}%aI${FIELD}%s`,
+    revision,
+  );
   const commits = lines(log).map(commitOf);
   const last = commits.at(-1);
   if (last === undefined) {
@@ -70,15 +109,34 @@ async function load(git: Git, startStep: string | undefined): Promise<RepoData> 
   }
   return {
     info: {
-      repo: basename(dirname(commonDir.trim())),
-      worktree: basename(topLevel.trim()),
-      branch: branch.trim(),
+      repo: basename(where.repoPath),
+      repoPath: where.repoPath,
+      worktree: basename(where.worktreePath),
+      worktreePath: where.worktreePath,
+      branch,
+      checkedOut: where.checkedOut,
     },
     commits,
-    refs: lines(refs).flatMap(refOf),
-    start: commits.findLast((commit) => commit.step === startStep)?.sha ?? last.sha,
+    refs: allRefs,
+    start: last.sha,
     state,
   };
+}
+
+/** Die Worktrees des Repos aus `git worktree list --porcelain`, ohne ein Repo ohne Worktree. */
+async function worktreesOf(git: Git): Promise<Worktree[]> {
+  const output = await git('worktree', 'list', '--porcelain');
+  return output
+    .split('\n\n')
+    .map((block) => block.split('\n'))
+    .flatMap((fields) => {
+      const path = fields.find((field) => field.startsWith('worktree '))?.slice('worktree '.length);
+      if (path === undefined || fields.includes('bare')) {
+        return [];
+      }
+      const branch = fields.find((field) => field.startsWith('branch refs/heads/'));
+      return [{ path, name: basename(path), branch: branch?.slice('branch refs/heads/'.length) ?? null }];
+    });
 }
 
 /** Der ausgecheckte Commit und Branch und alle Branches mit ihrem Commit. */

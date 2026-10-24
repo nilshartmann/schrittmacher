@@ -1,12 +1,21 @@
 // Screenshots in der Fenstergröße unter Sidecar. Erwartet den laufenden Dev-Server mit den
-// Testdaten (`pnpm dev`, ohne SCHRITTMACHER_REPO) und legt die Bilder unter screenshots/ ab. Ein
-// anderer Server wird mit URL=… angegeben.
+// Testdaten (`pnpm dev`) und legt die Bilder unter screenshots/ ab. Ein anderer Server wird mit
+// URL=… angegeben. Vor jedem Bild wird der Zustand des Servers mit den Testdaten gelöscht, damit
+// jedes Bild mit derselben Ansicht und denselben Einstellungen beginnt.
 //
 // Sidecar zeigt auf dem iPad Pro 11" (bis 2022) einen Bildschirm von 1194 × 834 pt. Davon gehen
 // die Menüleiste und die Titelleiste der Web-App aus Safari ab, zusammen 70 pt, gemessen an einem
 // Screenshot am 24.10.2026. Mit FULLSCREEN=1 gilt die ganze Fläche.
-import { mkdir } from 'node:fs/promises';
+import { mkdir, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { webkit } from 'playwright';
+
+/** Der Zustand des Servers mit den Testdaten, wie ihn `src/server/repo.functions.ts` anlegt. */
+const STATE = join(tmpdir(), 'schrittmacher-testdaten', 'speicher', 'state.json');
+
+/** So lange darf eine Anfrage zum Speichern nach dem Schließen der Seite noch unterwegs sein. */
+const SETTLE = 800;
 
 const URL = process.env.URL ?? 'http://127.0.0.1:5310/';
 const SCREEN = { width: 1194, height: 834 };
@@ -96,12 +105,44 @@ const SHOTS = [
     },
   ],
   ['13-aufgeklappt', async (page) => page.locator('.pane-new .gap-toggle').first().click()],
+  ['14-menue-repo', async (page) => page.getByRole('button', { name: 'Repo', exact: true }).click()],
+  ['15-menue-worktree', async (page) => page.getByRole('button', { name: 'Worktree', exact: true }).click()],
+  [
+    '16-menue-branch',
+    async (page) => {
+      await page.getByRole('button', { name: 'Branch', exact: true }).click();
+      await page.getByRole('button', { name: 'Remotes' }).click();
+    },
+  ],
+  [
+    '17-fremder-branch',
+    async (page) => {
+      await page.getByRole('button', { name: 'Branch', exact: true }).click();
+      await page.getByRole('menuitem', { name: 'live_coding' }).click();
+      await page.locator('.crumb-foreign').waitFor();
+    },
+  ],
+  [
+    '18-zuletzt',
+    async (page) => {
+      // Eine Ansicht wird erst gemerkt, wenn die Wahl eine Weile steht.
+      await page.waitForTimeout(600);
+      await page.getByRole('button', { name: 'Branch', exact: true }).click();
+      await page.getByRole('menuitem', { name: 'main' }).click();
+      await page.locator('.crumb-foreign').waitFor();
+      await page.waitForTimeout(600);
+      await page.getByRole('button', { name: 'Zuletzt geöffnet' }).click();
+      await page.locator('.menu-item').nth(1).waitFor();
+    },
+  ],
 ];
 
 await mkdir('screenshots', { recursive: true });
 const browser = await webkit.launch();
 const context = await browser.newContext({ viewport, deviceScaleFactor: 2 });
 for (const [name, act] of SHOTS) {
+  await new Promise((resolve) => setTimeout(resolve, SETTLE));
+  await rm(STATE, { force: true });
   const page = await context.newPage();
   await page.goto(URL);
   await page.locator('.diff').waitFor();
