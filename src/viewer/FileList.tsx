@@ -10,8 +10,13 @@ function folderOf(path: string): string {
   return path.slice(0, path.lastIndexOf('/') + 1);
 }
 
-/** Die Zeichen der Arten wie in Fork: M für geändert, + für neu, − für gelöscht. */
-const KIND_SIGN = { changed: 'M', added: '+', deleted: '−' } as const;
+/** Die Zeichen der Arten wie in Fork: M für geändert, + für neu, − für gelöscht, → für umbenannt. */
+const KIND_SIGN = { changed: 'M', added: '+', deleted: '−', renamed: '→' } as const;
+
+/** Der Pfad als Tooltip, bei einer Umbenennung mit dem alten davor. */
+function pathTip(file: DiffFile): string {
+  return file.kind === 'renamed' ? `${file.oldPath} → ${file.path}` : file.path;
+}
 
 /** Ein Pfad mit grauem Ordner und hervorgehobenem Dateinamen. */
 function PathText({ path }: { path: string }) {
@@ -54,7 +59,7 @@ export function FileList({
               type="button"
               className="file"
               aria-current={file.path === current ? 'true' : undefined}
-              data-tip={file.path}
+              data-tip={pathTip(file)}
               onClick={() => {
                 onChoose(file.path);
               }}
@@ -142,7 +147,7 @@ export function FileBar(props: FileBarProps) {
   const { file, whole, context, contextLimits } = props;
   return (
     <div className="file-bar">
-      <code className="file-path" data-tip={file.path}>
+      <code className="file-path" data-tip={pathTip(file)}>
         <PathText path={file.path} />
       </code>
       <div className="file-tools">

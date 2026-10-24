@@ -1,8 +1,10 @@
 import { basename, dirname } from 'node:path';
+import { parseDiff } from './diffParser';
+import type { ParsedFile } from './diffParser';
+import { markParts } from './lineParts';
 import { runGit } from './process';
-import { fileDiff } from './repo';
 import type { Comparison, RepoData, RepoSource } from './repo';
-import type { Commit, DiffFile, Ref } from './types';
+import type { Commit, DiffFile, DiffLine, Ref } from './types';
 
 /** Der Baum ohne Dateien; gegen ihn vergleicht Git den ersten Commit. */
 const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
@@ -15,21 +17,45 @@ const STEP = /^(\d+[a-z]?):\s*(.*)$/;
 
 const DATE = new Intl.DateTimeFormat('de-DE', { dateStyle: 'medium', timeStyle: 'short' });
 
+/** So viele Vergleiche hält der Server vor; ein Workshop hat selten mehr Schritte. */
+const CACHED_COMPARISONS = 100;
+
 /**
  * Ein echtes Repo als Quelle, gelesen über Git im Verzeichnis eines Worktrees. Die Commits sind die
- * des ausgecheckten Branches. Git ändert dabei nichts am Repo.
+ * des ausgecheckten Branches. Git ändert dabei nichts am Repo. Zuerst gezeigt wird der neueste
+ * Commit, mit `startStep` der neueste mit dieser Nummer des Schritts.
  */
-export function gitSource(worktree: string): RepoSource {
+export function gitSource(worktree: string, startStep?: string): RepoSource {
   const git = (...args: string[]) => runGit(worktree, args);
+  // Zwei Commits ändern sich nie, deshalb bleibt ihr Vergleich gültig, auch nach einem Rebase.
+  const cache = new Map<string, Promise<DiffFile[]>>();
   return {
-    load: () => load(git),
-    compare: (comparison) => compare(git, comparison),
+    load: () => load(git, startStep),
+    compare: async (comparison) => {
+      const [older, newer] = await sides(git, comparison);
+      const key = `${older}..${newer}`;
+      const cached = cache.get(key) ?? compare(git, older, newer);
+      cache.delete(key);
+      cache.set(key, cached);
+      for (const oldest of cache.keys()) {
+        if (cache.size <= CACHED_COMPARISONS) {
+          break;
+        }
+        cache.delete(oldest);
+      }
+      cached.catch(() => cache.delete(key));
+      return cached;
+    },
+    state: () => stateOf(git),
   };
 }
 
 type Git = (...args: string[]) => Promise<string>;
 
-async function load(git: Git): Promise<RepoData> {
+async function load(git: Git, startStep: string | undefined): Promise<RepoData> {
+  // Der Stand wird vor allem anderen gelesen. Kommt danach ein Commit hinzu, fällt er deshalb bei
+  // der nächsten Abfrage auf.
+  const state = await stateOf(git);
   const [commonDir, topLevel, branch, log, refs] = await Promise.all([
     git('rev-parse', '--path-format=absolute', '--git-common-dir'),
     git('rev-parse', '--show-toplevel'),
@@ -50,8 +76,19 @@ async function load(git: Git): Promise<RepoData> {
     },
     commits,
     refs: lines(refs).flatMap(refOf),
-    start: last.sha,
+    start: commits.findLast((commit) => commit.step === startStep)?.sha ?? last.sha,
+    state,
   };
+}
+
+/** Der ausgecheckte Commit und Branch und alle Branches mit ihrem Commit. */
+async function stateOf(git: Git): Promise<string> {
+  const outputs = await Promise.all([
+    git('rev-parse', 'HEAD'),
+    git('branch', '--show-current'),
+    git('for-each-ref', '--format=%(refname) %(objectname)', 'refs/heads', 'refs/remotes'),
+  ]);
+  return outputs.join('');
 }
 
 function lines(output: string): string[] {
@@ -82,28 +119,63 @@ function refOf(line: string): Ref[] {
 }
 
 /**
- * Die Dateien, die sich zwischen beiden Commits unterscheiden. Ohne `from` gilt der Vorgänger, für
- * den ersten Commit der leere Baum. Den Diff selbst rechnet `fileDiff` aus dem Text beider Seiten,
- * wie beim Repo im Speicher; Umbenennungen erscheinen als gelöschte und neue Datei.
+ * Beide Seiten eines Vergleichs, die ältere zuerst. Ohne `from` gilt der Vorgänger, für den ersten
+ * Commit der leere Baum.
  */
-async function compare(git: Git, comparison: Comparison): Promise<DiffFile[]> {
+async function sides(git: Git, comparison: Comparison): Promise<[string, string]> {
   const to = comparison.to;
   const from = comparison.from ?? (await parentOf(git, to));
-  const [older, newer] = (await isAncestor(git, to, from)) ? [to, from] : [from, to];
-  const changes = await git('diff', '--name-status', '--no-renames', '-z', older, newer);
-  const fields = changes.split('\0').filter((field) => field !== '');
-  const files: Promise<DiffFile>[] = [];
-  for (let index = 0; index + 1 < fields.length; index += 2) {
-    const status = fields[index] ?? '';
-    const path = fields[index + 1] ?? '';
-    files.push(
-      Promise.all([
-        status === 'A' ? null : textAt(git, older, path),
-        status === 'D' ? null : textAt(git, newer, path),
-      ]).then(([oldText, newText]) => fileDiff(path, oldText, newText)),
-    );
+  return (await isAncestor(git, to, from)) ? [to, from] : [from, to];
+}
+
+/**
+ * Die Dateien, die sich zwischen beiden Commits unterscheiden, nach Pfad sortiert. Mit dem größten
+ * Umfang an Kontext steht jede Datei ganz im Diff. Die festen Präfixe und Optionen setzen eine
+ * abweichende Konfiguration des Benutzers außer Kraft, die Ausgabe sonst anders formen würde.
+ */
+async function compare(git: Git, older: string, newer: string): Promise<DiffFile[]> {
+  const output = await git(
+    '-c',
+    'core.quotePath=false',
+    'diff',
+    '--no-color',
+    '--no-ext-diff',
+    '--no-textconv',
+    '--no-relative',
+    '--find-renames',
+    '--unified=2147483647',
+    '--src-prefix=a/',
+    '--dst-prefix=b/',
+    older,
+    newer,
+  );
+  return parseDiff(output)
+    .map(fileOf)
+    .sort((a, b) => a.path.localeCompare(b.path));
+}
+
+/** Eine Datei für die Oberfläche, mit den Teilen jeder geänderten Zeile und beiden Fassungen. */
+function fileOf(parsed: ParsedFile): DiffFile {
+  if (parsed.hunks > 1) {
+    throw new Error(`Der Diff von '${parsed.newPath}' enthält nicht die ganze Datei.`);
   }
-  return (await Promise.all(files)).sort((a, b) => a.path.localeCompare(b.path));
+  const whole = parsed.lines;
+  markParts(whole);
+  return {
+    path: parsed.newPath,
+    oldPath: parsed.oldPath,
+    kind: parsed.kind,
+    binary: parsed.binary,
+    added: whole.filter((line) => line.kind === 'added').length,
+    removed: whole.filter((line) => line.kind === 'removed').length,
+    whole,
+    oldText: textOf(whole.filter((line) => line.oldNumber !== null)),
+    newText: textOf(whole.filter((line) => line.newNumber !== null)),
+  };
+}
+
+function textOf(lines: DiffLine[]): string {
+  return lines.map((line) => `${line.text}\n`).join('');
 }
 
 async function parentOf(git: Git, sha: string): Promise<string> {
@@ -125,10 +197,4 @@ async function isAncestor(git: Git, older: string, newer: string): Promise<boole
   } catch {
     return false;
   }
-}
-
-/** Der Text einer Datei in einem Commit. Eine Binärdatei zeigt nur einen Hinweis. */
-async function textAt(git: Git, commit: string, path: string): Promise<string> {
-  const text = await git('cat-file', 'blob', `${commit}:${path}`);
-  return text.includes('\0') ? '(Binärdatei)\n' : text;
 }

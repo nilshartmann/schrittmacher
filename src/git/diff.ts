@@ -1,55 +1,5 @@
 import type { DiffLine, Hunk } from './types';
 
-/** Die Zeilen eines Textes. Ein leerer Text hat keine Zeile, ein Umbruch am Ende keine leere. */
-export function linesOf(text: string): string[] {
-  if (text === '') {
-    return [];
-  }
-  return (text.endsWith('\n') ? text.slice(0, -1) : text).split('\n');
-}
-
-/**
- * Die Zeilen beider Texte als Diff, über die längste gemeinsame Teilfolge. Ein Block entfernter
- * Zeilen steht vor den hinzugefügten. Für die kleinen Dateien des Dummys reicht die Tabelle mit
- * n × m Feldern; der spätere Server übernimmt das von `git diff`.
- */
-export function diffLines(oldText: string, newText: string): DiffLine[] {
-  const before = linesOf(oldText);
-  const after = linesOf(newText);
-  const width = after.length + 1;
-  // common[i * width + j]: Länge der gemeinsamen Teilfolge von before[i..] und after[j..]
-  const common = new Uint32Array((before.length + 1) * width);
-  for (let i = before.length - 1; i >= 0; i--) {
-    for (let j = after.length - 1; j >= 0; j--) {
-      common[i * width + j] =
-        before[i] === after[j]
-          ? (common[(i + 1) * width + j + 1] ?? 0) + 1
-          : Math.max(common[(i + 1) * width + j] ?? 0, common[i * width + j + 1] ?? 0);
-    }
-  }
-  const lines: DiffLine[] = [];
-  let i = 0;
-  let j = 0;
-  while (i < before.length || j < after.length) {
-    if (i < before.length && j < after.length && before[i] === after[j]) {
-      lines.push({ kind: 'context', oldNumber: i + 1, newNumber: j + 1, text: before[i] ?? '', parts: [] });
-      i++;
-      j++;
-    } else if (
-      j >= after.length ||
-      (i < before.length &&
-        (common[(i + 1) * width + j] ?? 0) >= (common[i * width + j + 1] ?? 0))
-    ) {
-      lines.push({ kind: 'removed', oldNumber: i + 1, newNumber: null, text: before[i] ?? '', parts: [] });
-      i++;
-    } else {
-      lines.push({ kind: 'added', oldNumber: null, newNumber: j + 1, text: after[j] ?? '', parts: [] });
-      j++;
-    }
-  }
-  return lines;
-}
-
 /**
  * Die Abschnitte um die Änderungen, mit `context` unveränderten Zeilen davor und danach. Wie in Fork
  * wird nie eine einzelne Zeile ausgelassen, weil ihr Trenner so viel Platz bräuchte wie sie selbst.

@@ -1,7 +1,25 @@
-import type { MemoryRepo } from './repo';
+import type { Commit, Ref } from './types';
 
-// Ein erfundenes Workshop-Repo für den Klick-Dummy. Jeder Commit nennt den ganzen Text der
-// Dateien, die er ändert; den Diff errechnet `compare`.
+// Ein erfundenes Workshop-Repo als Testdaten. Jeder Commit nennt den ganzen Text der Dateien, die
+// er ändert. Daraus baut `demoGit.ts` beim Start ein echtes Repo.
+
+/**
+ * Ein Commit mit den Dateien, die er ändert. Eine Datei mit `null` wird gelöscht. Der SHA ist nur
+ * eine Kennung für die Branches, das echte Repo hat eigene. Das Datum steht in ISO 8601.
+ */
+export interface StoredCommit extends Commit {
+  files: Record<string, string | null>;
+}
+
+/** Das Repo der Testdaten. */
+export interface MemoryRepo {
+  /** Der Name des Repos und der Branch, auf dem die Commits liegen. */
+  info: { repo: string; branch: string };
+  /** Die Commits vom ersten zum letzten. */
+  commits: StoredCommit[];
+  /** Die Branches mit der Kennung des Commits, auf den sie zeigen. */
+  refs: Ref[];
+}
 
 const POM_1 = `<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0">
@@ -654,7 +672,6 @@ class LoanServiceTest {
 export const DEMO_REPO: MemoryRepo = {
   info: {
     repo: '2026-11-05-spring-bibliothek-prepare',
-    worktree: 'live_coding',
     branch: 'schritte',
   },
   refs: [
@@ -671,7 +688,7 @@ export const DEMO_REPO: MemoryRepo = {
       step: '01',
       title: 'Die Ausleihe als Entity, mit Repository und pom.xml',
       author: 'Nils Hartmann',
-      date: '20. Okt 2026, 09:12',
+      date: '2026-10-20T09:12:00+02:00',
       files: {
         'pom.xml': POM_1,
         'src/main/java/nh/demo/bibliothek/loan/Loan.java': LOAN_1,
@@ -683,7 +700,7 @@ export const DEMO_REPO: MemoryRepo = {
       step: '02',
       title: 'Der LoanService leiht ein Buch aus',
       author: 'Nils Hartmann',
-      date: '20. Okt 2026, 09:40',
+      date: '2026-10-20T09:40:00+02:00',
       files: { 'src/main/java/nh/demo/bibliothek/loan/LoanService.java': SERVICE_1 },
     },
     {
@@ -691,7 +708,7 @@ export const DEMO_REPO: MemoryRepo = {
       step: '03',
       title: 'Ein REST-Endpunkt für die Ausleihe',
       author: 'Nils Hartmann',
-      date: '20. Okt 2026, 10:05',
+      date: '2026-10-20T10:05:00+02:00',
       files: { 'src/main/java/nh/demo/bibliothek/loan/LoanController.java': CONTROLLER_1 },
     },
     {
@@ -699,7 +716,7 @@ export const DEMO_REPO: MemoryRepo = {
       step: '04a',
       title: 'Interaktion: Wann ist ein Buch überfällig?',
       author: 'Nils Hartmann',
-      date: '21. Okt 2026, 14:22',
+      date: '2026-10-21T14:22:00+02:00',
       files: { 'src/main/java/nh/demo/bibliothek/loan/LoanService.java': SERVICE_2 },
     },
     {
@@ -707,7 +724,7 @@ export const DEMO_REPO: MemoryRepo = {
       step: '04b',
       title: 'Die Fälligkeit mit einer Clock statt LocalDate.now(), und die Rückgabe',
       author: 'Nils Hartmann',
-      date: '21. Okt 2026, 14:51',
+      date: '2026-10-21T14:51:00+02:00',
       files: {
         'src/main/java/nh/demo/bibliothek/loan/Loan.java': LOAN_2,
         'src/main/java/nh/demo/bibliothek/loan/LoanRepository.java': LOAN_REPOSITORY_2,
@@ -719,7 +736,7 @@ export const DEMO_REPO: MemoryRepo = {
       step: '05',
       title: 'Die Rückgabe als Event, und die Reservierung hört zu',
       author: 'Nils Hartmann',
-      date: '22. Okt 2026, 08:30',
+      date: '2026-10-22T08:30:00+02:00',
       files: {
         'src/main/java/nh/demo/bibliothek/loan/BookReturned.java': BOOK_RETURNED,
         'src/main/java/nh/demo/bibliothek/loan/LoanService.java': SERVICE_4,
@@ -731,7 +748,7 @@ export const DEMO_REPO: MemoryRepo = {
       step: '06a',
       title: 'Der Listener mit @Async, er läuft in einem eigenen Thread',
       author: 'Nils Hartmann',
-      date: '22. Okt 2026, 09:02',
+      date: '2026-10-22T09:02:00+02:00',
       files: {
         'src/main/java/nh/demo/bibliothek/reservation/ReservationListener.java': LISTENER_2,
       },
@@ -741,7 +758,7 @@ export const DEMO_REPO: MemoryRepo = {
       step: '06b',
       title: 'Mit @TransactionalEventListener erst nach dem Commit von returnBook',
       author: 'Nils Hartmann',
-      date: '22. Okt 2026, 09:27',
+      date: '2026-10-22T09:27:00+02:00',
       files: {
         'src/main/java/nh/demo/bibliothek/reservation/ReservationListener.java': LISTENER_3,
       },
@@ -751,7 +768,7 @@ export const DEMO_REPO: MemoryRepo = {
       step: '07',
       title: 'Die Mahngebühr bei der Rückgabe, gedeckelt auf zehn Euro',
       author: 'Nils Hartmann',
-      date: '23. Okt 2026, 11:15',
+      date: '2026-10-23T11:15:00+02:00',
       files: {
         'src/main/java/nh/demo/bibliothek/loan/FeeCalculator.java': FEE_CALCULATOR,
         'src/main/java/nh/demo/bibliothek/loan/LoanService.java': SERVICE_5,
@@ -762,7 +779,7 @@ export const DEMO_REPO: MemoryRepo = {
       step: null,
       title: 'Tests laufen mit Testcontainers gegen Postgres',
       author: 'Nils Hartmann',
-      date: '23. Okt 2026, 16:40',
+      date: '2026-10-23T16:40:00+02:00',
       files: { 'pom.xml': POM_2 },
     },
     {
@@ -770,7 +787,7 @@ export const DEMO_REPO: MemoryRepo = {
       step: '08',
       title: 'Die Mahngebühr im Test, mit einer Uhr, die stillsteht',
       author: 'Nils Hartmann',
-      date: '24. Okt 2026, 08:55',
+      date: '2026-10-24T08:55:00+02:00',
       files: { 'src/test/java/nh/demo/bibliothek/loan/LoanServiceTest.java': SERVICE_TEST },
     },
   ],

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
+import { followComparison } from '../git/repo';
 import type { Comparison, RepoData } from '../git/repo';
 import type { DiffFile } from '../git/types';
 import { rangesOf, splitRows, unifiedRows } from '../diff/rows';
@@ -10,6 +11,7 @@ import { DiffView } from './DiffView';
 import { FILES_WIDTH, FileBar, FileList } from './FileList';
 import { Header } from './Header';
 import { Tooltips } from './Tooltips';
+import { useRepoChanges } from './useRepoChanges';
 import type { Layout } from './Header';
 
 const FONT_SIZES = { min: 9, max: 24, start: 12 };
@@ -28,6 +30,7 @@ interface Loaded {
 
 export function Viewer({ repo }: { repo: RepoData }) {
   const [comparison, setComparison] = useState<Comparison>({ from: null, to: repo.start });
+  const [shownRepo, setShownRepo] = useState(repo);
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [listHeight, setListHeight] = useState(LIST_HEIGHT.start);
@@ -47,6 +50,14 @@ export function Viewer({ repo }: { repo: RepoData }) {
     key: '',
     gaps: new Map(),
   });
+
+  useRepoChanges(repo.state);
+  // Nach dem Neuladen bleibt der gewählte Vergleich stehen, auch wenn ein Rebase die Commits
+  // umgeschrieben hat.
+  if (shownRepo !== repo) {
+    setShownRepo(repo);
+    setComparison(followComparison(comparison, shownRepo.commits, repo.commits, repo.start));
+  }
 
   // Bis die Dateien des neuen Vergleichs da sind, bleiben die alten stehen.
   useEffect(() => {
@@ -171,16 +182,20 @@ export function Viewer({ repo }: { repo: RepoData }) {
                 showRemoved={showRemoved}
                 onShowRemoved={setShowRemoved}
               />
-              <DiffView
-                key={`${shown?.from ?? ''}-${shown?.to ?? ''}-${current.file.path}`}
-                rows={current.rows}
-                layout={layout}
-                onShare={setShare}
-                wrap={wrap}
-                onToggleGap={(start) => {
-                  toggleGap(current.file.path, start);
-                }}
-              />
+              {current.file.binary ? (
+                <p className="empty">Eine Binärdatei hat keine Zeilen zum Anzeigen.</p>
+              ) : (
+                <DiffView
+                  key={`${shown?.from ?? ''}-${shown?.to ?? ''}-${current.file.path}`}
+                  rows={current.rows}
+                  layout={layout}
+                  onShare={setShare}
+                  wrap={wrap}
+                  onToggleGap={(start) => {
+                    toggleGap(current.file.path, start);
+                  }}
+                />
+              )}
             </>
           )}
         </section>

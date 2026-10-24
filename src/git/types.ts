@@ -50,12 +50,17 @@ export interface Hunk {
   lines: DiffLine[];
 }
 
-export type FileKind = 'changed' | 'added' | 'deleted';
+export type FileKind = 'changed' | 'added' | 'deleted' | 'renamed';
 
 /** Der Vergleich einer Datei zwischen zwei Commits. */
 export interface DiffFile {
+  /** Der Pfad nach der Änderung, für eine gelöschte Datei der alte. */
   path: string;
+  /** Der Pfad vor der Änderung; derselbe wie `path`, außer bei einer Umbenennung. */
+  oldPath: string;
   kind: FileKind;
+  /** Eine Binärdatei hat keine Zeilen. */
+  binary: boolean;
   added: number;
   removed: number;
   /** Alle Zeilen beider Fassungen, in der Reihenfolge der Datei. */

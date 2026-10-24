@@ -27,6 +27,7 @@
   --kind-changed: #ffc700;
   --kind-added: #2ac650;
   --kind-deleted: #ff453a;
+  --kind-renamed: #af52de;
   --diff-empty: #f6f7f8;
   --diff-gap: #f4f5f7;
 
@@ -453,6 +454,10 @@ button {
 
 .file-kind-deleted {
   background: var(--kind-deleted);
+}
+
+.file-kind-renamed {
+  background: var(--kind-renamed);
 }
 
 .amount {

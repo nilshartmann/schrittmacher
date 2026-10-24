@@ -1,0 +1,72 @@
+import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+import type { MemoryRepo } from './demoRepo';
+import { runGit } from './process';
+
+/** Das Verzeichnis mit den Testdaten; es wird bei jedem Start des Servers neu angelegt. */
+const BASE = join(tmpdir(), 'schrittmacher-testdaten');
+
+/**
+ * Die Umgebung für den Aufbau. Ohne die Konfiguration des Benutzers laufen keine Hooks und keine
+ * Signaturen, und mit festen Namen und Zeitpunkten sind die SHAs bei jedem Aufbau dieselben.
+ */
+function environment(date: string): Record<string, string> {
+  return {
+    GIT_CONFIG_GLOBAL: '/dev/null',
+    GIT_CONFIG_NOSYSTEM: '1',
+    GIT_AUTHOR_NAME: 'Nils Hartmann',
+    GIT_AUTHOR_EMAIL: 'testdaten@schrittmacher.invalid',
+    GIT_COMMITTER_NAME: 'Nils Hartmann',
+    GIT_COMMITTER_EMAIL: 'testdaten@schrittmacher.invalid',
+    GIT_AUTHOR_DATE: date,
+    GIT_COMMITTER_DATE: date,
+  };
+}
+
+/**
+ * Baut die Testdaten als echtes Repo auf und liefert den Pfad des Worktrees mit dem Branch der
+ * Commits. Daneben liegt das Repo selbst, mit einem anderen Branch ausgecheckt, wie bei einem
+ * Workshop mit Worktrees. Geschrieben wird dabei nur im eigenen Verzeichnis unter `tmpdir()`.
+ */
+export async function buildDemoRepo(repo: MemoryRepo): Promise<string> {
+  const main = join(BASE, repo.info.repo);
+  const worktree = join(BASE, `${repo.info.repo}-worktrees`, repo.info.branch);
+  await rm(BASE, { recursive: true, force: true });
+  await mkdir(main, { recursive: true });
+  const git = (args: string[], date = repo.commits[0]?.date ?? '') => runGit(main, args, environment(date));
+
+  await git(['init', '--quiet', `--initial-branch=${repo.info.branch}`]);
+  const shas = new Map<string, string>();
+  for (const commit of repo.commits) {
+    for (const [path, text] of Object.entries(commit.files)) {
+      const file = join(main, path);
+      if (text === null) {
+        await rm(file);
+      } else {
+        await mkdir(dirname(file), { recursive: true });
+        await writeFile(file, text);
+      }
+    }
+    const message = commit.step === null ? commit.title : `${commit.step}: ${commit.title}`;
+    await git(['add', '--all']);
+    await git(['commit', '--quiet', '--no-verify', `--message=${message}`], commit.date);
+    shas.set(commit.sha, (await git(['rev-parse', 'HEAD'])).trim());
+  }
+
+  for (const ref of repo.refs) {
+    const sha = shas.get(ref.sha);
+    if (sha === undefined) {
+      throw new Error(`Der Branch '${ref.name}' zeigt auf einen Commit, den es nicht gibt.`);
+    }
+    if (ref.kind === 'remote') {
+      await git(['update-ref', `refs/remotes/${ref.name}`, sha]);
+    } else if (ref.name !== repo.info.branch) {
+      await git(['branch', ref.name, sha]);
+    }
+  }
+  const other = repo.refs.find((ref) => ref.kind === 'local' && ref.name !== repo.info.branch);
+  await git(other === undefined ? ['switch', '--quiet', '--detach'] : ['switch', '--quiet', other.name]);
+  await git(['worktree', 'add', '--quiet', worktree, repo.info.branch]);
+  return worktree;
+}
