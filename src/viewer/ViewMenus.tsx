@@ -6,6 +6,7 @@ import type { Ref, RepoInfo, Worktree } from '../git/types';
 import { listRepos, listViews, openRepo } from '../server/repo.functions';
 import type { RepoChoice } from '../server/repo.functions';
 import type { SavedView, ViewSearch } from '../server/store';
+import { BranchIcon, RepoIcon } from './Icons';
 import { Menu, MenuItem, MenuNote, MenuSection } from './Menu';
 
 /** Wechselt zu einer Ansicht; fehlende Teile ergänzt der Server. */
@@ -60,8 +61,36 @@ function useChoice(close: () => void): [string | null, (choose: () => Promise<vo
 }
 
 /**
- * Das Repo in der Kopfzeile, mit den im Projekt zuletzt geöffneten, denen im Ordner des Projekts,
- * den gefundenen und einem Textfeld.
+ * Die Knöpfe zum Wechseln von Repo, Worktree und Branch in der Kopfzeile. Sie zeigen nur ein
+ * Symbol, weil die Namen im Tab darüber stehen; den Namen nennt der Tooltip. Mit nur einem
+ * Worktree fehlt dessen Knopf, weil es nichts zu wählen gibt.
+ */
+export function WhereMenus({
+  info,
+  worktrees,
+  refs,
+  onOpen,
+  onShow,
+  ...hidden
+}: {
+  info: RepoInfo;
+  worktrees: Worktree[];
+  refs: Ref[];
+  onOpen: OpenView;
+  onShow: (view: ViewSearch) => void;
+} & HiddenProps) {
+  return (
+    <>
+      <RepoMenu info={info} onShow={onShow} />
+      {worktrees.length > 1 && <WorktreeMenu info={info} worktrees={worktrees} onOpen={onOpen} />}
+      <BranchMenu info={info} refs={refs} onOpen={onOpen} {...hidden} />
+    </>
+  );
+}
+
+/**
+ * Das Repo, mit den im Projekt zuletzt geöffneten, denen im Ordner des Projekts, den gefundenen und
+ * einem Textfeld. Solange keins offen ist, steht „Repo wählen" auf dem Knopf.
  */
 export function RepoMenu({
   info,
@@ -75,10 +104,10 @@ export function RepoMenu({
 }) {
   return (
     <Menu
-      button={<span className="crumb-repo">{info?.repo ?? 'Repo wählen'}</span>}
+      button={info === null ? <span className="crumb-repo">Repo wählen</span> : <RepoIcon />}
       label="Repo"
-      tip={info === null ? 'Repo wählen' : `Repo: ${info.repoPath}`}
-      className="crumb"
+      tip={info === null ? 'Repo wählen' : `Repo wechseln: ${info.repo}`}
+      className={info === null ? 'crumb' : 'tool'}
       initiallyOpen={initiallyOpen}
     >
       {(close) => <RepoList current={info?.repoPath ?? null} close={close} onShow={onShow} />}
@@ -177,7 +206,7 @@ function RepoList({
   );
 }
 
-/** Der Worktree in der Kopfzeile; bei nur einem Worktree ohne Menü. */
+/** Der Worktree. */
 export function WorktreeMenu({
   info,
   worktrees,
@@ -187,15 +216,13 @@ export function WorktreeMenu({
   worktrees: Worktree[];
   onOpen: OpenView;
 }) {
-  if (worktrees.length <= 1) {
-    return (
-      <span className="crumb crumb-plain" data-tip={`Worktree: ${info.worktreePath}`}>
-        ⌂ {info.worktree}
-      </span>
-    );
-  }
   return (
-    <Menu button={<>⌂ {info.worktree}</>} label="Worktree" tip={`Worktree: ${info.worktreePath}`} className="crumb">
+    <Menu
+      button={<span className="tool-glyph">⌂</span>}
+      label="Worktree"
+      tip={`Worktree wechseln: ${info.worktree}`}
+      className="tool"
+    >
       {(close) => <WorktreeList info={info} worktrees={worktrees} close={close} onOpen={onOpen} />}
     </Menu>
   );
@@ -219,7 +246,15 @@ function WorktreeList({
         <MenuItem
           key={worktree.path}
           main={worktree.name}
-          sub={worktree.branch === null ? 'ohne Branch' : `⑂ ${worktree.branch}`}
+          sub={
+            worktree.branch === null ? (
+              'ohne Branch'
+            ) : (
+              <>
+                <BranchIcon /> {worktree.branch}
+              </>
+            )
+          }
           tip={worktree.path}
           current={worktree.path === info.worktreePath}
           onChoose={() => {
@@ -239,8 +274,8 @@ interface HiddenProps {
 }
 
 /**
- * Der Branch in der Kopfzeile. Zeigt die Liste einen anderen als den ausgecheckten, steht er in
- * der Farbe der Branch-Badges da.
+ * Der Branch. Zeigt die Liste einen anderen als den ausgecheckten, steht der Knopf in der Farbe der
+ * Branch-Badges da.
  */
 export function BranchMenu({
   info,
@@ -251,10 +286,14 @@ export function BranchMenu({
   const foreign = info.branch !== info.checkedOut;
   return (
     <Menu
-      button={<>⑂ {info.branch ?? 'ohne Branch'}</>}
+      button={<BranchIcon />}
       label="Branch"
-      tip={foreign ? `Nicht ausgecheckt; ausgecheckt ist ${info.checkedOut ?? 'kein Branch'}` : 'Branch'}
-      className={foreign ? 'crumb crumb-foreign' : 'crumb'}
+      tip={
+        foreign
+          ? `Branch wechseln: ${info.branch ?? 'ohne Branch'}, nicht ausgecheckt; ausgecheckt ist ${info.checkedOut ?? 'kein Branch'}`
+          : `Branch wechseln: ${info.branch ?? 'ohne Branch'}`
+      }
+      className={foreign ? 'tool tool-foreign' : 'tool'}
     >
       {(close) => <BranchList info={info} refs={refs} close={close} onOpen={onOpen} {...hidden} />}
     </Menu>
@@ -410,24 +449,28 @@ function groupName(group: string): string {
   return `allen Branches von ${group.slice(REMOTES_GROUP.length, -1)}`;
 }
 
-/** Die zuletzt geöffneten Ansichten hinter dem Knopf mit der Uhr. */
-export function RecentMenu({ info }: { info: RepoInfo | null }) {
+/**
+ * Die zuletzt geöffneten Ansichten hinter dem Knopf mit der Uhr; `current` ist die offene Ansicht
+ * und hat einen Haken.
+ */
+export function RecentMenu({
+  current,
+  className = 'tool',
+}: {
+  current: { worktree: string; branch: string } | null;
+  className?: string;
+}) {
   return (
-    <Menu
-      button={<ClockIcon />}
-      label="Zuletzt geöffnete Ansichten"
-      tip="Zuletzt geöffnete Ansichten"
-      className="tool"
-    >
-      {(close) => <RecentList info={info} close={close} />}
+    <Menu button={<ClockIcon />} label="Zuletzt geöffnete Ansichten" tip="Zuletzt geöffnete Ansichten" className={className}>
+      {(close) => <RecentList current={current} close={close} />}
     </Menu>
   );
 }
 
-function RecentList({ info, close }: { info: RepoInfo | null; close: () => void }) {
+function RecentList({ current, close }: { current: { worktree: string; branch: string } | null; close: () => void }) {
   const { data, error } = useLoaded(() => listViews());
   const isCurrent = (view: SavedView) =>
-    info !== null && view.worktree === info.worktreePath && view.branch === (info.branch ?? '');
+    current !== null && view.worktree === current.worktree && view.branch === current.branch;
   return (
     <div className="menu-scroll">
       {error !== null && <MenuNote error>{error}</MenuNote>}
@@ -439,7 +482,8 @@ function RecentList({ info, close }: { info: RepoInfo | null; close: () => void 
             <>
               {view.repo}
               <span className="menu-where">
-                {view.worktreeName === view.branch ? '' : ` · ⌂ ${view.worktreeName}`} · ⑂ {view.branch || 'ohne Branch'}
+                {view.worktreeName === view.branch ? '' : ` · ⌂ ${view.worktreeName}`} · <BranchIcon />{' '}
+                {view.branch || 'ohne Branch'}
               </span>
             </>
           }

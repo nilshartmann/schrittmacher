@@ -127,7 +127,7 @@ const SHOTS = [
     async (page) => {
       await page.getByRole('button', { name: 'Branch', exact: true }).click();
       await page.getByRole('menuitem', { name: 'live_coding' }).click();
-      await page.locator('.crumb-foreign').waitFor();
+      await page.locator('.tool-foreign').waitFor();
     },
   ],
   [
@@ -137,7 +137,7 @@ const SHOTS = [
       await page.waitForTimeout(600);
       await page.getByRole('button', { name: 'Branch', exact: true }).click();
       await page.getByRole('menuitem', { name: 'main' }).click();
-      await page.locator('.crumb-foreign').waitFor();
+      await page.locator('.tool-foreign').waitFor();
       await page.waitForTimeout(600);
       await page.getByRole('button', { name: 'Zuletzt geöffnete Ansichten' }).click();
       await page.locator('.menu-item').nth(1).waitFor();

@@ -150,10 +150,6 @@ button.crumb:hover,
   background: var(--hover);
 }
 
-.crumb-plain {
-  cursor: default;
-}
-
 .crumb-repo {
   overflow: hidden;
   color: var(--ink);
@@ -161,17 +157,23 @@ button.crumb:hover,
   text-overflow: ellipsis;
 }
 
-/* Ein Branch, der nicht ausgecheckt ist, in der Farbe der Branch-Badges. */
-.crumb-foreign {
-  height: 24px;
-  border-color: #e3b45a;
-  background: #fff6e2;
-  color: var(--ink);
+.tool-glyph {
+  font-size: 18px;
+  line-height: 1;
 }
 
-button.crumb-foreign:hover,
-.crumb-foreign[aria-expanded='true'] {
-  background: #ffeec4;
+/* Als Knopf so groß wie die übrigen Symbole der Kopfzeile */
+.tool > .icon-inline {
+  width: 18px;
+  height: 18px;
+}
+
+/* Ein Symbol im Text, so groß wie die Schrift daneben */
+.icon-inline {
+  flex: none;
+  width: 0.95em;
+  height: 0.95em;
+  vertical-align: -0.12em;
 }
 
 /* Menüs unter der Kopfzeile */
@@ -382,10 +384,6 @@ a.menu-item {
   color: var(--diff-removed-ink);
 }
 
-.header-sep {
-  color: var(--sign);
-}
-
 .header-comparison {
   display: flex;
   align-items: center;
@@ -480,6 +478,17 @@ a.menu-item {
 
 .tool:hover:not(:disabled) {
   background: var(--hover);
+}
+
+/* Ein Branch, der nicht ausgecheckt ist, als Knopf in der Farbe der Branch-Badges. */
+.tool-foreign {
+  border-color: #e3b45a;
+  background: #fff6e2;
+}
+
+.tool-foreign:hover:not(:disabled),
+.tool-foreign[aria-expanded='true'] {
+  background: #ffeec4;
 }
 
 .tool[aria-pressed='true'] {
@@ -1360,6 +1369,12 @@ a.menu-item {
   text-overflow: ellipsis;
 }
 
+/* Der aktive Tab ist breiter, damit seine Namen ganz zu lesen sind. */
+.tab[aria-selected='true'] {
+  flex-grow: 2;
+  max-width: 520px;
+}
+
 .tab-close {
   flex: none;
   width: 20px;
@@ -1547,6 +1562,31 @@ a.menu-item {
 }
 
 .menu-close:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+/* Die zuletzt geöffneten Ansichten ganz links in der Tableiste */
+.menu:has(> .tabs-recent) {
+  flex: none;
+  border-right: 1px solid var(--line);
+}
+
+.tabs-recent {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: var(--tabs-height);
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--quiet);
+  cursor: pointer;
+}
+
+.tabs-recent:hover,
+.tabs-recent[aria-expanded='true'] {
   background: var(--hover);
   color: var(--ink);
 }

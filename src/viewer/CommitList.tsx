@@ -4,6 +4,7 @@ import type { Graph, GraphRow } from '../git/graph';
 import { LOCAL, reachable } from '../git/repo';
 import type { Comparison } from '../git/repo';
 import type { Commit, Ref } from '../git/types';
+import { BranchIcon } from './Icons';
 
 /** Die Nummer des Schritts, für einen Commit ohne Schritt der Anfang seines SHA. */
 export function stepLabel(commit: Commit): string {
@@ -319,7 +320,7 @@ function RefBadges({
 }
 
 /**
- * Ein Branch als Badge, wie in Fork: lokal mit ⑂, auf einem Remote mit ☁. Ein Klick zeigt seine
+ * Ein Branch als Badge, wie in Fork: lokal mit dem Symbol eines Branches, auf einem Remote mit ☁. Ein Klick zeigt seine
  * Commits, ohne den Commit der Zeile zu wählen.
  */
 function RefBadge({
@@ -344,7 +345,7 @@ function RefBadge({
       }}
     >
       <span className="ref-sign" aria-hidden="true">
-        {branchRef.kind === 'local' ? '⑂' : '☁'}
+        {branchRef.kind === 'local' ? <BranchIcon /> : '☁'}
       </span>
       {branchRef.name}
     </button>

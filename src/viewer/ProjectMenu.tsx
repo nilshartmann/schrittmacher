@@ -11,6 +11,7 @@ import {
 } from '../server/repo.functions';
 import type { RepoViews, ViewChoice } from '../server/repo.functions';
 import type { Tab, ViewSearch } from '../server/store';
+import { BranchIcon } from './Icons';
 import { Menu, MenuItem, MenuNote, MenuSection } from './Menu';
 import { sameTab } from './Tabs';
 
@@ -321,7 +322,7 @@ function ViewsDialog({
         />
         <span className="menu-text">
           <span className="menu-main">
-            ⌂ {view.worktreeName} · ⑂ {view.branch || 'ohne Branch'}
+            ⌂ {view.worktreeName} · <BranchIcon /> {view.branch || 'ohne Branch'}
           </span>
           <span className="menu-sub">{sub}</span>
         </span>

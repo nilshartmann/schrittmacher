@@ -2,7 +2,9 @@ import { createContext } from 'react';
 import type { ReactNode } from 'react';
 import type { Tab, ViewSearch } from '../server/store';
 import { CopyButton, HoverTools } from './HoverTools';
+import { BranchIcon } from './Icons';
 import { Menu, MenuItem } from './Menu';
+import { RecentMenu } from './ViewMenus';
 
 /** Öffnet eine Ansicht in einem neuen Tab, etwa nach einem ⌘-Klick auf einen Eintrag der Menüs. */
 export const NewTabContext = createContext<((target: ViewSearch) => void) | null>(null);
@@ -28,9 +30,14 @@ export function withVisible(tabs: Tab[], current: { worktree: string; branch: st
 }
 
 /** Worktree und Branch eines Tabs; der Worktree fehlt, wenn er wie Branch oder Repo heißt. */
-function whereOf(tab: Tab): string {
+function whereOf(tab: Tab): ReactNode {
   const worktree = tab.worktreeName === tab.branch || tab.worktreeName === tab.repo ? '' : `⌂ ${tab.worktreeName} · `;
-  return `${worktree}⑂ ${tab.branch || 'ohne Branch'}`;
+  return (
+    <>
+      {worktree}
+      <BranchIcon /> {tab.branch || 'ohne Branch'}
+    </>
+  );
 }
 
 interface TabBarProps {
@@ -43,16 +50,18 @@ interface TabBarProps {
 }
 
 /**
- * Die Tabs ganz oben wie in Fork, weil die Web-App aus dem Dock keine eigenen hat. Sie stehen über
- * der Kopfzeile, weil der Tab bestimmt, was darunter steht. Jeder Tab ist eine Ansicht; die Tabs
+ * Die Tabs ganz oben wie in Fork, weil die Web-App aus dem Dock keine eigenen hat. Links davor
+ * stehen die zuletzt geöffneten Ansichten und das Projekt. Die Tabs stehen über der Kopfzeile, weil der Tab bestimmt, was darunter steht. Jeder Tab ist eine Ansicht; die Tabs
  * teilen sich die Breite. Sind es mehr als `SHOWN_TABS`, stehen die übrigen im Menü rechts. Mit
  * nur einem Tab fehlt das Schließen. Über einem Tab erscheint ein Knopf, der den Pfad des Worktrees
- * kopiert.
+ * kopiert. Die Tabs zeigen nur, was offen ist; gewechselt wird über die Knöpfe der Kopfzeile. Der
+ * aktive Tab ist breiter, damit seine Namen ganz zu lesen sind.
  */
 export function TabBar({ tabs, current, onChoose, onClose, project }: TabBarProps) {
   const rest = tabs.slice(SHOWN_TABS);
   return (
     <nav className="tabs" role="tablist" aria-label="Tabs">
+      <RecentMenu current={current} className="tabs-recent" />
       {project}
       {tabs.slice(0, SHOWN_TABS).map((tab) => {
         const active = sameTab(tab, current);

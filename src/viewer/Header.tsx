@@ -1,11 +1,10 @@
-import type { Hidden } from '../git/hidden';
 import { LOCAL, previousOf } from '../git/repo';
 import type { Comparison } from '../git/repo';
-import type { Commit, Ref, RepoInfo, Worktree } from '../git/types';
+import type { Commit, RepoInfo } from '../git/types';
+import type { ReactNode } from 'react';
 import type { ViewSearch } from '../server/store';
 import { stepLabel } from './CommitList';
-import { BranchMenu, RecentMenu, RepoMenu, WorktreeMenu } from './ViewMenus';
-import type { OpenView } from './ViewMenus';
+import { RecentMenu, RepoMenu } from './ViewMenus';
 
 /**
  * Wie der Diff steht: beide Seiten mit dem Anteil der linken, oder alle Zeilen untereinander, mit
@@ -15,10 +14,8 @@ export type Layout = { mode: 'split'; share: number } | { mode: 'unified'; showR
 
 interface HeaderProps {
   info: RepoInfo;
-  worktrees: Worktree[];
-  refs: Ref[];
-  hidden: Hidden;
-  onToggleHidden: (path: string) => void;
+  /** Die Knöpfe zum Wechseln von Repo, Worktree und Branch. */
+  where: ReactNode;
   commits: Commit[];
   /** Der neueste Commit des Branches; die lokalen Änderungen gelten gegen ihn. */
   start: string;
@@ -29,14 +26,11 @@ interface HeaderProps {
   onFontSize: (change: number) => void;
   filesOpen: boolean;
   onFilesOpen: () => void;
-  onOpen: OpenView;
-  onShow: (view: ViewSearch) => void;
 }
 
 /**
- * Die schmale Kopfzeile: links die Knöpfe für Dateiliste und zuletzt geöffnete Ansichten, dann
- * Repo, Worktree und Branch, je mit einem Menü, und der gewählte Vergleich; rechts die
- * Schriftgröße.
+ * Die schmale Kopfzeile: links die Knöpfe für Dateiliste und alle Branches und die Knöpfe zum
+ * Wechseln von Repo, Worktree und Branch, dann der gewählte Vergleich; rechts die Schriftgröße.
  */
 export function Header(props: HeaderProps) {
   const { info, commits, comparison } = props;
@@ -63,7 +57,6 @@ export function Header(props: HeaderProps) {
         >
           <SidebarIcon />
         </button>
-        <RecentMenu info={info} />
         <button
           type="button"
           className="tool"
@@ -79,19 +72,7 @@ export function Header(props: HeaderProps) {
           <GraphIcon />
         </button>
       </div>
-      <div className="header-where">
-        <RepoMenu info={info} onShow={props.onShow} />
-        <span className="header-sep">/</span>
-        <WorktreeMenu info={info} worktrees={props.worktrees} onOpen={props.onOpen} />
-        <span className="header-sep">/</span>
-        <BranchMenu
-          info={info}
-          refs={props.refs}
-          hidden={props.hidden}
-          onToggleHidden={props.onToggleHidden}
-          onOpen={props.onOpen}
-        />
-      </div>
+      <div className="header-start">{props.where}</div>
       <div
         className={comparison.from === null ? 'header-comparison' : 'header-comparison header-comparison-free'}
         data-tip={title}
@@ -136,7 +117,7 @@ export function EmptyHeader({ onShow }: { onShow: (view: ViewSearch) => void }) 
   return (
     <header className="header">
       <div className="header-start">
-        <RecentMenu info={null} />
+        <RecentMenu current={null} />
       </div>
       <div className="header-where">
         <RepoMenu info={null} initiallyOpen onShow={onShow} />

@@ -21,6 +21,7 @@ import { Tooltips } from './Tooltips';
 import { useHidden } from './useHidden';
 import { useRepoChanges } from './useRepoChanges';
 import type { Layout } from './Header';
+import { WhereMenus } from './ViewMenus';
 import type { OpenView } from './ViewMenus';
 
 const NO_GAPS: ReadonlyMap<string, ReadonlySet<number>> = new Map();
@@ -269,10 +270,17 @@ export function Viewer({ view, search, onSearch, onOpen, onShow, tabs }: ViewerP
       {tabs}
       <Header
         info={repo.info}
-        worktrees={view.worktrees}
-        refs={repo.refs}
-        hidden={hidden}
-        onToggleHidden={toggleHidden}
+        where={
+          <WhereMenus
+            info={repo.info}
+            worktrees={view.worktrees}
+            refs={repo.refs}
+            hidden={hidden}
+            onToggleHidden={toggleHidden}
+            onOpen={onOpen}
+            onShow={onShow}
+          />
+        }
         commits={repo.commits}
         start={repo.start}
         comparison={comparison}
@@ -288,8 +296,6 @@ export function Viewer({ view, search, onSearch, onOpen, onShow, tabs }: ViewerP
         onFilesOpen={() => {
           set({ filesOpen: !settings.filesOpen });
         }}
-        onOpen={onOpen}
-        onShow={onShow}
       />
       <CommitList
         commits={repo.commits}
