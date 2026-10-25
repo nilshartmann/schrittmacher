@@ -78,7 +78,7 @@ interface ViewerProps {
   onSearch: (change: Pick<ViewSearch, 'to' | 'from' | 'file'>, replace?: boolean) => void;
   onOpen: OpenView;
   onShow: (view: ViewSearch) => void;
-  /** Die Tableiste unter der Kopfzeile. */
+  /** Die Tableiste über der Kopfzeile; der Tab bestimmt, was darunter steht. */
   tabs: ReactNode;
 }
 
@@ -195,6 +195,7 @@ export function Viewer({ view, search, onSearch, onOpen, onShow, tabs }: ViewerP
 
   return (
     <div className="app" style={{ '--code-size': `${String(settings.fontSize)}px` } as CSSProperties}>
+      {tabs}
       <Header
         info={repo.info}
         worktrees={view.worktrees}
@@ -218,7 +219,6 @@ export function Viewer({ view, search, onSearch, onOpen, onShow, tabs }: ViewerP
         onOpen={onOpen}
         onShow={onShow}
       />
-      {tabs}
       <CommitList
         commits={repo.commits}
         refs={shownRefs}

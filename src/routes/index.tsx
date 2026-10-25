@@ -5,7 +5,7 @@ import { loadView, resolveView, saveTabs, saveView, tabOf } from '../server/repo
 import type { Tab, ViewSearch } from '../server/store';
 import { EmptyHeader } from '../viewer/Header';
 import { ProjectMenu } from '../viewer/ProjectMenu';
-import { NewTabContext, sameTab, TabBar } from '../viewer/Tabs';
+import { NewTabContext, sameTab, TabBar, withVisible } from '../viewer/Tabs';
 import { Tooltips } from '../viewer/Tooltips';
 import { Viewer } from '../viewer/Viewer';
 import type { LoadedView } from '../viewer/Viewer';
@@ -138,7 +138,8 @@ function OpenedView({ view, search }: { view: LoadedView; search: ViewSearch }) 
 /**
  * Die Tabs der Tableiste. Wechselt der aktive Tab seine Ansicht, etwa über die Menüs der
  * Kopfzeile, ersetzt die neue Ansicht ihn; ist sie schon in einem anderen Tab offen, wird dieser
- * aktiv. Ein neuer Tab steht rechts neben dem aktiven und öffnet sich im Hintergrund. Der Server
+ * aktiv. Ein neuer Tab steht rechts neben dem aktiven und öffnet sich im Hintergrund. Der aktive
+ * Tab steht immer unter den sichtbaren, siehe `withVisible`. Der Server
  * merkt sich die Tabs im Projekt, damit sie nach dem Neuladen wieder da sind. Setzt die Auswahl
  * der Ansichten neue Tabs, öffnet sich der erste, wenn der aktive nicht mehr dabei ist.
  */
@@ -167,10 +168,10 @@ function useTabs(view: LoadedView, open: (target: ViewSearch) => Promise<void>) 
     shown.current = current;
     setList((tabs) => {
       if (tabs.some((tab) => sameTab(tab, current))) {
-        return tabs;
+        return withVisible(tabs, current);
       }
       const at = before === null ? -1 : tabs.findIndex((tab) => sameTab(tab, before));
-      return at === -1 ? [...tabs, current] : tabs.with(at, current);
+      return withVisible(at === -1 ? [...tabs, current] : tabs.with(at, current), current);
     });
   }, [current.worktree, current.branch]);
 
@@ -191,8 +192,9 @@ function useTabs(view: LoadedView, open: (target: ViewSearch) => Promise<void>) 
     },
     replace: (tabs: Tab[]) => {
       // Der Server kennt die neuen Tabs schon.
-      saved.current = tabs;
-      setList(tabs);
+      const shown = withVisible(tabs, current);
+      saved.current = shown;
+      setList(shown);
       const first = tabs[0];
       if (!tabs.some((tab) => sameTab(tab, current)) && first !== undefined) {
         void open({ worktree: first.worktree, branch: first.branch });

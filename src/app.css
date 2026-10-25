@@ -189,7 +189,7 @@ button.crumb-foreign:hover,
   display: flex;
   flex-direction: column;
   width: min(520px, calc(100vw - 24px));
-  max-height: calc(100vh - var(--header-height) - 16px);
+  max-height: calc(100vh - var(--tabs-height) - var(--header-height) - 16px);
   padding: 6px;
   border: 1px solid var(--line);
   border-radius: 9px;
@@ -198,6 +198,11 @@ button.crumb-foreign:hover,
   color: var(--ink);
   font-size: var(--size-ui);
   white-space: normal;
+}
+
+.menu-panel-end {
+  right: 0;
+  left: auto;
 }
 
 .menu-scroll {
@@ -1179,7 +1184,7 @@ a.menu-item {
   color: var(--code-json-key);
 }
 
-/* Tableiste unter der Kopfzeile, wie in Fork */
+/* Tableiste über der Kopfzeile, wie in Fork */
 
 .tabs {
   display: flex;
@@ -1194,6 +1199,7 @@ a.menu-item {
   flex: 1 1 0;
   align-items: center;
   min-width: 0;
+  overflow: hidden;
   max-width: 320px;
   border-right: 1px solid var(--line);
   color: var(--quiet);
@@ -1204,7 +1210,9 @@ a.menu-item {
   background: var(--hover);
 }
 
+/* Der aktive Tab reicht über die Linie darunter, damit er in die Kopfzeile übergeht. */
 .tab[aria-selected='true'] {
+  margin-bottom: -1px;
   background: var(--surface);
   color: var(--ink);
 }
@@ -1215,6 +1223,7 @@ a.menu-item {
   justify-content: center;
   align-items: center;
   min-width: 0;
+  overflow: hidden;
   height: 100%;
   padding: 0 4px 0 10px;
   border: none;
@@ -1227,8 +1236,14 @@ a.menu-item {
   cursor: default;
 }
 
-/* Der Name des Repos wird zuerst gekürzt, weil sich Tabs desselben Repos im Branch unterscheiden. */
+/*
+ * Der Name des Repos wird zuerst gekürzt, weil sich Tabs desselben Repos im Branch unterscheiden.
+ * Worktree und Branch schrumpfen nicht mit, weil schon ein Bruchteil eines Pixels die
+ * Auslassungspunkte zeigt. Sie werden erst gekürzt, wenn sie allein zu breit sind.
+ */
 .tab-repo {
+  flex: 0 1 auto;
+  min-width: 2em;
   overflow: hidden;
   font-weight: 600;
   text-overflow: ellipsis;
@@ -1236,7 +1251,10 @@ a.menu-item {
 
 .tab-where {
   flex: none;
+  max-width: calc(100% - 3em);
   margin-left: 0.3em;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .tab-close {
@@ -1349,6 +1367,42 @@ a.menu-item {
   flex: 1 1 auto;
   color: var(--quiet);
   font-size: var(--size-small);
+}
+
+/* Das Menü mit den Tabs, die nicht in die Tableiste passen */
+.tabs-more {
+  flex: none;
+  height: var(--tabs-height);
+  padding: 0 10px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--quiet);
+  font-size: var(--size-small);
+  cursor: pointer;
+}
+
+.tabs-more:hover,
+.tabs-more[aria-expanded='true'] {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+.menu-close {
+  flex: none;
+  width: var(--target);
+  height: var(--target);
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--quiet);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.menu-close:hover {
+  background: var(--hover);
+  color: var(--ink);
 }
 
 /* Das Projekt links in der Tableiste; sein Name wird erst gekürzt, wenn er sehr lang ist. */
