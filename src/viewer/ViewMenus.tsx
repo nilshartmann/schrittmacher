@@ -1,13 +1,14 @@
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, useContext, useEffect, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import { LOCAL_GROUP, REMOTES_GROUP, hiddenBy, refPath, remoteGroup, remoteOf } from '../git/hidden';
 import type { Hidden } from '../git/hidden';
 import type { Ref, RepoInfo, Worktree } from '../git/types';
 import { listRepos, listViews, openRepo } from '../server/repo.functions';
 import type { RepoChoice } from '../server/repo.functions';
-import type { SavedView, ViewSearch } from '../server/store';
+import type { SavedView, Tab, ViewSearch } from '../server/store';
 import { BranchIcon, RepoIcon } from './Icons';
-import { Menu, MenuItem, MenuNote, MenuSection } from './Menu';
+import { Menu, MenuItem, MenuNote, MenuSection, NewTabButton } from './Menu';
+import { CloseButton, sameTab, TabsContext } from './Tabs';
 
 /** Wechselt zu einer Ansicht; fehlende Teile ergänzt der Server. */
 export type OpenView = (target: ViewSearch) => Promise<void>;
@@ -61,9 +62,8 @@ function useChoice(close: () => void): [string | null, (choose: () => Promise<vo
 }
 
 /**
- * Die Knöpfe zum Wechseln von Repo, Worktree und Branch in der Kopfzeile. Sie zeigen nur ein
- * Symbol, weil die Namen im Tab darüber stehen; den Namen nennt der Tooltip. Mit nur einem
- * Worktree fehlt dessen Knopf, weil es nichts zu wählen gibt.
+ * Die Knöpfe zum Wechseln des Repos und von Worktree und Branch in der Kopfzeile. Sie zeigen nur
+ * ein Symbol, weil die Namen im Tab darüber stehen; den Namen nennt der Tooltip.
  */
 export function WhereMenus({
   info,
@@ -82,15 +82,14 @@ export function WhereMenus({
   return (
     <>
       <RepoMenu info={info} onShow={onShow} />
-      {worktrees.length > 1 && <WorktreeMenu info={info} worktrees={worktrees} onOpen={onOpen} />}
-      <BranchMenu info={info} refs={refs} onOpen={onOpen} {...hidden} />
+      <WhereMenu info={info} worktrees={worktrees} refs={refs} onOpen={onOpen} {...hidden} />
     </>
   );
 }
 
 /**
- * Das Repo, mit denen im Ordner des Projekts, den gefundenen und einem Textfeld. Die zuletzt
- * geöffneten Ansichten stehen hinter der Uhr in der Tableiste. Solange keins offen ist, steht „Repo wählen" auf dem Knopf.
+ * Das Repo, mit den gefundenen und einem Textfeld. Die zuletzt geöffneten Ansichten stehen hinter
+ * der Uhr in der Tableiste. Solange keins offen ist, steht „Repo wählen" auf dem Knopf.
  */
 export function RepoMenu({
   info,
@@ -175,10 +174,6 @@ function RepoList({
       {data === null && error === null && <MenuNote>Sucht Repos …</MenuNote>}
       {data !== null && (
         <div className="menu-scroll">
-          {data.folder !== null && data.inFolder.length > 0 && (
-            <MenuSection>In {short(data.folder, data.home)}</MenuSection>
-          )}
-          {items(data.inFolder, data.home)}
           <MenuSection>In {data.roots.map((root) => short(root, data.home)).join(', ')}</MenuSection>
           {items(data.found, data.home)}
           {data.found.length === 0 && <MenuNote>Keine weiteren Repos gefunden.</MenuNote>}
@@ -206,67 +201,6 @@ function RepoList({
   );
 }
 
-/** Der Worktree. */
-export function WorktreeMenu({
-  info,
-  worktrees,
-  onOpen,
-}: {
-  info: RepoInfo;
-  worktrees: Worktree[];
-  onOpen: OpenView;
-}) {
-  return (
-    <Menu
-      button={<span className="tool-glyph">⌂</span>}
-      label="Worktree"
-      tip={`Worktree wechseln: ${info.worktree}`}
-      className="tool"
-    >
-      {(close) => <WorktreeList info={info} worktrees={worktrees} close={close} onOpen={onOpen} />}
-    </Menu>
-  );
-}
-
-function WorktreeList({
-  info,
-  worktrees,
-  close,
-  onOpen,
-}: {
-  info: RepoInfo;
-  worktrees: Worktree[];
-  close: () => void;
-  onOpen: OpenView;
-}) {
-  const [error, choose] = useChoice(close);
-  return (
-    <div className="menu-scroll">
-      {worktrees.map((worktree) => (
-        <MenuItem
-          key={worktree.path}
-          main={worktree.name}
-          sub={
-            worktree.branch === null ? (
-              'ohne Branch'
-            ) : (
-              <>
-                <BranchIcon /> {worktree.branch}
-              </>
-            )
-          }
-          tip={worktree.path}
-          current={worktree.path === info.worktreePath}
-          onChoose={() => {
-            choose(() => onOpen({ worktree: worktree.path }));
-          }}
-        />
-      ))}
-      {error !== null && <MenuNote error>{error}</MenuNote>}
-    </div>
-  );
-}
-
 /** Die ausgeblendeten Branches und das Umschalten eines Branches oder einer Gruppe. */
 interface HiddenProps {
   hidden: Hidden;
@@ -274,39 +208,45 @@ interface HiddenProps {
 }
 
 /**
- * Der Branch. Zeigt die Liste einen anderen als den ausgecheckten, steht der Knopf in der Farbe der
- * Branch-Badges da.
+ * Worktree und Branch in einem Menü, wie in der Seitenleiste von Fork. Zeigt die Liste einen
+ * anderen Branch als den ausgecheckten, steht der Knopf in der Farbe der Branch-Badges da.
  */
-export function BranchMenu({
+export function WhereMenu({
   info,
+  worktrees,
   refs,
   onOpen,
   ...hidden
-}: { info: RepoInfo; refs: Ref[]; onOpen: OpenView } & HiddenProps) {
+}: { info: RepoInfo; worktrees: Worktree[]; refs: Ref[]; onOpen: OpenView } & HiddenProps) {
   const foreign = info.branch !== info.checkedOut;
+  const where = `⌂ ${info.worktree} · ${info.branch ?? 'ohne Branch'}`;
   return (
     <Menu
       button={<BranchIcon />}
-      label="Branch"
+      label="Worktree und Branch"
       tip={
         foreign
-          ? `Branch wechseln: ${info.branch ?? 'ohne Branch'}, nicht ausgecheckt; ausgecheckt ist ${info.checkedOut ?? 'kein Branch'}`
-          : `Branch wechseln: ${info.branch ?? 'ohne Branch'}`
+          ? `Worktree und Branch wechseln: ${where}, nicht ausgecheckt; ausgecheckt ist ${info.checkedOut ?? 'kein Branch'}`
+          : `Worktree und Branch wechseln: ${where}`
       }
       className={foreign ? 'tool tool-foreign' : 'tool'}
     >
-      {(close) => <BranchList info={info} refs={refs} close={close} onOpen={onOpen} {...hidden} />}
+      {(close) => <WhereList info={info} worktrees={worktrees} refs={refs} close={close} onOpen={onOpen} {...hidden} />}
     </Menu>
   );
 }
 
 /**
- * Die Branches wie in der Seitenleiste von Fork: die lokalen, darunter die Remotes eingeklappt und
- * nach Remote gruppiert. Neben jedem Branch und jeder Gruppe blendet ein Auge die Badges in der
- * Commit-Liste aus und wieder ein.
+ * Oben die Worktrees, falls es mehr als einen gibt, darunter die lokalen Branches und die Remotes
+ * eingeklappt und nach Remote gruppiert. Lokale Branches mit `/` im Namen stehen wie in Fork
+ * eingeklappt in einem Ordner. Ein Worktree bringt seinen ausgecheckten Branch mit, ein Branch
+ * ändert nur die Commit-Liste im aktuellen Worktree. Jede Zeile öffnet ihre Ansicht auch in einem
+ * neuen Tab. Neben jedem Branch und jeder Gruppe blendet ein Auge die Badges in der Commit-Liste
+ * aus und wieder ein.
  */
-function BranchList({
+function WhereList({
   info,
+  worktrees,
   refs,
   close,
   onOpen,
@@ -314,6 +254,7 @@ function BranchList({
   onToggleHidden,
 }: {
   info: RepoInfo;
+  worktrees: Worktree[];
   refs: Ref[];
   close: () => void;
   onOpen: OpenView;
@@ -321,17 +262,63 @@ function BranchList({
   const remotes = refs.filter((ref) => ref.kind === 'remote');
   const remoteNames = [...new Set(remotes.map(remoteOf))];
   const [remotesOpen, setRemotesOpen] = useState(remotes.some((ref) => ref.name === info.branch));
+  const locals = refs.filter((ref) => ref.kind === 'local');
+  const folders = [...new Set(locals.flatMap((ref) => (ref.name.includes('/') ? [folderOf(ref.name)] : [])))].sort();
+  // Ein Ordner ist anfangs nur offen, wenn der gezeigte Branch darin liegt.
+  const [openFolders, setOpenFolders] = useState(() =>
+    folders.filter((folder) => info.branch?.startsWith(`${folder}/`) === true),
+  );
+  const tabs = useContext(TabsContext);
   const [error, choose] = useChoice(close);
+  // Ist die Ansicht in einem Tab offen, holt der Knopf diesen Tab nach vorn, und daneben steht sein
+  // Schließen-Kreuz; sonst steht dort ein Platzhalter, damit die Knöpfe untereinander stehen. Der
+  // letzte Tab lässt sich nicht schließen.
+  const tabButton = (target: { worktree: string; branch: string }, name: string, open: Tab | undefined) => {
+    if (tabs === null) {
+      return null;
+    }
+    return (
+      <>
+        <NewTabButton
+          name={name}
+          open={open !== undefined}
+          onClick={() => {
+            choose(() => tabs.show(open ?? target));
+          }}
+        />
+        {open !== undefined && tabs.tabs.length > 1 ? (
+          <CloseButton
+            className="menu-close"
+            label={`Tab von ${name} schließen`}
+            onClose={() => {
+              tabs.close(open);
+            }}
+          />
+        ) : (
+          <span className="menu-spacer" />
+        )}
+      </>
+    );
+  };
   const eye = (path: string, name: string) => (
     <EyeButton path={path} name={name} hidden={hidden} onToggle={onToggleHidden} />
   );
-  const item = (ref: Ref | null, main: string, sub?: string) => {
+  const branch = (ref: Ref | null, main: string, sub?: string) => {
     const name = ref?.name ?? '';
     const path = ref === null ? null : refPath(ref);
+    const target = { worktree: info.worktreePath, branch: name };
+    // Ein neuer Tab zeigt den Branch in dem Worktree, in dem er ausgecheckt ist, mit seinen lokalen
+    // Änderungen. Offen ist der Branch, wenn ein Tab ihn in einem Worktree des Repos zeigt.
+    const checkedOutIn = worktrees.find((worktree) => worktree.branch === name);
+    const inTab = { worktree: checkedOutIn?.path ?? info.worktreePath, branch: name };
+    const inRepo = (tab: Tab) => worktrees.some((worktree) => worktree.path === tab.worktree);
+    const open =
+      tabs?.tabs.find((tab) => sameTab(tab, inTab)) ??
+      tabs?.tabs.find((tab) => name !== '' && tab.branch === name && inRepo(tab));
     return (
       <div
         key={name}
-        className={`menu-row${ref?.kind === 'remote' ? ' menu-row-nested' : ''}${
+        className={`menu-row${ref !== null && (ref.kind === 'remote' || ref.name.includes('/')) ? ' menu-row-nested' : ''}${
           path !== null && hiddenBy(hidden, path) !== null ? ' menu-row-hidden' : ''
         }`}
       >
@@ -339,42 +326,92 @@ function BranchList({
           main={main}
           sub={sub}
           current={name === (info.branch ?? '')}
+          newTab={target}
           onChoose={() => {
-            choose(() => onOpen({ worktree: info.worktreePath, branch: name }));
+            choose(() => onOpen(target));
           }}
         />
-        {path !== null && eye(path, name)}
+        {tabButton(inTab, main, open)}
+        {path !== null ? eye(path, name) : <span className="menu-spacer" />}
       </div>
     );
   };
   return (
     <div className="menu-scroll">
+      {worktrees.length > 1 && (
+        <>
+          <MenuSection>Worktrees</MenuSection>
+          {worktrees.map((worktree) => {
+            const target = { worktree: worktree.path, branch: worktree.branch ?? '' };
+            return (
+              <div key={worktree.path} className="menu-row">
+                <MenuItem
+                  main={<>⌂ {worktree.name}</>}
+                  sub={
+                    worktree.branch === null ? (
+                      'ohne Branch'
+                    ) : (
+                      <>
+                        <BranchIcon /> {worktree.branch}
+                      </>
+                    )
+                  }
+                  tip={worktree.path}
+                  current={worktree.path === info.worktreePath}
+                  newTab={target}
+                  onChoose={() => {
+                    choose(() => onOpen(target));
+                  }}
+                />
+                {tabButton(target, worktree.name, tabs?.tabs.find((tab) => sameTab(tab, target)))}
+                <span className="menu-spacer" />
+              </div>
+            );
+          })}
+        </>
+      )}
       <div className="menu-row">
         <MenuSection>Lokal</MenuSection>
         {eye(LOCAL_GROUP, 'alle lokalen Branches')}
       </div>
-      {info.checkedOut === null && item(null, 'HEAD ohne Branch', 'ausgecheckt')}
-      {refs
-        .filter((ref) => ref.kind === 'local')
-        .map((ref) => item(ref, ref.name, ref.name === info.checkedOut ? 'ausgecheckt' : undefined))}
+      {info.checkedOut === null && branch(null, 'HEAD ohne Branch', 'ausgecheckt')}
+      {folders.map((folder) => {
+        const inFolder = locals.filter((ref) => ref.name.includes('/') && folderOf(ref.name) === folder);
+        const open = openFolders.includes(folder);
+        const group = `${LOCAL_GROUP}${folder}/`;
+        return (
+          <Fragment key={`${folder}/`}>
+            <div className={`menu-row${hiddenBy(hidden, group) !== null ? ' menu-row-hidden' : ''}`}>
+              <Toggle
+                name={folder}
+                count={inFolder.length}
+                open={open}
+                onToggle={() => {
+                  setOpenFolders(open ? openFolders.filter((other) => other !== folder) : [...openFolders, folder]);
+                }}
+              />
+              {eye(group, `alle Branches in ${folder}`)}
+            </div>
+            {open &&
+              inFolder.map((ref) =>
+                branch(ref, ref.name.slice(folder.length + 1), ref.name === info.checkedOut ? 'ausgecheckt' : undefined),
+              )}
+          </Fragment>
+        );
+      })}
+      {locals
+        .filter((ref) => !ref.name.includes('/'))
+        .map((ref) => branch(ref, ref.name, ref.name === info.checkedOut ? 'ausgecheckt' : undefined))}
       {remotes.length > 0 && (
         <div className={`menu-row${hiddenBy(hidden, REMOTES_GROUP) !== null ? ' menu-row-hidden' : ''}`}>
-          <button
-            type="button"
-            className="menu-item menu-toggle"
-            aria-expanded={remotesOpen}
-            onClick={() => {
+          <Toggle
+            name="Remotes"
+            count={remotes.length}
+            open={remotesOpen}
+            onToggle={() => {
               setRemotesOpen(!remotesOpen);
             }}
-          >
-            <span className="menu-check" aria-hidden="true">
-              {remotesOpen ? '▾' : '▸'}
-            </span>
-            <span className="menu-text">
-              <span className="menu-main">Remotes</span>
-            </span>
-            <span className="menu-aside">{remotes.length}</span>
-          </button>
+          />
           {eye(REMOTES_GROUP, 'alle Remotes')}
         </div>
       )}
@@ -387,11 +424,31 @@ function BranchList({
             </div>
             {remotes
               .filter((ref) => remoteOf(ref) === remote)
-              .map((ref) => item(ref, ref.name.slice(remote.length + 1)))}
+              .map((ref) => branch(ref, ref.name.slice(remote.length + 1)))}
           </Fragment>
         ))}
       {error !== null && <MenuNote error>{error}</MenuNote>}
     </div>
+  );
+}
+
+/** Der Ordner eines lokalen Branches, `backup` für `backup/2026-10-11_interaktion`. */
+function folderOf(name: string): string {
+  return name.slice(0, name.indexOf('/'));
+}
+
+/** Eine Zeile, die eine Gruppe von Branches auf- und zuklappt, mit der Zahl der Branches darin. */
+function Toggle({ name, count, open, onToggle }: { name: string; count: number; open: boolean; onToggle: () => void }) {
+  return (
+    <button type="button" className="menu-item menu-toggle" aria-expanded={open} onClick={onToggle}>
+      <span className="menu-check" aria-hidden="true">
+        {open ? '▾' : '▸'}
+      </span>
+      <span className="menu-text">
+        <span className="menu-main">{name}</span>
+      </span>
+      <span className="menu-aside">{count}</span>
+    </button>
   );
 }
 
@@ -445,6 +502,9 @@ function groupName(group: string): string {
   }
   if (group === REMOTES_GROUP) {
     return 'allen Remotes';
+  }
+  if (group.startsWith(LOCAL_GROUP)) {
+    return `allen Branches in ${group.slice(LOCAL_GROUP.length, -1)}`;
   }
   return `allen Branches von ${group.slice(REMOTES_GROUP.length, -1)}`;
 }

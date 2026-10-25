@@ -6,8 +6,18 @@ import { BranchIcon } from './Icons';
 import { Menu, MenuItem } from './Menu';
 import { RecentMenu } from './ViewMenus';
 
-/** Öffnet eine Ansicht in einem neuen Tab, etwa nach einem ⌘-Klick auf einen Eintrag der Menüs. */
-export const NewTabContext = createContext<((target: ViewSearch) => void) | null>(null);
+/** Die offenen Tabs und das Öffnen neuer, für die Einträge der Menüs. */
+export interface TabActions {
+  tabs: Tab[];
+  /** Öffnet eine Ansicht in einem neuen Tab im Hintergrund, etwa nach einem ⌘-Klick. */
+  add: (target: ViewSearch) => void;
+  /** Öffnet eine Ansicht in einem neuen Tab und macht ihn aktiv; ist sie schon offen, wird ihr Tab aktiv. */
+  show: (target: ViewSearch) => Promise<void>;
+  /** Schließt den Tab einer Ansicht; war er aktiv, wird sein Nachbar aktiv. */
+  close: (target: { worktree: string; branch: string }) => void;
+}
+
+export const TabsContext = createContext<TabActions | null>(null);
 
 /** So viele Tabs zeigt die Tableiste; die übrigen stehen im Menü daneben. */
 export const SHOWN_TABS = 4;
@@ -45,24 +55,22 @@ interface TabBarProps {
   current: Tab;
   onChoose: (tab: Tab) => void;
   onClose: (tab: Tab) => void;
-  /** Das Menü des Projekts links vor den Tabs, weil das Projekt bestimmt, welche Tabs es gibt. */
-  project: ReactNode;
 }
 
 /**
  * Die Tabs ganz oben wie in Fork, weil die Web-App aus dem Dock keine eigenen hat. Links davor
- * stehen die zuletzt geöffneten Ansichten und das Projekt. Die Tabs stehen über der Kopfzeile, weil der Tab bestimmt, was darunter steht. Jeder Tab ist eine Ansicht; die Tabs
- * teilen sich die Breite. Sind es mehr als `SHOWN_TABS`, stehen die übrigen im Menü rechts. Mit
- * nur einem Tab fehlt das Schließen. Über einem Tab erscheint ein Knopf, der den Pfad des Worktrees
- * kopiert. Die Tabs zeigen nur, was offen ist; gewechselt wird über die Knöpfe der Kopfzeile. Der
- * aktive Tab ist breiter, damit seine Namen ganz zu lesen sind.
+ * stehen die zuletzt geöffneten Ansichten. Die Tabs stehen über der Kopfzeile, weil der Tab
+ * bestimmt, was darunter steht. Jeder Tab ist eine Ansicht; die Tabs teilen sich die Breite und
+ * sind gleich breit, ob aktiv oder nicht. Sind es mehr als `SHOWN_TABS`, stehen die übrigen im
+ * Menü rechts. Mit nur einem Tab fehlt das Schließen. Über einem Tab erscheint ein Knopf, der den
+ * Pfad des Worktrees kopiert. Die Tabs zeigen nur, was offen ist; gewechselt wird über die Knöpfe
+ * der Kopfzeile.
  */
-export function TabBar({ tabs, current, onChoose, onClose, project }: TabBarProps) {
+export function TabBar({ tabs, current, onChoose, onClose }: TabBarProps) {
   const rest = tabs.slice(SHOWN_TABS);
   return (
     <nav className="tabs" role="tablist" aria-label="Tabs">
       <RecentMenu current={current} className="tabs-recent" />
-      {project}
       {tabs.slice(0, SHOWN_TABS).map((tab) => {
         const active = sameTab(tab, current);
         return (
@@ -131,9 +139,17 @@ export function TabBar({ tabs, current, onChoose, onClose, project }: TabBarProp
   );
 }
 
-function CloseButton({ className, onClose }: { className: string; onClose: () => void }) {
+export function CloseButton({
+  className,
+  label = 'Tab schließen',
+  onClose,
+}: {
+  className: string;
+  label?: string;
+  onClose: () => void;
+}) {
   return (
-    <button type="button" className={className} aria-label="Tab schließen" data-tip="Tab schließen" onClick={onClose}>
+    <button type="button" className={className} aria-label={label} data-tip="Tab schließen" onClick={onClose}>
       ×
     </button>
   );

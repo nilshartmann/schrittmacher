@@ -5,9 +5,9 @@ Festgelegt und umgesetzt am 24.10.2026.
 ## Kopfzeile
 
 Repo, Worktree und Branch stehen im Tab und nicht in der Kopfzeile. Die Kopfzeile hat dafür
-Knöpfe mit einem Symbol, die direkt darunter ein Menü öffnen: einen Ordner für das Repo, ⌂ für
-den Worktree und das Symbol eines Branches für den Branch. Den Namen nennt der Tooltip. Der Knopf
-für den Worktree fehlt, wenn es nur einen gibt. Die Kopfzeile behält ihre feste Höhe. Die Zeilen
+zwei Knöpfe mit einem Symbol, die direkt darunter ein Menü öffnen: einen Ordner für das Repo und
+das Symbol eines Branches für Worktree und Branch. Den Namen nennt der Tooltip. Die Kopfzeile
+behält ihre feste Höhe. Die Zeilen
 im Menü sind mindestens 36 pt hoch. Ein Suchfeld dient der Tastatur des Macs und wird nie
 zwingend gebraucht.
 
@@ -18,19 +18,33 @@ zwingend gebraucht.
   Repos, weil ein Repo für einen Workshop weitere Repos enthalten kann.
 - Ein Worktree wird über `--git-common-dir` seinem Repo zugeordnet und erscheint nicht als eigenes
   Repo.
-- Im Menü stehen oben die Repos im Ordner des Projekts, darunter alle gefundenen nach Name und
-  zuletzt die über das Textfeld geöffneten. Die zuletzt geöffneten Ansichten stehen hinter der Uhr.
+- Im Menü stehen oben alle gefundenen Repos nach Name, darunter die über das Textfeld
+  geöffneten. Die zuletzt geöffneten Ansichten stehen hinter der Uhr.
   Das Suchfeld filtert alle Abschnitte.
 - Am Ende des Menüs steht ein freies Textfeld für einen Pfad, der per Copy & Paste eingefügt wird.
   Ein so geöffnetes Repo steht danach im Abschnitt „Über den Pfad geöffnet“.
 - Der Server öffnet nur Pfade, die in einer Wurzel liegen oder über das Textfeld geöffnet wurden.
+
+## Worktree und Branch
+
+Worktrees und Branches stehen in einem gemeinsamen Menü wie in der Seitenleiste von Fork. Oben
+stehen die Worktrees, darunter die lokalen Branches und die Remotes.
+
+Ein Klick auf eine Zeile ersetzt die Ansicht des aktiven Tabs. Rechts in jeder Zeile steht ein
+Knopf, der die Ansicht in einem neuen Tab rechts neben dem aktiven öffnet und ihn aktiv macht.
+Ist die Ansicht schon in einem Tab offen, zeigt der Knopf ein anderes Symbol, und ein Klick macht
+diesen Tab aktiv. Ein Branch, der in einem anderen Worktree ausgecheckt ist, öffnet sich im neuen
+Tab in diesem Worktree. Als offen gilt ein Branch, sobald ein Tab ihn in einem Worktree des Repos
+zeigt. Mit ⌘-Klick und der mittleren Maustaste öffnet sich der neue Tab im Hintergrund.
+Bei einem offenen Tab steht neben dem Knopf ein Kreuz, das den Tab schließt, außer es ist der letzte.
+Das Menü bleibt dabei offen.
 
 ## Worktree
 
 - Das Menü listet `git worktree list` mit Ordner und ausgechecktem Branch, der aktuelle ist
   markiert.
 - Wird ein Worktree gewählt, wird auch sein ausgecheckter Branch gewählt.
-- Hat ein Repo nur einen Worktree, öffnet der Knopf kein Menü.
+- Hat ein Repo nur einen Worktree, fehlt der Abschnitt der Worktrees.
 
 ## Branch
 
@@ -40,10 +54,13 @@ dem Live-Coding in `live_coding` zeigen.
 
 - Im Menü stehen die lokalen Branches, darunter die Remotes eingeklappt wie in Fork. Der
   ausgecheckte Branch des Worktrees ist markiert.
-- Weicht der gewählte Branch vom ausgecheckten ab, ist sein Knopf in der Kopfzeile in der Farbe
+- Weicht der gewählte Branch vom ausgecheckten ab, ist der Knopf in der Kopfzeile in der Farbe
   der Branch-Badges hinterlegt, und der Tooltip nennt den ausgecheckten.
 - Ein Klick auf einen Branch-Badge in der Commit-Liste wählt diesen Branch.
 - Die Remotes sind im Menü nach Remote gruppiert, wie in der Seitenleiste von Fork.
+- Lokale Branches mit `/` im Namen, etwa `backup/vor-listener`, stehen in einem Ordner wie
+  `backup` über den übrigen Branches. Ein Ordner ist eingeklappt, außer der gezeigte Branch liegt
+  darin. Sein Auge blendet alle Branches darin aus.
 
 ### Ausgeblendete Branches
 
@@ -84,7 +101,7 @@ anderen Speicher als Safari hat.
 
 - Die Ansicht steht in der URL, etwa `/?repo=…&worktree=live_coding&branch=schritte&to=07&file=…`.
   Zurück, Vor und Lesezeichen funktionieren damit.
-- Ein Knopf mit Uhr-Symbol ganz links in der Tableiste, vor dem Projekt, öffnet die zuletzt
+- Ein Knopf mit Uhr-Symbol ganz links in der Tableiste öffnet die zuletzt
   geöffneten Ansichten. Jede Zeile nennt Repo, Branch und Schritt.
 - Die Einträge der zuletzt geöffneten Ansichten und der Repos sind Links. Mit ⌘-Klick oder der
   mittleren Maustaste öffnen sie sich in einem neuen Tab der Tableiste.
@@ -95,14 +112,17 @@ Die Web-App aus dem Dock hat keine Tabs. Deshalb liegt wie in Fork eine eigene T
 der Kopfzeile. Jeder Tab ist eine Ansicht. Die Tabs dienen nur zum Lesen; ein Klick wechselt den
 Tab, gewechselt wird über die Knöpfe der Kopfzeile.
 
-- Ein neuer Tab öffnet sich im Hintergrund rechts neben dem aktiven.
+- Es gibt eine einzige Tableiste, wie in Fork. Projekte, die je eigene Tabs hatten, gibt es seit
+  dem 25.10.2026 nicht mehr. Ein älterer Zustand bringt die Tabs aller Projekte in diese Tableiste.
+- Ein neuer Tab öffnet sich rechts neben dem aktiven. Über den Knopf im Menü wird er aktiv, mit
+  ⌘-Klick oder der mittleren Maustaste bleibt er im Hintergrund.
 - Ein Wechsel von Repo, Worktree oder Branch in der Kopfzeile ersetzt die Ansicht des aktiven
   Tabs. Ist die neue Ansicht schon in einem anderen Tab offen, wird dieser aktiv.
 - Ein Tab öffnet seine Ansicht mit dem gemerkten Vergleich und der gemerkten Datei.
 - Das Schließen-Kreuz steht am aktiven Tab und erscheint beim Überfahren der anderen. Der letzte
   Tab lässt sich nicht schließen.
-- Die Beschriftung nennt Repo, Worktree und Branch. Zuerst wird der Name des Repos gekürzt. Der
-  aktive Tab ist breiter als die übrigen.
+- Die Beschriftung nennt Repo, Worktree und Branch. Zuerst wird der Name des Repos gekürzt. Alle
+  Tabs sind gleich breit, auch der aktive.
 - Das Kommando `schrittmacher <pfad>` öffnet den Worktree zum Pfad in einem neuen Tab und macht
   ihn aktiv, wie `fork <pfad>` in Fork. Ist er schon offen, wird sein Tab aktiv.
 - Die offenen Tabs speichert der Server in `state.json`.

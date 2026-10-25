@@ -2,7 +2,7 @@ import { Link } from '@tanstack/react-router';
 import { useContext, useEffect, useRef, useState } from 'react';
 import type { MouseEvent, ReactNode } from 'react';
 import type { ViewSearch } from '../server/store';
-import { NewTabContext } from './Tabs';
+import { TabsContext } from './Tabs';
 
 interface MenuProps {
   /** Der Inhalt des Knopfs. */
@@ -86,12 +86,17 @@ interface MenuItemProps {
    * Klick.
    */
   link?: ViewSearch;
+  /**
+   * Die Ansicht, die ⌘-Klick und mittlere Maustaste in einem neuen Tab öffnen, wenn die Zeile kein
+   * Link ist, weil `onChoose` die Ansicht erst beim Server ergänzt.
+   */
+  newTab?: ViewSearch;
   onChoose: () => void;
 }
 
 /** Eine Zeile des Menüs; die aktuelle hat einen Haken. */
 export function MenuItem(props: MenuItemProps) {
-  const newTab = useContext(NewTabContext);
+  const newTab = useContext(TabsContext)?.add ?? null;
   const content = (
     <>
       <span className="menu-check" aria-hidden="true">
@@ -132,10 +137,72 @@ export function MenuItem(props: MenuItemProps) {
       </Link>
     );
   }
+  const target = props.newTab;
   return (
-    <button type="button" {...shared} onClick={props.onChoose}>
+    <button
+      type="button"
+      {...shared}
+      onClick={(event) => {
+        if (newTab !== null && target !== undefined && event.metaKey) {
+          newTab(target);
+        } else {
+          props.onChoose();
+        }
+      }}
+      onAuxClick={(event) => {
+        if (newTab !== null && target !== undefined && event.button === 1) {
+          event.preventDefault();
+          newTab(target);
+        }
+      }}
+    >
       {content}
     </button>
+  );
+}
+
+/**
+ * Der Knopf rechts in einer Zeile, der ihre Ansicht in einem neuen Tab öffnet und ihn aktiv macht.
+ * Ist die Ansicht schon in einem Tab offen, zeigt er ein anderes Symbol und holt diesen Tab nach
+ * vorn.
+ */
+export function NewTabButton({ name, open, onClick }: { name: string; open: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      className="menu-new-tab"
+      aria-label={open ? `Tab von ${name} zeigen` : `${name} in neuem Tab öffnen`}
+      data-tip={open ? 'Offenen Tab zeigen' : 'In neuem Tab öffnen'}
+      onClick={onClick}
+    >
+      {open ? <OpenTabIcon /> : <NewTabIcon />}
+    </button>
+  );
+}
+
+/** Ein Rahmen mit einem Pfeil nach außen, wie für einen Link in einem neuen Fenster. */
+function NewTabIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+      <path
+        d="M7.5 3.25H4.25c-.6 0-1 .4-1 1v9.5c0 .6.4 1 1 1h9.5c.6 0 1-.4 1-1V10.5M10.5 3.25h4.25V7.5M14.5 3.5 8.5 9.5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+/** Ein Fenster mit einem gefüllten Tab oben links, für eine Ansicht, die schon in einem Tab offen ist. */
+function OpenTabIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+      <rect x="2.25" y="3.25" width="13.5" height="11.5" rx="1.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M2.25 4.75c0-.8.7-1.5 1.5-1.5H8.5v3.5H2.25z" fill="currentColor" />
+    </svg>
   );
 }
 

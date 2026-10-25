@@ -708,6 +708,8 @@ export const DEMO_REPO: MemoryRepo = {
     { name: 'live_coding', kind: 'local', sha: 'b3e70d1' },
     { name: 'workshop/live_coding', kind: 'remote', sha: 'b3e70d1' },
     { name: 'schritte', kind: 'local', sha: '84c7d2f' },
+    { name: 'backup/vor-transaktionen', kind: 'local', sha: '51c08ad' },
+    { name: 'backup/vor-listener', kind: 'local', sha: '9be4d71' },
     { name: 'origin/schritte', kind: 'remote', sha: '84c7d2f' },
   ],
   checkedOut: 'live_coding',

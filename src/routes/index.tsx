@@ -1,11 +1,10 @@
-import { createFileRoute, redirect, useRouter } from '@tanstack/react-router';
+import { createFileRoute, redirect } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 import { findCommit, reachable } from '../git/repo';
 import { loadView, resolveView, saveTabs, saveView, tabOf, takeTabRequest } from '../server/repo.functions';
 import type { Tab, ViewSearch } from '../server/store';
 import { EmptyHeader } from '../viewer/Header';
-import { ProjectMenu } from '../viewer/ProjectMenu';
-import { NewTabContext, sameTab, TabBar, withVisible } from '../viewer/Tabs';
+import { sameTab, TabBar, TabsContext, withVisible } from '../viewer/Tabs';
 import { Tooltips } from '../viewer/Tooltips';
 import { Viewer } from '../viewer/Viewer';
 import type { LoadedView } from '../viewer/Viewer';
@@ -60,7 +59,6 @@ export const Route = createFileRoute('/')({
 
 function useOpen() {
   const navigate = Route.useNavigate();
-  const router = useRouter();
   const show = (view: ViewSearch) => {
     void navigate({ to: '/', search: view });
   };
@@ -70,29 +68,19 @@ function useOpen() {
       show(view);
     }
   };
-  // Nach einem Wechsel des Projekts lädt die Seite neu, auch wenn die Ansicht dieselbe bleibt,
-  // weil das Projekt seine eigenen Tabs mitbringt.
-  const showProject = (view: ViewSearch | null) => {
-    void navigate({ to: '/', search: view ?? {} }).then(() => router.invalidate());
-  };
-  const reload = () => {
-    void router.invalidate();
-  };
-  return { show, open, showProject, reload };
+  return { show, open };
 }
 
 function Index() {
   const view = Route.useLoaderData();
   const search = Route.useSearch();
-  // Ein anderes Projekt bringt eigene Tabs mit, deshalb beginnt die Ansicht dann von vorn.
-  return view === null ? <NoView /> : <OpenedView key={view.project} view={view} search={search} />;
+  return view === null ? <NoView /> : <OpenedView view={view} search={search} />;
 }
 
 function OpenedView({ view, search }: { view: LoadedView; search: ViewSearch }) {
   const navigate = Route.useNavigate();
-  const { show, open, showProject, reload } = useOpen();
+  const { show, open } = useOpen();
   const { worktree, branch, to, from, file } = search;
-  const { project } = view;
   const { commits, start } = view.repo;
   const title = to === undefined ? undefined : findCommit(commits, to, reachable(commits, start))?.title;
 
@@ -102,20 +90,20 @@ function OpenedView({ view, search }: { view: LoadedView; search: ViewSearch }) 
       return;
     }
     const timer = setTimeout(() => {
-      saveView({ data: { project, worktree, branch, to, from, file, title } }).catch((error: unknown) => {
+      saveView({ data: { worktree, branch, to, from, file, title } }).catch((error: unknown) => {
         console.error('Die Ansicht ließ sich nicht merken.', error);
       });
     }, SAVE_DELAY);
     return () => {
       clearTimeout(timer);
     };
-  }, [project, worktree, branch, to, from, file, title]);
+  }, [worktree, branch, to, from, file, title]);
 
   const tabs = useTabs(view, open);
   useTabRequests(tabs.openNew);
 
   return (
-    <NewTabContext.Provider value={tabs.add}>
+    <TabsContext.Provider value={{ tabs: tabs.list, add: tabs.add, show: tabs.openNew, close: tabs.close }}>
       <Viewer
         view={view}
         search={search}
@@ -130,19 +118,10 @@ function OpenedView({ view, search }: { view: LoadedView; search: ViewSearch }) 
             current={tabs.current}
             onChoose={tabs.choose}
             onClose={tabs.close}
-            project={
-              <ProjectMenu
-                project={project}
-                tabs={tabs.list}
-                onProject={showProject}
-                onTabs={tabs.replace}
-                onRenamed={reload}
-              />
-            }
           />
         }
       />
-    </NewTabContext.Provider>
+    </TabsContext.Provider>
   );
 }
 
@@ -150,9 +129,8 @@ function OpenedView({ view, search }: { view: LoadedView; search: ViewSearch }) 
  * Die Tabs der Tableiste. Wechselt der aktive Tab seine Ansicht, etwa über die Menüs der
  * Kopfzeile, ersetzt die neue Ansicht ihn; ist sie schon in einem anderen Tab offen, wird dieser
  * aktiv. Ein neuer Tab steht rechts neben dem aktiven und öffnet sich im Hintergrund. Der aktive
- * Tab steht immer unter den sichtbaren, siehe `withVisible`. Der Server
- * merkt sich die Tabs im Projekt, damit sie nach dem Neuladen wieder da sind. Setzt die Auswahl
- * der Ansichten neue Tabs, öffnet sich der erste, wenn der aktive nicht mehr dabei ist.
+ * Tab steht immer unter den sichtbaren, siehe `withVisible`. Der Server merkt sich die Tabs, damit
+ * sie nach dem Neuladen wieder da sind.
  */
 function useTabs(view: LoadedView, open: (target: ViewSearch) => Promise<void>) {
   const { info } = view.repo;
@@ -170,7 +148,7 @@ function useTabs(view: LoadedView, open: (target: ViewSearch) => Promise<void>) 
       return;
     }
     saved.current = list;
-    saveTabs({ data: { project: view.project, tabs: list } }).catch((error: unknown) => {
+    saveTabs({ data: { tabs: list } }).catch((error: unknown) => {
       console.error('Die Tabs ließen sich nicht merken.', error);
     });
   }, [list]);
@@ -192,23 +170,13 @@ function useTabs(view: LoadedView, open: (target: ViewSearch) => Promise<void>) 
     choose: (tab: Tab) => {
       void open({ worktree: tab.worktree, branch: tab.branch });
     },
-    close: (closed: Tab) => {
+    close: (closed: { worktree: string; branch: string }) => {
       const at = list.findIndex((tab) => sameTab(tab, closed));
       const rest = list.filter((tab) => !sameTab(tab, closed));
       setList(rest);
       const next = rest[Math.min(at, rest.length - 1)];
       if (sameTab(closed, current) && next !== undefined) {
         void open({ worktree: next.worktree, branch: next.branch });
-      }
-    },
-    replace: (tabs: Tab[]) => {
-      // Der Server kennt die neuen Tabs schon.
-      const shown = withVisible(tabs, current);
-      saved.current = shown;
-      setList(shown);
-      const first = tabs[0];
-      if (!tabs.some((tab) => sameTab(tab, current)) && first !== undefined) {
-        void open({ worktree: first.worktree, branch: first.branch });
       }
     },
     add: (target: ViewSearch) => {
@@ -218,7 +186,10 @@ function useTabs(view: LoadedView, open: (target: ViewSearch) => Promise<void>) 
         }
       });
     },
-    /** Öffnet eine Ansicht in einem neuen Tab und macht ihn aktiv, etwa vom Kommando `schrittmacher`. */
+    /**
+     * Öffnet eine Ansicht in einem neuen Tab und macht ihn aktiv, etwa vom Kommando `schrittmacher`
+     * oder aus dem Menü. Ist sie schon offen, wird ihr Tab aktiv.
+     */
     openNew: async (target: ViewSearch) => {
       const added = await tabOf({ data: target });
       if (added !== null) {
@@ -282,12 +253,10 @@ function useTabRequests(openNew: (target: ViewSearch) => Promise<void>) {
 
 /** Ohne Ansicht, beim allerersten Start oder wenn sie sich nicht öffnen lässt. */
 function NoView({ message }: { message?: string }) {
-  const { show, showProject, reload } = useOpen();
+  const { show } = useOpen();
   return (
     <div className="app">
-      <nav className="tabs" aria-label="Tabs">
-        <ProjectMenu project={null} tabs={[]} onProject={showProject} onTabs={reload} onRenamed={reload} />
-      </nav>
+      <nav className="tabs" aria-label="Tabs" />
       <EmptyHeader onShow={show} />
       <p className="empty">{message ?? 'Noch ist kein Repo geöffnet.'}</p>
       <Tooltips />

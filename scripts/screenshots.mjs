@@ -25,6 +25,11 @@ const viewport =
     ? SCREEN
     : { width: SCREEN.width, height: SCREEN.height - MENU_AND_TITLE_BAR };
 
+/** Öffnet das Menü für Worktree und Branch. */
+const whereMenu = (page) => page.getByRole('button', { name: 'Worktree und Branch', exact: true }).click();
+/** Ein Branch im Menü, ohne die Worktrees, deren Zeile den Branch ebenfalls nennt. */
+const branchItem = (page, name) =>
+  page.locator('.menu-item').filter({ has: page.locator('.menu-main', { hasText: new RegExp(`^${name}$`) }) });
 const button = (page, title) => page.locator(`button[data-tip="${title}"]`);
 const commit = (page, step) =>
   page.locator('.commit', { has: page.locator('.commit-step', { hasText: new RegExp(`^${step}$`) }) });
@@ -42,8 +47,8 @@ async function dragBy(page, selector, dx, dy) {
 
 /** Wechselt in den Worktree mit live_coding und wählt dort die lokalen Änderungen. */
 async function openLocal(page) {
-  await page.getByRole('button', { name: 'Worktree', exact: true }).click();
-  await page.getByRole('menuitem', { name: /live_coding/ }).click();
+  await whereMenu(page);
+  await page.getByRole('menuitem', { name: /^⌂.*live_coding/ }).click();
   await page.locator('.commit-local').click();
   await page.locator('.file', { hasText: 'NOTIZEN.md' }).waitFor();
 }
@@ -114,19 +119,19 @@ const SHOTS = [
   ],
   ['13-aufgeklappt', async (page) => page.locator('.pane-new .gap-toggle').first().click()],
   ['14-menue-repo', async (page) => page.getByRole('button', { name: 'Repo', exact: true }).click()],
-  ['15-menue-worktree', async (page) => page.getByRole('button', { name: 'Worktree', exact: true }).click()],
+  ['15-menue-worktree', whereMenu],
   [
     '16-menue-branch',
     async (page) => {
-      await page.getByRole('button', { name: 'Branch', exact: true }).click();
-      await page.locator('.menu-toggle').click();
+      await whereMenu(page);
+      await page.locator('.menu-toggle', { hasText: 'Remotes' }).click();
     },
   ],
   [
     '17-fremder-branch',
     async (page) => {
-      await page.getByRole('button', { name: 'Branch', exact: true }).click();
-      await page.getByRole('menuitem', { name: 'live_coding' }).click();
+      await whereMenu(page);
+      await branchItem(page, 'live_coding').click();
       await page.locator('.tool-foreign').waitFor();
     },
   ],
@@ -135,8 +140,8 @@ const SHOTS = [
     async (page) => {
       // Eine Ansicht wird erst gemerkt, wenn die Wahl eine Weile steht.
       await page.waitForTimeout(600);
-      await page.getByRole('button', { name: 'Branch', exact: true }).click();
-      await page.getByRole('menuitem', { name: 'main' }).click();
+      await whereMenu(page);
+      await branchItem(page, 'main').click();
       await page.locator('.tool-foreign').waitFor();
       await page.waitForTimeout(600);
       await page.getByRole('button', { name: 'Zuletzt geöffnete Ansichten' }).click();
@@ -146,8 +151,8 @@ const SHOTS = [
   [
     '19-branches-ausgeblendet',
     async (page) => {
-      await page.getByRole('button', { name: 'Branch', exact: true }).click();
-      await page.locator('.menu-toggle').click();
+      await whereMenu(page);
+      await page.locator('.menu-toggle', { hasText: 'Remotes' }).click();
       await page.getByRole('button', { name: 'alle Branches von origin ausblenden' }).click();
       await page.getByRole('button', { name: 'main ausblenden' }).first().click();
       await page.mouse.move(0, 0);
@@ -169,16 +174,16 @@ const SHOTS = [
       await page.mouse.move(0, 0);
     },
   ],
-  ['21-menue-projekt', async (page) => page.getByRole('button', { name: 'Projekt', exact: true }).click()],
   [
-    '22-neues-projekt',
+    '20b-neuer-tab',
     async (page) => {
-      await page.getByRole('button', { name: 'Projekt', exact: true }).click();
-      await page.getByRole('menuitem', { name: /Neues Projekt/ }).click();
-      await page.getByLabel('Name des Projekts').fill('W-JAX 2026');
-      await page.getByLabel('Ordner des Projekts').fill(join(tmpdir(), 'schrittmacher-testdaten'));
-      await page.getByRole('button', { name: 'Suchen' }).click();
-      await page.locator('.choice').first().waitFor();
+      await whereMenu(page);
+      await page.getByRole('button', { name: 'live_coding in neuem Tab öffnen' }).click();
+      await page.locator('.tab[aria-selected="true"]', { hasText: 'live_coding' }).waitFor();
+      await whereMenu(page);
+      await page.locator('.menu-toggle', { hasText: 'backup' }).click();
+      await page.getByRole('button', { name: 'Tab von schritte schließen' }).first().hover();
+      await page.waitForTimeout(700);
     },
   ],
   ['23-lokale-aenderungen', openLocal],

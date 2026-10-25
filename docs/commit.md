@@ -5,7 +5,7 @@ Festgelegt und umgesetzt am 25.10.2026.
 ## Ablauf einer Veranstaltung
 
 Vor einer Veranstaltung wird vom Stand auf `main` ein Branch für das Live-Coding angelegt, meist
-`live_coding`, und im Worktree ausgecheckt. Ein Projekt in Schrittmacher hat dafür zwei Tabs:
+`live_coding`, und im Worktree ausgecheckt. In Schrittmacher sind dafür zwei Tabs offen:
 
 - **Live**: der Worktree mit dem ausgecheckten Branch für das Live-Coding
 - **Schritte**: derselbe Worktree mit dem Branch `schritte`, nicht ausgecheckt

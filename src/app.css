@@ -329,6 +329,30 @@ a.menu-item {
   cursor: default;
 }
 
+.menu-new-tab {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: var(--target);
+  height: var(--target);
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--quiet);
+  cursor: pointer;
+}
+
+.menu-new-tab:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+/* Hält den Platz des Auges frei, damit die Knöpfe für neue Tabs untereinander stehen */
+.menu-spacer {
+  flex: none;
+  width: var(--target);
+}
+
 .menu-toggle .menu-check {
   color: var(--quiet);
 }
@@ -347,12 +371,6 @@ a.menu-item {
 .menu-panel > .menu-input {
   flex: none;
   margin-bottom: 4px;
-}
-
-.menu-divider {
-  margin: 6px 0;
-  border: none;
-  border-top: 1px solid var(--line-soft);
 }
 
 .menu-form {
@@ -977,7 +995,7 @@ a.menu-item {
 
 .tooltip {
   position: fixed;
-  z-index: 10;
+  z-index: 40;
   max-width: min(640px, calc(100vw - 8px));
   padding: 4px 8px;
   border-radius: 5px;
@@ -1318,7 +1336,7 @@ a.menu-item {
   align-items: center;
   min-width: 0;
   overflow: hidden;
-  max-width: 320px;
+  max-width: 420px;
   border-right: 1px solid var(--line);
   color: var(--quiet);
   font-size: var(--size-small);
@@ -1373,12 +1391,6 @@ a.menu-item {
   margin-left: 0.3em;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-/* Der aktive Tab ist breiter, damit seine Namen ganz zu lesen sind. */
-.tab[aria-selected='true'] {
-  flex-grow: 2;
-  max-width: 520px;
 }
 
 .tab-close {
@@ -1449,93 +1461,6 @@ a.menu-item {
   color: var(--ink);
 }
 
-/* Dialog zur Auswahl der Ansichten eines Projekts */
-
-.dialog-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 30;
-  display: grid;
-  place-items: center;
-  background: rgb(0 0 0 / 25%);
-}
-
-.dialog {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  width: min(640px, calc(100vw - 24px));
-  max-height: calc(100vh - 48px);
-  padding: 14px;
-  border: 1px solid var(--line);
-  border-radius: 11px;
-  background: var(--surface);
-  box-shadow: 0 12px 40px rgb(0 0 0 / 25%);
-  color: var(--ink);
-  font-size: var(--size-ui);
-}
-
-.dialog-title {
-  margin: 0 0 2px;
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.dialog-folder {
-  display: flex;
-  flex: none;
-  gap: 6px;
-}
-
-.dialog-list {
-  flex: 1 1 auto;
-  min-height: 120px;
-  overflow-y: auto;
-  border: 1px solid var(--line-soft);
-  border-radius: 7px;
-  padding: 2px 4px 6px;
-}
-
-.dialog-path {
-  margin-left: 6px;
-  font-weight: 400;
-}
-
-.choice {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-height: var(--target);
-  padding: 4px 8px;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.choice:hover {
-  background: var(--hover);
-}
-
-.choice > input {
-  flex: none;
-  width: 20px;
-  height: 16px;
-  margin: 0;
-  accent-color: var(--accent);
-}
-
-.dialog-actions {
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: 6px;
-}
-
-.dialog-count {
-  flex: 1 1 auto;
-  color: var(--quiet);
-  font-size: var(--size-small);
-}
-
 /* Das Menü mit den Tabs, die nicht in die Tableiste passen */
 .tabs-more {
   flex: none;
@@ -1595,44 +1520,6 @@ a.menu-item {
 .tabs-recent[aria-expanded='true'] {
   background: var(--hover);
   color: var(--ink);
-}
-
-/* Das Projekt links in der Tableiste; sein Name wird erst gekürzt, wenn er sehr lang ist. */
-.menu:has(> .tabs-project) {
-  flex: none;
-  max-width: 200px;
-  border-right: 1px solid var(--line);
-}
-
-.tabs-project {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  min-width: 0;
-  height: var(--tabs-height);
-  padding: 0 10px;
-  border: none;
-  border-radius: 0;
-  background: transparent;
-  color: var(--ink);
-  font-size: var(--size-small);
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.tabs-project:hover,
-.tabs-project[aria-expanded='true'] {
-  background: var(--hover);
-}
-
-.tabs-project-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.tabs-project-icon {
-  flex: none;
 }
 
 /* Commit-Liste und Dateiliste nehmen mit dem Fokus die Pfeiltasten an; die Auswahl zeigt, welche. */

@@ -45,9 +45,7 @@ export interface LoadedView {
   settings: Record<string, unknown>;
   /** Die ausgeblendeten Branches des Repos, siehe `Hidden`. */
   hidden: string[];
-  /** Der Name des aktiven Projekts. */
-  project: string;
-  /** Die gemerkten Tabs des Projekts; sie gelten nur beim Öffnen der Seite. */
+  /** Die gemerkten Tabs; sie gelten nur beim Öffnen der Seite. */
   tabs: Tab[];
 }
 
