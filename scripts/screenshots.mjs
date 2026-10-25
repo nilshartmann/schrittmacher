@@ -161,6 +161,18 @@ const SHOTS = [
       await page.mouse.move(0, 0);
     },
   ],
+  ['21-menue-projekt', async (page) => page.getByRole('button', { name: 'Projekt', exact: true }).click()],
+  [
+    '22-neues-projekt',
+    async (page) => {
+      await page.getByRole('button', { name: 'Projekt', exact: true }).click();
+      await page.getByRole('menuitem', { name: /Neues Projekt/ }).click();
+      await page.getByLabel('Name des Projekts').fill('W-JAX 2026');
+      await page.getByLabel('Ordner des Projekts').fill(join(tmpdir(), 'schrittmacher-testdaten'));
+      await page.getByRole('button', { name: 'Suchen' }).click();
+      await page.locator('.choice').first().waitFor();
+    },
+  ],
 ];
 
 await mkdir('screenshots', { recursive: true });

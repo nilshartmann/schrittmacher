@@ -59,7 +59,10 @@ function useChoice(close: () => void): [string | null, (choose: () => Promise<vo
   ];
 }
 
-/** Das Repo in der Kopfzeile, mit den zuletzt geöffneten, den gefundenen und einem Textfeld. */
+/**
+ * Das Repo in der Kopfzeile, mit den im Projekt zuletzt geöffneten, denen im Ordner des Projekts,
+ * den gefundenen und einem Textfeld.
+ */
 export function RepoMenu({
   info,
   initiallyOpen,
@@ -143,11 +146,15 @@ function RepoList({
       {data === null && error === null && <MenuNote>Sucht Repos …</MenuNote>}
       {data !== null && (
         <div className="menu-scroll">
-          {data.recent.length > 0 && <MenuSection>Zuletzt geöffnete Repos</MenuSection>}
+          {data.recent.length > 0 && <MenuSection>Zuletzt in {data.project} geöffnet</MenuSection>}
           {items(data.recent, data.home)}
+          {data.folder !== null && data.inFolder.length > 0 && (
+            <MenuSection>In {short(data.folder, data.home)}</MenuSection>
+          )}
+          {items(data.inFolder, data.home)}
           <MenuSection>In {data.roots.map((root) => short(root, data.home)).join(', ')}</MenuSection>
           {items(data.found, data.home)}
-          {data.found.length === 0 && <MenuNote>Keine Repos gefunden.</MenuNote>}
+          {data.found.length === 0 && <MenuNote>Keine weiteren Repos gefunden.</MenuNote>}
         </div>
       )}
       <form className="menu-form" onSubmit={onSubmit}>

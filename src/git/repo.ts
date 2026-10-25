@@ -40,6 +40,8 @@ export interface RepoSource {
    */
   state: () => Promise<string>;
   worktrees: () => Promise<Worktree[]>;
+  /** Die lokalen Branches und die der Remotes, ohne ihre Commits zu laden. */
+  branches: () => Promise<Ref[]>;
 }
 
 /**

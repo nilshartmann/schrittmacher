@@ -1,4 +1,5 @@
 import { createContext } from 'react';
+import type { ReactNode } from 'react';
 import type { Tab, ViewSearch } from '../server/store';
 
 /** Öffnet eine Ansicht in einem neuen Tab, etwa nach einem ⌘-Klick auf einen Eintrag der Menüs. */
@@ -13,15 +14,18 @@ interface TabBarProps {
   current: Tab;
   onChoose: (tab: Tab) => void;
   onClose: (tab: Tab) => void;
+  /** Das Menü des Projekts links vor den Tabs, weil das Projekt bestimmt, welche Tabs es gibt. */
+  project: ReactNode;
 }
 
 /**
  * Die Tabs unter der Kopfzeile wie in Fork, weil die Web-App aus dem Dock keine eigenen hat. Jeder
  * Tab ist eine Ansicht; die Tabs teilen sich die Breite. Mit nur einem Tab fehlt das Schließen.
  */
-export function TabBar({ tabs, current, onChoose, onClose }: TabBarProps) {
+export function TabBar({ tabs, current, onChoose, onClose, project }: TabBarProps) {
   return (
     <nav className="tabs" role="tablist" aria-label="Tabs">
+      {project}
       {tabs.map((tab) => {
         const active = sameTab(tab, current);
         return (

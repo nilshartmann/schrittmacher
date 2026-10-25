@@ -40,6 +40,23 @@ export interface Tab {
   worktreeName: string;
 }
 
+/**
+ * Ein Projekt, etwa ein Workshop: seine Tabs und seine zuletzt geöffneten Ansichten. Die Repos im
+ * Ordner bietet die Auswahl der Ansichten an; ohne Ordner gibt es diese Auswahl nicht.
+ */
+export interface Project {
+  /** Der Name, zugleich die Kennung; zwei Projekte heißen nie gleich. */
+  name: string;
+  folder?: string;
+  /** Die Tabs der Tableiste, von links nach rechts. */
+  tabs: Tab[];
+  /** Die Ansichten, die zuletzt geöffnete zuerst. */
+  views: SavedView[];
+}
+
+/** Das Projekt für die Tabs und Ansichten aus der Zeit vor den Projekten. */
+export const FIRST_PROJECT = 'Allgemein';
+
 /** Die Konfiguration in `config.json`, von Hand gepflegt. */
 interface Config {
   /** Die Verzeichnisse, in denen nach Repos gesucht wird; `~` steht für das Home-Verzeichnis. */
@@ -47,20 +64,20 @@ interface Config {
 }
 
 /** Der Zustand in `state.json`, vom Server geschrieben. */
-interface State {
+export interface State {
   /** Die Repos, die über das Textfeld geöffnet wurden und außerhalb der Wurzeln liegen. */
   opened: string[];
-  /** Die Ansichten, die zuletzt geöffnete zuerst. */
-  views: SavedView[];
+  /** Die Projekte; es gibt immer mindestens eins. */
+  projects: Project[];
+  /** Der Name des aktiven Projekts. */
+  project: string;
   /** Die Einstellungen der Oberfläche, für alle Ansichten gleich; ihr Schema kennt nur sie. */
   settings: Record<string, JsonValue>;
   /** Die ausgeblendeten Branches je Repo, siehe `Hidden`. */
   hidden: Record<string, string[]>;
-  /** Die Tabs der Tableiste, von links nach rechts. */
-  tabs: Tab[];
 }
 
-/** So viele Ansichten merkt sich der Server. */
+/** So viele Ansichten merkt sich der Server je Projekt. */
 const KEPT_VIEWS = 30;
 
 /** Der Ordner für Konfiguration und Zustand und die Wurzeln, falls die Konfiguration fehlt. */
@@ -120,16 +137,26 @@ export function createStore(options: StoreOptions) {
   async function state(): Promise<State> {
     const raw = await readJson(stateFile);
     const record = isRecord(raw) ? raw : {};
+    const projects = Array.isArray(record.projects) ? record.projects.flatMap(projectOf) : [];
+    if (projects.length === 0) {
+      // Tabs und Ansichten von vor den Projekten standen direkt im Zustand.
+      projects.push({
+        name: FIRST_PROJECT,
+        tabs: Array.isArray(record.tabs) ? record.tabs.filter(isTab) : [],
+        views: Array.isArray(record.views) ? record.views.filter(isSavedView) : [],
+      });
+    }
+    const project = projects.find((candidate) => candidate.name === record.project) ?? projects[0];
     return {
       opened: Array.isArray(record.opened) ? record.opened.filter(isString) : [],
-      views: Array.isArray(record.views) ? record.views.filter(isSavedView) : [],
+      projects,
+      project: project?.name ?? FIRST_PROJECT,
       settings: isRecord(record.settings) ? (record.settings as Record<string, JsonValue>) : {},
       hidden: isRecord(record.hidden)
         ? Object.fromEntries(
             Object.entries(record.hidden).map(([repo, list]) => [repo, Array.isArray(list) ? list.filter(isString) : []]),
           )
         : {},
-      tabs: Array.isArray(record.tabs) ? record.tabs.filter(isTab) : [],
     };
   }
 
@@ -139,17 +166,64 @@ export function createStore(options: StoreOptions) {
     return next;
   }
 
+  /** Ändert ein Projekt; ein Projekt, das es nicht mehr gibt, bleibt weg. */
+  function updateProject(name: string, change: (project: Project) => Project): Promise<void> {
+    return update((current) => ({
+      ...current,
+      projects: current.projects.map((project) => (project.name === name ? change(project) : project)),
+    }));
+  }
+
   return {
     /** Die Wurzeln mit aufgelöstem `~`. */
     roots: async () => (await config()).roots.map(expandHome),
     state,
-    /** Merkt sich die Ansicht als die zuletzt geöffnete. */
-    saveView: (view: SavedView) =>
-      update((current) => ({
-        ...current,
-        views: [view, ...current.views.filter((other) => !sameView(other, view))].slice(0, KEPT_VIEWS),
+    /** Merkt sich die Ansicht im Projekt als die zuletzt geöffnete. */
+    saveView: (projectName: string, view: SavedView) =>
+      updateProject(projectName, (project) => ({
+        ...project,
+        views: [view, ...project.views.filter((other) => !sameView(other, view))].slice(0, KEPT_VIEWS),
       })),
-    saveTabs: (tabs: Tab[]) => update((current) => ({ ...current, tabs })),
+    saveTabs: (projectName: string, tabs: Tab[]) => updateProject(projectName, (project) => ({ ...project, tabs })),
+    /** Legt ein Projekt an und macht es zum aktiven. */
+    addProject: (project: Project) =>
+      update((current) => {
+        if (current.projects.some((other) => other.name === project.name)) {
+          throw new Error(`Ein Projekt mit dem Namen '${project.name}' gibt es schon.`);
+        }
+        return { ...current, projects: [...current.projects, project], project: project.name };
+      }),
+    /** Setzt Ordner und Tabs eines Projekts, aus der Auswahl der Ansichten. */
+    chooseTabs: (projectName: string, folder: string, tabs: Tab[]) =>
+      updateProject(projectName, (project) => ({ ...project, folder, tabs })),
+    activateProject: (projectName: string) =>
+      update((current) => {
+        if (!current.projects.some((project) => project.name === projectName)) {
+          throw new Error(`Das Projekt '${projectName}' gibt es nicht.`);
+        }
+        return { ...current, project: projectName };
+      }),
+    renameProject: (from: string, to: string) =>
+      update((current) => {
+        if (current.projects.some((project) => project.name === to)) {
+          throw new Error(`Ein Projekt mit dem Namen '${to}' gibt es schon.`);
+        }
+        return {
+          ...current,
+          projects: current.projects.map((project) => (project.name === from ? { ...project, name: to } : project)),
+          project: current.project === from ? to : current.project,
+        };
+      }),
+    /** Löscht ein Projekt; das letzte bleibt. War es das aktive, wird das erste aktiv. */
+    deleteProject: (projectName: string) =>
+      update((current) => {
+        const projects = current.projects.filter((project) => project.name !== projectName);
+        const first = projects[0];
+        if (first === undefined) {
+          throw new Error('Das letzte Projekt lässt sich nicht löschen.');
+        }
+        return { ...current, projects, project: current.project === projectName ? first.name : current.project };
+      }),
     saveSettings: (settings: Record<string, JsonValue>) => update((current) => ({ ...current, settings })),
     saveHidden: (repoPath: string, hidden: string[]) =>
       update((current) => ({ ...current, hidden: { ...current.hidden, [repoPath]: hidden } })),
@@ -161,6 +235,24 @@ export function createStore(options: StoreOptions) {
 }
 
 export type Store = ReturnType<typeof createStore>;
+
+/** Das aktive Projekt; `state` liefert immer eins. */
+export function activeProject(state: State): Project {
+  const project = state.projects.find((candidate) => candidate.name === state.project) ?? state.projects[0];
+  if (project === undefined) {
+    throw new Error('Es gibt kein Projekt.');
+  }
+  return project;
+}
+
+/**
+ * Die gemerkten Ansichten aller Projekte, die des aktiven zuerst. Darin findet sich zu einem Repo
+ * oder einer Ansicht die zuletzt geöffnete, auch wenn sie in einem anderen Projekt offen war.
+ */
+export function allViews(state: State): SavedView[] {
+  const active = activeProject(state);
+  return [...active.views, ...state.projects.filter((project) => project !== active).flatMap((project) => project.views)];
+}
 
 export function sameView(a: { worktree: string; branch: string }, b: { worktree: string; branch: string }): boolean {
   return a.worktree === b.worktree && a.branch === b.branch;
@@ -183,6 +275,20 @@ function isSavedView(value: unknown): value is SavedView {
     isString(value.repo) &&
     isString(value.worktreeName)
   );
+}
+
+function projectOf(value: unknown): Project[] {
+  if (!isRecord(value) || !isString(value.name)) {
+    return [];
+  }
+  return [
+    {
+      name: value.name,
+      ...(isString(value.folder) ? { folder: value.folder } : {}),
+      tabs: Array.isArray(value.tabs) ? value.tabs.filter(isTab) : [],
+      views: Array.isArray(value.views) ? value.views.filter(isSavedView) : [],
+    },
+  ];
 }
 
 function isTab(value: unknown): value is Tab {

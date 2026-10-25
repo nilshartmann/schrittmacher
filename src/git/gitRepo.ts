@@ -54,6 +54,10 @@ export function gitSource(worktree: string): RepoSource {
     },
     state: () => stateOf(git),
     worktrees: () => worktreesOf(git),
+    branches: async () =>
+      lines(await git('for-each-ref', `--format=%(refname)${FIELD}%(objectname)`, 'refs/heads', 'refs/remotes')).flatMap(
+        refOf,
+      ),
   };
 }
 
