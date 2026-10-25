@@ -13,7 +13,14 @@ import type { LoadedView } from '../viewer/Viewer';
 /** Die Zeit in Millisekunden, nach der eine Ansicht gemerkt wird, wenn keine Wahl mehr folgt. */
 const SAVE_DELAY = 400;
 
+/**
+ * Ein Parameter der URL als Text. Der Router liest Werte als JSON, eine Nummer wie `40` kommt
+ * deshalb als Zahl an; `05` und `06b` sind kein JSON und bleiben Text.
+ */
 function param(value: unknown): string | undefined {
+  if (typeof value === 'number') {
+    return String(value);
+  }
   return typeof value === 'string' ? value : undefined;
 }
 
