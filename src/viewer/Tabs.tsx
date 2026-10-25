@@ -1,6 +1,7 @@
 import { createContext } from 'react';
 import type { ReactNode } from 'react';
 import type { Tab, ViewSearch } from '../server/store';
+import { CopyButton, HoverTools } from './HoverTools';
 import { Menu, MenuItem } from './Menu';
 
 /** Öffnet eine Ansicht in einem neuen Tab, etwa nach einem ⌘-Klick auf einen Eintrag der Menüs. */
@@ -45,7 +46,8 @@ interface TabBarProps {
  * Die Tabs ganz oben wie in Fork, weil die Web-App aus dem Dock keine eigenen hat. Sie stehen über
  * der Kopfzeile, weil der Tab bestimmt, was darunter steht. Jeder Tab ist eine Ansicht; die Tabs
  * teilen sich die Breite. Sind es mehr als `SHOWN_TABS`, stehen die übrigen im Menü rechts. Mit
- * nur einem Tab fehlt das Schließen.
+ * nur einem Tab fehlt das Schließen. Über einem Tab erscheint ein Knopf, der den Pfad des Worktrees
+ * kopiert.
  */
 export function TabBar({ tabs, current, onChoose, onClose, project }: TabBarProps) {
   const rest = tabs.slice(SHOWN_TABS);
@@ -55,7 +57,7 @@ export function TabBar({ tabs, current, onChoose, onClose, project }: TabBarProp
       {tabs.slice(0, SHOWN_TABS).map((tab) => {
         const active = sameTab(tab, current);
         return (
-          <div key={`${tab.worktree}\n${tab.branch}`} className="tab" aria-selected={active} role="tab">
+          <div key={`${tab.worktree}\n${tab.branch}`} className="tab hover-tools-host" aria-selected={active} role="tab">
             <button
               type="button"
               className="tab-label"
@@ -69,6 +71,9 @@ export function TabBar({ tabs, current, onChoose, onClose, project }: TabBarProp
               <span className="tab-repo">{tab.repo}</span>
               <span className="tab-where">· {whereOf(tab)}</span>
             </button>
+            <HoverTools>
+              <CopyButton text={tab.worktree} tip="Pfad kopieren" />
+            </HoverTools>
             {tabs.length > 1 && (
               <CloseButton
                 className="tab-close"

@@ -173,6 +173,14 @@ const SHOTS = [
       await page.locator('.choice').first().waitFor();
     },
   ],
+  [
+    '25-tab-pfad-kopieren',
+    async (page) => {
+      await page.locator('.tab').first().hover();
+      await page.locator('.hover-tool').first().hover();
+      await page.waitForTimeout(700);
+    },
+  ],
 ];
 
 await mkdir('screenshots', { recursive: true });
