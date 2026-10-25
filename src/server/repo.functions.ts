@@ -9,7 +9,7 @@ import type { Comparison, RepoSource } from '../git/repo';
 import { findRepos } from '../git/repos';
 import type { RepoEntry } from '../git/repos';
 import { createStore, defaultStoreDir, expandHome, sameView } from './store';
-import type { JsonValue, SavedView, Store, ViewSearch } from './store';
+import type { JsonValue, SavedView, Store, Tab, ViewSearch } from './store';
 
 /** Was der Server einmal beim Start einrichtet. */
 interface Setup {
@@ -165,6 +165,23 @@ export const resolveView = createServerFn({ method: 'GET' })
   .validator(viewSearchOf)
   .handler(({ data }) => complete(data));
 
+/** Der Name am Ende eines Pfads. */
+function nameOf(path: string): string {
+  return path.slice(path.lastIndexOf(sep) + 1);
+}
+
+/** Der Tab zu einer Wahl, mit den Namen von Repo und Worktree; `null`, wenn es keine Ansicht gibt. */
+export const tabOf = createServerFn({ method: 'GET' })
+  .validator(viewSearchOf)
+  .handler(async ({ data }): Promise<Tab | null> => {
+    const view = await complete(data);
+    if (view?.worktree === undefined) {
+      return null;
+    }
+    const { repoPath, worktreePath } = await access(view.worktree);
+    return { worktree: worktreePath, branch: view.branch ?? '', repo: nameOf(repoPath), worktreeName: nameOf(worktreePath) };
+  });
+
 /** Repo und Commits einer Ansicht, die Worktrees des Repos und die Einstellungen. */
 export const loadView = createServerFn({ method: 'GET' })
   .validator((data: { worktree: string; branch: string }) => ({
@@ -179,7 +196,7 @@ export const loadView = createServerFn({ method: 'GET' })
       source.load(data.branch === '' ? null : data.branch, { all: state.settings.allBranches === true, hidden }),
       source.worktrees(),
     ]);
-    return { repo, worktrees, settings: state.settings, hidden };
+    return { repo, worktrees, settings: state.settings, hidden, tabs: state.tabs };
   });
 
 export const compareCommits = createServerFn({ method: 'GET' })
@@ -288,8 +305,8 @@ export const saveView = createServerFn({ method: 'POST' })
       from: data.from,
       file: data.file,
       repoPath,
-      repo: repoPath.slice(repoPath.lastIndexOf(sep) + 1),
-      worktreeName: worktreePath.slice(worktreePath.lastIndexOf(sep) + 1),
+      repo: nameOf(repoPath),
+      worktreeName: nameOf(worktreePath),
       title: data.title,
     };
     await (await server()).store.saveView(view);
@@ -304,6 +321,23 @@ export const saveSettings = createServerFn({ method: 'POST' })
   })
   .handler(async ({ data }) => {
     await (await server()).store.saveSettings(data);
+  });
+
+/** Merkt sich die Tabs der Tableiste. */
+export const saveTabs = createServerFn({ method: 'POST' })
+  .validator((data: { tabs: Tab[] }) => {
+    if (
+      !Array.isArray(data.tabs) ||
+      !data.tabs.every((tab) =>
+        [tab.worktree, tab.branch, tab.repo, tab.worktreeName].every((part) => typeof part === 'string'),
+      )
+    ) {
+      throw new Error('Die Tabs sind keine Liste von Ansichten.');
+    }
+    return data.tabs.map(({ worktree, branch, repo, worktreeName }) => ({ worktree, branch, repo, worktreeName }));
+  })
+  .handler(async ({ data }) => {
+    await (await server()).store.saveTabs(data);
   });
 
 /** Merkt sich die ausgeblendeten Branches des Repos, zu dem der Worktree gehört. */

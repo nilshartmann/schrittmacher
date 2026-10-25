@@ -66,6 +66,7 @@
   /* Groß genug für den Pencil auf dem iPad. */
   --target: 36px;
   --header-height: 48px;
+  --tabs-height: 28px;
 }
 
 * {
@@ -1150,4 +1151,89 @@ a.menu-item {
 
 .code-json-key {
   color: var(--code-json-key);
+}
+
+/* Tableiste unter der Kopfzeile, wie in Fork */
+
+.tabs {
+  display: flex;
+  flex: none;
+  height: var(--tabs-height);
+  border-bottom: 1px solid var(--line);
+  background: var(--ground);
+}
+
+.tab {
+  display: flex;
+  flex: 1 1 0;
+  align-items: center;
+  min-width: 0;
+  max-width: 320px;
+  border-right: 1px solid var(--line);
+  color: var(--quiet);
+  font-size: var(--size-small);
+}
+
+.tab:hover {
+  background: var(--hover);
+}
+
+.tab[aria-selected='true'] {
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.tab-label {
+  display: flex;
+  flex: 1 1 auto;
+  justify-content: center;
+  align-items: center;
+  min-width: 0;
+  height: 100%;
+  padding: 0 4px 0 10px;
+  border: none;
+  background: transparent;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.tab[aria-selected='true'] .tab-label {
+  cursor: default;
+}
+
+/* Der Name des Repos wird zuerst gekürzt, weil sich Tabs desselben Repos im Branch unterscheiden. */
+.tab-repo {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+}
+
+.tab-where {
+  flex: none;
+  margin-left: 0.3em;
+}
+
+.tab-close {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin-right: 4px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--quiet);
+  line-height: 1;
+  cursor: pointer;
+  visibility: hidden;
+}
+
+.tab:hover .tab-close,
+.tab[aria-selected='true'] .tab-close {
+  visibility: visible;
+}
+
+.tab-close:hover {
+  background: var(--line-soft);
+  color: var(--ink);
 }

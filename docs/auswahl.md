@@ -82,8 +82,21 @@ anderen Speicher als Safari hat.
   Zurück, Vor und Lesezeichen funktionieren damit.
 - Ein Knopf mit Uhr-Symbol ganz links in der Kopfzeile, neben dem Knopf für die Dateiliste, öffnet
   die zuletzt geöffneten Ansichten. Jede Zeile nennt Repo, Branch und Schritt.
-- Die Einträge der zuletzt geöffneten Ansichten und der Repos sind Links. Mit ⌘-Klick oder über
-  das Kontextmenü öffnen sie sich in einem neuen Tab.
-- Vom Mac aus springt ⌃Tab zur vorigen Ansicht.
+- Die Einträge der zuletzt geöffneten Ansichten und der Repos sind Links. Mit ⌘-Klick oder der
+  mittleren Maustaste öffnen sie sich in einem neuen Tab der Tableiste.
+
+## Tabs
+
+Die Web-App aus dem Dock hat keine Tabs. Deshalb liegt wie in Fork eine eigene Tableiste unter
+der Kopfzeile. Jeder Tab ist eine Ansicht.
+
+- Ein neuer Tab öffnet sich im Hintergrund rechts neben dem aktiven.
+- Ein Wechsel von Repo, Worktree oder Branch in der Kopfzeile ersetzt die Ansicht des aktiven
+  Tabs. Ist die neue Ansicht schon in einem anderen Tab offen, wird dieser aktiv.
+- Ein Tab öffnet seine Ansicht mit dem gemerkten Vergleich und der gemerkten Datei.
+- Das Schließen-Kreuz steht am aktiven Tab und erscheint beim Überfahren der anderen. Der letzte
+  Tab lässt sich nicht schließen.
+- Die Beschriftung nennt Repo, Worktree und Branch. Zuerst wird der Name des Repos gekürzt.
+- Die offenen Tabs speichert der Server in `state.json`.
 - Beim Start öffnet die App die zuletzt geöffnete Ansicht. Beim allerersten Start ist das Menü der
   Repos offen.

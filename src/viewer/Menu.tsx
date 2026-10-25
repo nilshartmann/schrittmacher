@@ -1,7 +1,8 @@
 import { Link } from '@tanstack/react-router';
-import { useEffect, useRef, useState } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
 import type { MouseEvent, ReactNode } from 'react';
 import type { ViewSearch } from '../server/store';
+import { NewTabContext } from './Tabs';
 
 interface MenuProps {
   /** Der Inhalt des Knopfs. */
@@ -78,9 +79,9 @@ interface MenuItemProps {
   current?: boolean;
   tip?: string;
   /**
-   * Die Ansicht, zu der die Zeile führt. Die Zeile ist dann ein Link, der sich mit ⌘-Klick oder
-   * über das Kontextmenü auch in einem neuen Tab öffnen lässt; `onChoose` folgt nur einem
-   * gewöhnlichen Klick.
+   * Die Ansicht, zu der die Zeile führt. Die Zeile ist dann ein Link, den ⌘-Klick und mittlere
+   * Maustaste in einem neuen Tab der Tableiste öffnen; `onChoose` folgt nur einem gewöhnlichen
+   * Klick.
    */
   link?: ViewSearch;
   onChoose: () => void;
@@ -88,6 +89,7 @@ interface MenuItemProps {
 
 /** Eine Zeile des Menüs, hoch genug für den Pencil; die aktuelle hat einen Haken. */
 export function MenuItem(props: MenuItemProps) {
+  const newTab = useContext(NewTabContext);
   const content = (
     <>
       <span className="menu-check" aria-hidden="true">
@@ -107,13 +109,23 @@ export function MenuItem(props: MenuItemProps) {
     'data-tip': props.tip,
   };
   if (props.link !== undefined) {
+    const link = props.link;
     const onClick = (event: MouseEvent) => {
-      if (!event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey && event.button === 0) {
+      if (newTab !== null && event.metaKey && event.button === 0) {
+        event.preventDefault();
+        newTab(link);
+      } else if (!event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey && event.button === 0) {
         props.onChoose();
       }
     };
+    const onAuxClick = (event: MouseEvent) => {
+      if (newTab !== null && event.button === 1) {
+        event.preventDefault();
+        newTab(link);
+      }
+    };
     return (
-      <Link {...shared} to="/" search={props.link} onClick={onClick}>
+      <Link {...shared} to="/" search={link} onClick={onClick} onAuxClick={onAuxClick}>
         {content}
       </Link>
     );

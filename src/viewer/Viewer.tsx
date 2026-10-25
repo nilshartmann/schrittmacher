@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { CSSProperties } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { useRouter } from '@tanstack/react-router';
 import { graphOf } from '../git/graph';
 import { commitKey, findCommit, followComparison, reachable } from '../git/repo';
@@ -9,7 +9,7 @@ import { rangesOf, splitRows, unifiedRows } from '../diff/rows';
 import type { Extent } from '../diff/rows';
 import { isHidden } from '../git/hidden';
 import { compareCommits } from '../server/repo.functions';
-import type { ViewSearch } from '../server/store';
+import type { Tab, ViewSearch } from '../server/store';
 import { CommitList } from './CommitList';
 import { DiffView } from './DiffView';
 import { FileBar, FileList } from './FileList';
@@ -38,6 +38,8 @@ export interface LoadedView {
   settings: Record<string, unknown>;
   /** Die ausgeblendeten Branches des Repos, siehe `Hidden`. */
   hidden: string[];
+  /** Die gemerkten Tabs; sie gelten nur beim Öffnen der Seite. */
+  tabs: Tab[];
 }
 
 /**
@@ -74,9 +76,11 @@ interface ViewerProps {
   onSearch: (change: Pick<ViewSearch, 'to' | 'from' | 'file'>, replace?: boolean) => void;
   onOpen: OpenView;
   onShow: (view: ViewSearch) => void;
+  /** Die Tableiste unter der Kopfzeile. */
+  tabs: ReactNode;
 }
 
-export function Viewer({ view, search, onSearch, onOpen, onShow }: ViewerProps) {
+export function Viewer({ view, search, onSearch, onOpen, onShow, tabs }: ViewerProps) {
   const { repo } = view;
   const router = useRouter();
   const [settings, set, saveNow] = useSettings(view.settings);
@@ -212,6 +216,7 @@ export function Viewer({ view, search, onSearch, onOpen, onShow }: ViewerProps) 
         onOpen={onOpen}
         onShow={onShow}
       />
+      {tabs}
       <CommitList
         commits={repo.commits}
         refs={shownRefs}

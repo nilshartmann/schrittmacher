@@ -32,6 +32,14 @@ export interface SavedView {
   title?: string;
 }
 
+/** Ein Tab der Tableiste: eine Ansicht mit den Namen für ihre Beschriftung. */
+export interface Tab {
+  worktree: string;
+  branch: string;
+  repo: string;
+  worktreeName: string;
+}
+
 /** Die Konfiguration in `config.json`, von Hand gepflegt. */
 interface Config {
   /** Die Verzeichnisse, in denen nach Repos gesucht wird; `~` steht für das Home-Verzeichnis. */
@@ -48,6 +56,8 @@ interface State {
   settings: Record<string, JsonValue>;
   /** Die ausgeblendeten Branches je Repo, siehe `Hidden`. */
   hidden: Record<string, string[]>;
+  /** Die Tabs der Tableiste, von links nach rechts. */
+  tabs: Tab[];
 }
 
 /** So viele Ansichten merkt sich der Server. */
@@ -119,6 +129,7 @@ export function createStore(options: StoreOptions) {
             Object.entries(record.hidden).map(([repo, list]) => [repo, Array.isArray(list) ? list.filter(isString) : []]),
           )
         : {},
+      tabs: Array.isArray(record.tabs) ? record.tabs.filter(isTab) : [],
     };
   }
 
@@ -138,6 +149,7 @@ export function createStore(options: StoreOptions) {
         ...current,
         views: [view, ...current.views.filter((other) => !sameView(other, view))].slice(0, KEPT_VIEWS),
       })),
+    saveTabs: (tabs: Tab[]) => update((current) => ({ ...current, tabs })),
     saveSettings: (settings: Record<string, JsonValue>) => update((current) => ({ ...current, settings })),
     saveHidden: (repoPath: string, hidden: string[]) =>
       update((current) => ({ ...current, hidden: { ...current.hidden, [repoPath]: hidden } })),
@@ -168,6 +180,16 @@ function isSavedView(value: unknown): value is SavedView {
     isString(value.worktree) &&
     isString(value.branch) &&
     isString(value.repoPath) &&
+    isString(value.repo) &&
+    isString(value.worktreeName)
+  );
+}
+
+function isTab(value: unknown): value is Tab {
+  return (
+    isRecord(value) &&
+    isString(value.worktree) &&
+    isString(value.branch) &&
     isString(value.repo) &&
     isString(value.worktreeName)
   );

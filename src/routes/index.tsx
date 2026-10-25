@@ -1,9 +1,10 @@
 import { createFileRoute, redirect } from '@tanstack/react-router';
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { findCommit, reachable } from '../git/repo';
-import { listViews, loadView, resolveView, saveView } from '../server/repo.functions';
-import type { ViewSearch } from '../server/store';
+import { loadView, resolveView, saveTabs, saveView, tabOf } from '../server/repo.functions';
+import type { Tab, ViewSearch } from '../server/store';
 import { EmptyHeader } from '../viewer/Header';
+import { NewTabContext, sameTab, TabBar } from '../viewer/Tabs';
 import { Tooltips } from '../viewer/Tooltips';
 import { Viewer } from '../viewer/Viewer';
 import type { LoadedView } from '../viewer/Viewer';
@@ -88,37 +89,93 @@ function OpenedView({ view, search }: { view: LoadedView; search: ViewSearch }) 
     };
   }, [worktree, branch, to, from, file, title]);
 
-  // ⌃Tab wechselt vom Mac aus zur vorigen Ansicht.
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key !== 'Tab' || !event.ctrlKey) {
-        return;
-      }
-      event.preventDefault();
-      void listViews().then((views) => {
-        const previous = views.find((saved) => saved.worktree !== worktree || saved.branch !== branch);
-        if (previous !== undefined) {
-          void open(previous);
-        }
-      });
-    };
-    window.addEventListener('keydown', onKey);
-    return () => {
-      window.removeEventListener('keydown', onKey);
-    };
-  });
+  const tabs = useTabs(view, open);
 
   return (
-    <Viewer
-      view={view}
-      search={search}
-      onSearch={(change, replace) => {
-        void navigate({ to: '/', search: { worktree, branch, ...change }, replace });
-      }}
-      onOpen={open}
-      onShow={show}
-    />
+    <NewTabContext.Provider value={tabs.add}>
+      <Viewer
+        view={view}
+        search={search}
+        onSearch={(change, replace) => {
+          void navigate({ to: '/', search: { worktree, branch, ...change }, replace });
+        }}
+        onOpen={open}
+        onShow={show}
+        tabs={<TabBar tabs={tabs.list} current={tabs.current} onChoose={tabs.choose} onClose={tabs.close} />}
+      />
+    </NewTabContext.Provider>
   );
+}
+
+/**
+ * Die Tabs der Tableiste. Wechselt der aktive Tab seine Ansicht, etwa über die Menüs der
+ * Kopfzeile, ersetzt die neue Ansicht ihn; ist sie schon in einem anderen Tab offen, wird dieser
+ * aktiv. Ein neuer Tab steht rechts neben dem aktiven und öffnet sich im Hintergrund. Der Server
+ * merkt sich die Tabs, damit sie nach dem Neuladen wieder da sind.
+ */
+function useTabs(view: LoadedView, open: (target: ViewSearch) => Promise<void>) {
+  const { info } = view.repo;
+  const current: Tab = {
+    worktree: info.worktreePath,
+    branch: info.branch ?? '',
+    repo: info.repo,
+    worktreeName: info.worktree,
+  };
+  const [list, setList] = useState<Tab[]>(view.tabs);
+  const shown = useRef<Tab | null>(null);
+  const saved = useRef(view.tabs);
+  useEffect(() => {
+    if (list === saved.current) {
+      return;
+    }
+    saved.current = list;
+    saveTabs({ data: { tabs: list } }).catch((error: unknown) => {
+      console.error('Die Tabs ließen sich nicht merken.', error);
+    });
+  }, [list]);
+  useEffect(() => {
+    const before = shown.current;
+    shown.current = current;
+    setList((tabs) => {
+      if (tabs.some((tab) => sameTab(tab, current))) {
+        return tabs;
+      }
+      const at = before === null ? -1 : tabs.findIndex((tab) => sameTab(tab, before));
+      return at === -1 ? [...tabs, current] : tabs.with(at, current);
+    });
+  }, [current.worktree, current.branch]);
+
+  return {
+    list,
+    current,
+    choose: (tab: Tab) => {
+      void open({ worktree: tab.worktree, branch: tab.branch });
+    },
+    close: (closed: Tab) => {
+      const at = list.findIndex((tab) => sameTab(tab, closed));
+      const rest = list.filter((tab) => !sameTab(tab, closed));
+      setList(rest);
+      const next = rest[Math.min(at, rest.length - 1)];
+      if (sameTab(closed, current) && next !== undefined) {
+        void open({ worktree: next.worktree, branch: next.branch });
+      }
+    },
+    add: (target: ViewSearch) => {
+      void tabOf({ data: target }).then((added) => {
+        if (added === null) {
+          return;
+        }
+        setList((tabs) => {
+          if (tabs.some((tab) => sameTab(tab, added))) {
+            return tabs;
+          }
+          const active = shown.current;
+          const at = active === null ? -1 : tabs.findIndex((tab) => sameTab(tab, active));
+          return at === -1 ? [...tabs, added] : tabs.toSpliced(at + 1, 0, added);
+        });
+      });
+    },
+  };
 }
 
 /** Ohne Ansicht, beim allerersten Start oder wenn sie sich nicht öffnen lässt. */

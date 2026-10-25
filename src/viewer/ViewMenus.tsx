@@ -409,7 +409,7 @@ export function RecentMenu({ info }: { info: RepoInfo | null }) {
     <Menu
       button={<ClockIcon />}
       label="Zuletzt geöffnete Ansichten"
-      tip="Zuletzt geöffnete Ansichten (⌃Tab: vorige)"
+      tip="Zuletzt geöffnete Ansichten"
       className="tool"
     >
       {(close) => <RecentList info={info} close={close} />}
