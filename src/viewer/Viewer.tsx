@@ -5,6 +5,7 @@ import type { Comparison, RepoData } from '../git/repo';
 import type { Commit, DiffFile, Worktree } from '../git/types';
 import { rangesOf, splitRows, unifiedRows } from '../diff/rows';
 import type { Extent } from '../diff/rows';
+import { isHidden } from '../git/hidden';
 import { compareCommits } from '../server/repo.functions';
 import type { ViewSearch } from '../server/store';
 import { CommitList } from './CommitList';
@@ -13,6 +14,7 @@ import { FileBar, FileList } from './FileList';
 import { Header } from './Header';
 import { CONTEXT, FONT_SIZES, useSettings } from './settings';
 import { Tooltips } from './Tooltips';
+import { useHidden } from './useHidden';
 import { useRepoChanges } from './useRepoChanges';
 import type { Layout } from './Header';
 import type { OpenView } from './ViewMenus';
@@ -32,6 +34,8 @@ export interface LoadedView {
   repo: RepoData;
   worktrees: Worktree[];
   settings: Record<string, unknown>;
+  /** Die ausgeblendeten Branches des Repos, siehe `Hidden`. */
+  hidden: string[];
 }
 
 /** Der Vergleich aus den Kennungen der URL; ohne `to` oder mit einer unbekannten gilt `start`. */
@@ -78,6 +82,12 @@ export function Viewer({ view, search, onSearch, onOpen, onShow }: ViewerProps) 
   const comparison = comparisonOf(repo.commits, search, repo.start);
   const worktree = repo.info.worktreePath;
   const comparisonKey = `${worktree}\n${comparison.from ?? ''}\n${comparison.to}`;
+  const [hidden, toggleHidden] = useHidden(repo.info.repoPath, worktree, view.hidden);
+  // Der Branch der Liste behält seinen Badge, auch wenn er ausgeblendet ist.
+  const shownRefs = useMemo(
+    () => repo.refs.filter((ref) => ref.name === repo.info.branch || !isHidden(hidden, ref)),
+    [repo.refs, repo.info.branch, hidden],
+  );
   const choose = (next: Comparison) => {
     onSearch({ ...keysOf(repo.commits, next), file: search.file });
   };
@@ -160,6 +170,8 @@ export function Viewer({ view, search, onSearch, onOpen, onShow }: ViewerProps) 
         info={repo.info}
         worktrees={view.worktrees}
         refs={repo.refs}
+        hidden={hidden}
+        onToggleHidden={toggleHidden}
         commits={repo.commits}
         comparison={comparison}
         fontSize={settings.fontSize}
@@ -175,7 +187,7 @@ export function Viewer({ view, search, onSearch, onOpen, onShow }: ViewerProps) 
       />
       <CommitList
         commits={repo.commits}
-        refs={repo.refs}
+        refs={shownRefs}
         branch={repo.info.branch}
         onBranch={(branch) => {
           void onOpen({ worktree, branch });

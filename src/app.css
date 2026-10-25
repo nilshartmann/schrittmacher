@@ -271,6 +271,55 @@ a.menu-item {
   font-weight: 700;
 }
 
+.menu-row {
+  display: flex;
+  align-items: center;
+}
+
+.menu-row > .menu-item,
+.menu-row > .menu-section {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.menu-row-nested > .menu-item {
+  padding-left: 28px;
+}
+
+.menu-row-hidden .menu-main,
+.menu-row-hidden > .menu-section {
+  opacity: 0.45;
+}
+
+.menu-eye {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: var(--target);
+  height: var(--target);
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--quiet);
+  opacity: 0.45;
+  cursor: pointer;
+}
+
+.menu-eye:hover:not([aria-disabled='true']) {
+  background: var(--hover);
+  opacity: 1;
+}
+
+.menu-eye[aria-pressed='true'] {
+  color: var(--ink);
+  opacity: 1;
+}
+
+.menu-eye[aria-disabled='true'] {
+  opacity: 0.3;
+  cursor: default;
+}
+
 .menu-toggle .menu-check {
   color: var(--quiet);
 }

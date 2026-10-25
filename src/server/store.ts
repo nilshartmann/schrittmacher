@@ -46,6 +46,8 @@ interface State {
   views: SavedView[];
   /** Die Einstellungen der Oberfläche, für alle Ansichten gleich; ihr Schema kennt nur sie. */
   settings: Record<string, JsonValue>;
+  /** Die ausgeblendeten Branches je Repo, siehe `Hidden`. */
+  hidden: Record<string, string[]>;
 }
 
 /** So viele Ansichten merkt sich der Server. */
@@ -112,6 +114,11 @@ export function createStore(options: StoreOptions) {
       opened: Array.isArray(record.opened) ? record.opened.filter(isString) : [],
       views: Array.isArray(record.views) ? record.views.filter(isSavedView) : [],
       settings: isRecord(record.settings) ? (record.settings as Record<string, JsonValue>) : {},
+      hidden: isRecord(record.hidden)
+        ? Object.fromEntries(
+            Object.entries(record.hidden).map(([repo, list]) => [repo, Array.isArray(list) ? list.filter(isString) : []]),
+          )
+        : {},
     };
   }
 
@@ -132,6 +139,8 @@ export function createStore(options: StoreOptions) {
         views: [view, ...current.views.filter((other) => !sameView(other, view))].slice(0, KEPT_VIEWS),
       })),
     saveSettings: (settings: Record<string, JsonValue>) => update((current) => ({ ...current, settings })),
+    saveHidden: (repoPath: string, hidden: string[]) =>
+      update((current) => ({ ...current, hidden: { ...current.hidden, [repoPath]: hidden } })),
     addOpened: (repoPath: string) =>
       update((current) =>
         current.opened.includes(repoPath) ? current : { ...current, opened: [...current.opened, repoPath] },

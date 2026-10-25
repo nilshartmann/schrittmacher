@@ -40,6 +40,19 @@ dem Live-Coding in `live_coding` zeigen.
 - Weicht der gewählte Branch vom ausgecheckten ab, zeigt die Kopfzeile ihn in der Farbe der
   Branch-Badges, mit dem Tooltip „Nicht ausgecheckt“.
 - Ein Klick auf einen Branch-Badge in der Commit-Liste wählt diesen Branch.
+- Die Remotes sind im Menü nach Remote gruppiert, wie in der Seitenleiste von Fork.
+
+### Ausgeblendete Branches
+
+Neben jedem Branch steht im Menü ein Auge wie in Fork. Es blendet den Badge des Branches in der
+Commit-Liste aus und wieder ein. Wählbar bleibt der Branch, im Menü steht er blass da.
+
+- Ein Auge haben auch die Gruppen: „Lokal“, „Remotes“ und jedes einzelne Remote. Ein Branch in
+  einer ausgeblendeten Gruppe lässt sich erst mit der Gruppe wieder einblenden.
+- Der Branch der Liste behält seinen Badge, auch wenn er ausgeblendet ist.
+- Gemerkt werden die ausgeblendeten Branches je Repo in `state.json`.
+- Später kommt ein Umschalter für alle Branches mit einem Graphen dazu. Dort fehlen die Commits
+  ausgeblendeter Branches ganz, wie in Fork.
 
 ## Ansichten
 

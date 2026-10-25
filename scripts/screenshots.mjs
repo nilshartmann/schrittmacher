@@ -111,7 +111,7 @@ const SHOTS = [
     '16-menue-branch',
     async (page) => {
       await page.getByRole('button', { name: 'Branch', exact: true }).click();
-      await page.getByRole('button', { name: 'Remotes' }).click();
+      await page.locator('.menu-toggle').click();
     },
   ],
   [
@@ -133,6 +133,16 @@ const SHOTS = [
       await page.waitForTimeout(600);
       await page.getByRole('button', { name: 'Zuletzt geöffnete Ansichten' }).click();
       await page.locator('.menu-item').nth(1).waitFor();
+    },
+  ],
+  [
+    '19-branches-ausgeblendet',
+    async (page) => {
+      await page.getByRole('button', { name: 'Branch', exact: true }).click();
+      await page.locator('.menu-toggle').click();
+      await page.getByRole('button', { name: 'alle Branches von origin ausblenden' }).click();
+      await page.getByRole('button', { name: 'main ausblenden' }).first().click();
+      await page.mouse.move(0, 0);
     },
   ],
 ];

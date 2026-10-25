@@ -1,3 +1,4 @@
+import type { Hidden } from '../git/hidden';
 import type { Comparison } from '../git/repo';
 import type { Commit, Ref, RepoInfo, Worktree } from '../git/types';
 import type { ViewSearch } from '../server/store';
@@ -15,6 +16,8 @@ interface HeaderProps {
   info: RepoInfo;
   worktrees: Worktree[];
   refs: Ref[];
+  hidden: Hidden;
+  onToggleHidden: (path: string) => void;
   commits: Commit[];
   comparison: Comparison;
   fontSize: number;
@@ -58,7 +61,13 @@ export function Header(props: HeaderProps) {
         <span className="header-sep">/</span>
         <WorktreeMenu info={info} worktrees={props.worktrees} onOpen={props.onOpen} />
         <span className="header-sep">/</span>
-        <BranchMenu info={info} refs={props.refs} onOpen={props.onOpen} />
+        <BranchMenu
+          info={info}
+          refs={props.refs}
+          hidden={props.hidden}
+          onToggleHidden={props.onToggleHidden}
+          onOpen={props.onOpen}
+        />
       </div>
       <div
         className={comparison.from === null ? 'header-comparison' : 'header-comparison header-comparison-free'}

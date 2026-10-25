@@ -1,5 +1,7 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
+import { LOCAL_GROUP, REMOTES_GROUP, hiddenBy, refPath, remoteGroup, remoteOf } from '../git/hidden';
+import type { Hidden } from '../git/hidden';
 import type { Ref, RepoInfo, Worktree } from '../git/types';
 import { listRepos, listViews, openRepo } from '../server/repo.functions';
 import type { RepoChoice } from '../server/repo.functions';
@@ -223,11 +225,22 @@ function WorktreeList({
   );
 }
 
+/** Die ausgeblendeten Branches und das Umschalten eines Branches oder einer Gruppe. */
+interface HiddenProps {
+  hidden: Hidden;
+  onToggleHidden: (path: string) => void;
+}
+
 /**
  * Der Branch in der Kopfzeile. Zeigt die Liste einen anderen als den ausgecheckten, steht er in
  * der Farbe der Branch-Badges da.
  */
-export function BranchMenu({ info, refs, onOpen }: { info: RepoInfo; refs: Ref[]; onOpen: OpenView }) {
+export function BranchMenu({
+  info,
+  refs,
+  onOpen,
+  ...hidden
+}: { info: RepoInfo; refs: Ref[]; onOpen: OpenView } & HiddenProps) {
   const foreign = info.branch !== info.checkedOut;
   return (
     <Menu
@@ -236,65 +249,158 @@ export function BranchMenu({ info, refs, onOpen }: { info: RepoInfo; refs: Ref[]
       tip={foreign ? `Nicht ausgecheckt; ausgecheckt ist ${info.checkedOut ?? 'kein Branch'}` : 'Branch'}
       className={foreign ? 'crumb crumb-foreign' : 'crumb'}
     >
-      {(close) => <BranchList info={info} refs={refs} close={close} onOpen={onOpen} />}
+      {(close) => <BranchList info={info} refs={refs} close={close} onOpen={onOpen} {...hidden} />}
     </Menu>
   );
 }
 
+/**
+ * Die Branches wie in der Seitenleiste von Fork: die lokalen, darunter die Remotes eingeklappt und
+ * nach Remote gruppiert. Neben jedem Branch und jeder Gruppe blendet ein Auge die Badges in der
+ * Commit-Liste aus und wieder ein.
+ */
 function BranchList({
   info,
   refs,
   close,
   onOpen,
+  hidden,
+  onToggleHidden,
 }: {
   info: RepoInfo;
   refs: Ref[];
   close: () => void;
   onOpen: OpenView;
-}) {
+} & HiddenProps) {
   const remotes = refs.filter((ref) => ref.kind === 'remote');
+  const remoteNames = [...new Set(remotes.map(remoteOf))];
   const [remotesOpen, setRemotesOpen] = useState(remotes.some((ref) => ref.name === info.branch));
   const [error, choose] = useChoice(close);
-  const item = (name: string, sub?: string) => (
-    <MenuItem
-      key={name}
-      main={name === '' ? 'HEAD ohne Branch' : name}
-      sub={sub}
-      current={name === (info.branch ?? '')}
-      onChoose={() => {
-        choose(() => onOpen({ worktree: info.worktreePath, branch: name }));
-      }}
-    />
+  const eye = (path: string, name: string) => (
+    <EyeButton path={path} name={name} hidden={hidden} onToggle={onToggleHidden} />
   );
+  const item = (ref: Ref | null, main: string, sub?: string) => {
+    const name = ref?.name ?? '';
+    const path = ref === null ? null : refPath(ref);
+    return (
+      <div
+        key={name}
+        className={`menu-row${ref?.kind === 'remote' ? ' menu-row-nested' : ''}${
+          path !== null && hiddenBy(hidden, path) !== null ? ' menu-row-hidden' : ''
+        }`}
+      >
+        <MenuItem
+          main={main}
+          sub={sub}
+          current={name === (info.branch ?? '')}
+          onChoose={() => {
+            choose(() => onOpen({ worktree: info.worktreePath, branch: name }));
+          }}
+        />
+        {path !== null && eye(path, name)}
+      </div>
+    );
+  };
   return (
     <div className="menu-scroll">
-      <MenuSection>Lokal</MenuSection>
-      {info.checkedOut === null && item('', 'ausgecheckt')}
+      <div className="menu-row">
+        <MenuSection>Lokal</MenuSection>
+        {eye(LOCAL_GROUP, 'alle lokalen Branches')}
+      </div>
+      {info.checkedOut === null && item(null, 'HEAD ohne Branch', 'ausgecheckt')}
       {refs
         .filter((ref) => ref.kind === 'local')
-        .map((ref) => item(ref.name, ref.name === info.checkedOut ? 'ausgecheckt' : undefined))}
+        .map((ref) => item(ref, ref.name, ref.name === info.checkedOut ? 'ausgecheckt' : undefined))}
       {remotes.length > 0 && (
-        <button
-          type="button"
-          className="menu-item menu-toggle"
-          aria-expanded={remotesOpen}
-          onClick={() => {
-            setRemotesOpen(!remotesOpen);
-          }}
-        >
-          <span className="menu-check" aria-hidden="true">
-            {remotesOpen ? '▾' : '▸'}
-          </span>
-          <span className="menu-text">
-            <span className="menu-main">Remotes</span>
-          </span>
-          <span className="menu-aside">{remotes.length}</span>
-        </button>
+        <div className={`menu-row${hiddenBy(hidden, REMOTES_GROUP) !== null ? ' menu-row-hidden' : ''}`}>
+          <button
+            type="button"
+            className="menu-item menu-toggle"
+            aria-expanded={remotesOpen}
+            onClick={() => {
+              setRemotesOpen(!remotesOpen);
+            }}
+          >
+            <span className="menu-check" aria-hidden="true">
+              {remotesOpen ? '▾' : '▸'}
+            </span>
+            <span className="menu-text">
+              <span className="menu-main">Remotes</span>
+            </span>
+            <span className="menu-aside">{remotes.length}</span>
+          </button>
+          {eye(REMOTES_GROUP, 'alle Remotes')}
+        </div>
       )}
-      {remotesOpen && remotes.map((ref) => item(ref.name))}
+      {remotesOpen &&
+        remoteNames.map((remote) => (
+          <Fragment key={remote}>
+            <div className={`menu-row${hiddenBy(hidden, remoteGroup(remote)) !== null ? ' menu-row-hidden' : ''}`}>
+              <MenuSection>☁ {remote}</MenuSection>
+              {eye(remoteGroup(remote), `alle Branches von ${remote}`)}
+            </div>
+            {remotes
+              .filter((ref) => remoteOf(ref) === remote)
+              .map((ref) => item(ref, ref.name.slice(remote.length + 1)))}
+          </Fragment>
+        ))}
       {error !== null && <MenuNote error>{error}</MenuNote>}
     </div>
   );
+}
+
+/**
+ * Das Auge neben einem Branch oder einer Gruppe. Ausgeblendet ist es durchgestrichen. Ist der
+ * Branch über eine Gruppe ausgeblendet, lässt er sich erst mit der Gruppe wieder einblenden.
+ */
+function EyeButton({
+  path,
+  name,
+  hidden,
+  onToggle,
+}: {
+  path: string;
+  name: string;
+  hidden: Hidden;
+  onToggle: (path: string) => void;
+}) {
+  const by = hiddenBy(hidden, path);
+  const inherited = by !== null && by !== path;
+  return (
+    <button
+      type="button"
+      className="menu-eye"
+      aria-label={by === null ? `${name} ausblenden` : `${name} einblenden`}
+      aria-pressed={by !== null}
+      // Ohne `disabled`, weil ein gesperrter Knopf in Safari keinen Tooltip bekommt.
+      aria-disabled={inherited}
+      data-tip={
+        inherited
+          ? `Ausgeblendet mit ${groupName(by)}`
+          : by === null
+            ? 'Badges in der Commit-Liste ausblenden'
+            : 'Badges in der Commit-Liste einblenden'
+      }
+      onClick={() => {
+        if (!inherited) {
+          onToggle(path);
+        }
+      }}
+    >
+      <EyeIcon crossed={by !== null} />
+    </button>
+  );
+}
+
+/** Der Name einer Gruppe für einen Tooltip. */
+function groupName(group: string): string {
+  if (group === LOCAL_GROUP) {
+    return 'allen lokalen Branches';
+  }
+  if (group === REMOTES_GROUP) {
+    return 'allen Remotes';
+  }
+  return `allen Branches von ${group.slice(REMOTES_GROUP.length, -1)}`;
 }
 
 /** Die zuletzt geöffneten Ansichten hinter dem Knopf mit der Uhr. */
@@ -343,6 +449,22 @@ function RecentList({ info, close }: { info: RepoInfo | null; close: () => void 
 }
 
 /** Eine Uhr als Symbol für die zuletzt geöffneten Ansichten. */
+function EyeIcon({ crossed }: { crossed: boolean }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+      <path
+        d="M1.75 9C3.4 5.9 6 4.25 9 4.25S14.6 5.9 16.25 9C14.6 12.1 12 13.75 9 13.75S3.4 12.1 1.75 9Z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+      <circle cx="9" cy="9" r="2.25" fill="none" stroke="currentColor" strokeWidth="1.5" />
+      {crossed && <path d="M3 15 15 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />}
+    </svg>
+  );
+}
+
 function ClockIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">

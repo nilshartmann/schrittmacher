@@ -172,13 +172,13 @@ export const loadView = createServerFn({ method: 'GET' })
     branch: text(data.branch, 'branch'),
   }))
   .handler(async ({ data }) => {
-    const { source } = await access(data.worktree);
+    const { source, repoPath } = await access(data.worktree);
     const [repo, worktrees, state] = await Promise.all([
       source.load(data.branch === '' ? null : data.branch),
       source.worktrees(),
       (await server()).store.state(),
     ]);
-    return { repo, worktrees, settings: state.settings };
+    return { repo, worktrees, settings: state.settings, hidden: state.hidden[repoPath] ?? [] };
   });
 
 export const compareCommits = createServerFn({ method: 'GET' })
@@ -303,4 +303,17 @@ export const saveSettings = createServerFn({ method: 'POST' })
   })
   .handler(async ({ data }) => {
     await (await server()).store.saveSettings(data);
+  });
+
+/** Merkt sich die ausgeblendeten Branches des Repos, zu dem der Worktree gehört. */
+export const saveHidden = createServerFn({ method: 'POST' })
+  .validator((data: { worktree: string; hidden: string[] }) => {
+    if (!Array.isArray(data.hidden) || !data.hidden.every((entry) => typeof entry === 'string' && entry.startsWith('refs/'))) {
+      throw new Error('Die ausgeblendeten Branches sind keine Liste von Namen aus refs/.');
+    }
+    return { worktree: text(data.worktree, 'worktree'), hidden: data.hidden };
+  })
+  .handler(async ({ data }) => {
+    const { repoPath } = await access(data.worktree);
+    await (await server()).store.saveHidden(repoPath, data.hidden);
   });
