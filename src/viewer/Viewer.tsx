@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import { useRouter } from '@tanstack/react-router';
 import { graphOf } from '../git/graph';
@@ -8,7 +8,8 @@ import type { Commit, DiffFile, Worktree } from '../git/types';
 import { rangesOf, splitRows, unifiedRows } from '../diff/rows';
 import type { Extent } from '../diff/rows';
 import { isHidden } from '../git/hidden';
-import { compareCommits, pushBranch } from '../server/repo.functions';
+import { compareCommits, copyFile, copyTargets, pushBranch } from '../server/repo.functions';
+import type { CopyPlace } from '../server/repo.functions';
 import type { Tab, ViewSearch } from '../server/store';
 import { CommitList } from './CommitList';
 import { CommitPanel, EMPTY_DRAFT, PushNote } from './CommitPanel';
@@ -22,6 +23,7 @@ import { Tooltips } from './Tooltips';
 import { useHidden } from './useHidden';
 import { useRepoChanges } from './useRepoChanges';
 import type { Layout } from './Header';
+import { TabsContext, whereOf } from './Tabs';
 import { WhereMenus } from './ViewMenus';
 import type { OpenView } from './ViewMenus';
 
@@ -30,6 +32,13 @@ const NO_GAPS: ReadonlyMap<string, ReadonlySet<number>> = new Map();
 /** So lange bleibt die Meldung eines gelungenen Pushs stehen, in Millisekunden. */
 const PUSHED_FOR = 3000;
 const NO_LINES: ReadonlySet<number> = new Set();
+
+/** Die Abschnitte im Menü „Kopieren nach …“, siehe `copyTargets`. */
+const COPY_SECTIONS: Record<CopyPlace, string> = {
+  repo: 'Dieses Repo',
+  sister: 'Schwester-Repos',
+  other: 'Andere Repos',
+};
 
 /** Die Dateien eines Vergleichs, mit dem Vergleich, zu dem sie gehören. */
 interface Loaded {
@@ -177,6 +186,7 @@ export function Viewer({ view, search, onSearch, onOpen, onShow, tabs }: ViewerP
       },
     );
   };
+  const openTabs = useContext(TabsContext)?.tabs ?? [];
   const choose = (next: Comparison) => {
     onSearch({ ...keysOf(repo.commits, line, next), file: search.file });
   };
@@ -327,6 +337,31 @@ export function Viewer({ view, search, onSearch, onOpen, onShow, tabs }: ViewerP
             onWidth={(filesWidth) => {
               set({ filesWidth });
             }}
+            copyTo={
+              loaded === null
+                ? undefined
+                : {
+                    load: async () =>
+                      (await copyTargets({ data: { worktree, branch, tabs: openTabs } })).map((tab) => ({
+                        key: `${tab.worktree}\n${tab.branch}`,
+                        section: COPY_SECTIONS[tab.place],
+                        main: tab.repo,
+                        sub: whereOf(tab),
+                        tip: tab.worktree,
+                      })),
+                    onCopy: async (path, key) => {
+                      const [targetWorktree = '', targetBranch = ''] = key.split('\n');
+                      await copyFile({
+                        data: {
+                          worktree,
+                          revision: loaded.comparison.to,
+                          path,
+                          target: { worktree: targetWorktree, branch: targetBranch },
+                        },
+                      });
+                    },
+                  }
+            }
             selection={
               comparison.to === LOCAL
                 ? {

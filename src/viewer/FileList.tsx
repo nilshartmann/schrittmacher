@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react';
 import type { KeyboardEvent, PointerEvent, ReactNode } from 'react';
 import type { DiffFile } from '../git/types';
+import { CopyToButton, HoverTools } from './HoverTools';
+import type { CopyTarget } from './HoverTools';
 
 function nameOf(path: string): string {
   return path.slice(path.lastIndexOf('/') + 1);
@@ -38,12 +40,19 @@ export interface Selection {
   onChange: (unchecked: ReadonlySet<string>) => void;
 }
 
+/** Die Ziele, in die sich eine Datei kopieren lässt, und das Kopieren selbst. */
+export interface CopyTo {
+  load: () => Promise<CopyTarget[]>;
+  onCopy: (path: string, target: string) => Promise<void>;
+}
+
 /**
  * Die Dateien des Vergleichs als Spalte links vom Diff, mit einer Trennlinie für die Breite. Jede
  * Datei steht mit ihrem ganzen Pfad da; wird es eng, kürzt er vorn, damit der Dateiname bleibt.
  * Hat die Liste den Fokus, wählen ↑ und ↓ die Datei darüber oder darunter. Mit `selection` hat
  * jede Datei einen Haken, darüber stehen Knöpfe für alle und keine, und die Leertaste schaltet den
- * Haken der gewählten Datei um. Unter der Liste steht `footer`.
+ * Haken der gewählten Datei um. Mit `copyTo` erscheint über jeder Datei, die es nachher gibt, ein
+ * Knopf, der sie in einen anderen Tab kopiert. Unter der Liste steht `footer`.
  */
 export function FileList({
   files,
@@ -52,6 +61,7 @@ export function FileList({
   width,
   onWidth,
   selection,
+  copyTo,
   footer,
 }: {
   files: DiffFile[];
@@ -60,6 +70,7 @@ export function FileList({
   width: number;
   onWidth: (width: number) => void;
   selection?: Selection;
+  copyTo?: CopyTo;
   footer?: ReactNode;
 }) {
   const list = useRef<HTMLElement>(null);
@@ -127,7 +138,7 @@ export function FileList({
     <nav ref={list} className="file-list" aria-label="Dateien" tabIndex={0} onKeyDown={onKeyDown}>
       <ol>
         {files.map((file) => (
-          <li key={file.path}>
+          <li key={file.path} className="hover-tools-host">
             {selection !== undefined && (
               <input
                 type="checkbox"
@@ -151,6 +162,15 @@ export function FileList({
               <span className={`file-kind file-kind-${file.kind}`}>{KIND_SIGN[file.kind]}</span>
               <PathText path={file.path} />
             </button>
+            {copyTo !== undefined && file.kind !== 'deleted' && (
+              <HoverTools>
+                <CopyToButton
+                  load={copyTo.load}
+                  tip="Kopieren nach …"
+                  onCopy={(target) => copyTo.onCopy(file.path, target)}
+                />
+              </HoverTools>
+            )}
           </li>
         ))}
       </ol>

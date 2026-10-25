@@ -40,7 +40,7 @@ export function withVisible(tabs: Tab[], current: { worktree: string; branch: st
 }
 
 /** Worktree und Branch eines Tabs; der Worktree fehlt, wenn er wie Branch oder Repo heißt. */
-function whereOf(tab: Tab): ReactNode {
+export function whereOf(tab: Tab): ReactNode {
   const worktree = tab.worktreeName === tab.branch || tab.worktreeName === tab.repo ? '' : `⌂ ${tab.worktreeName} · `;
   return (
     <>

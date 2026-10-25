@@ -35,3 +35,22 @@ export function runGit(cwd: string, args: string[], env: Record<string, string> 
     );
   });
 }
+
+/** Wie `runGit`, liefert die Ausgabe aber als Bytes, etwa den Inhalt einer Binärdatei. */
+export function runGitBytes(cwd: string, args: string[]): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    execFile(
+      'git',
+      ['--no-optional-locks', ...args],
+      { cwd, maxBuffer: MAX_OUTPUT, encoding: 'buffer' },
+      (error, stdout, stderr) => {
+        if (error !== null) {
+          const output = stderr.toString('utf8').trim() || error.message;
+          reject(new GitError(`git ${args.join(' ')} in ${cwd} scheiterte: ${output}`, output));
+          return;
+        }
+        resolve(stdout);
+      },
+    );
+  });
+}

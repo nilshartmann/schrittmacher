@@ -75,6 +75,13 @@ export interface RepoSource {
    * demselben Namen. Mit `force` gilt `--force-with-lease`.
    */
   push: (branch: string, force: boolean) => Promise<void>;
+  /** Der Inhalt der Datei unter `path` im Commit `revision`; mit `LOCAL` der im Worktree. */
+  content: (revision: string, path: string) => Promise<Uint8Array>;
+  /**
+   * Schreibt `content` in die Datei unter `path` im Worktree und legt fehlende Ordner an. Eine
+   * vorhandene Datei wird überschrieben. Wie beim Commit muss `branch` ausgecheckt sein.
+   */
+  write: (branch: string, path: string, content: Uint8Array) => Promise<void>;
 }
 
 /**

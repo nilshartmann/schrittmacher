@@ -56,3 +56,19 @@ ausgewählt, auch wenn noch lokale Änderungen übrig sind.
 - Scheitert der Push, etwa ohne Netz, bleibt der Commit bestehen. Schrittmacher zeigt die Meldung
   von Git und einen Knopf, mit dem sich der Push wiederholen lässt.
 - Ein gelungener Push wird kurz unter der Dateiliste gemeldet.
+
+## Dateien kopieren
+
+- Über jeder Datei der Dateiliste erscheint beim Überfahren der Knopf „Kopieren nach …“. Gelöschte
+  Dateien haben keinen.
+- Der Knopf öffnet eine Liste der anderen Tabs, deren Branch im Worktree ausgecheckt ist. Ein Tab
+  wie „Schritte“ fehlt darin also.
+- Die Liste hat folgende Abschnitte, jeweils in der Reihenfolge der Tableiste:
+  1. „Dieses Repo“: Tabs desselben Repos, auch aus seinen anderen Worktrees
+  2. „Schwester-Repos“: Tabs von Repos im selben Ordner, etwa `a-teilnehmer` neben `a-prepare`
+  3. „Andere Repos“: alle übrigen Tabs
+- Kopiert wird die Fassung nach der Änderung im gewählten Commit, bei den lokalen Änderungen die
+  Datei im Worktree. Sie landet an derselben Stelle im Worktree des Ziels, fehlende Ordner werden
+  angelegt.
+- Eine vorhandene Datei wird ohne Rückfrage überschrieben. Die Änderung erscheint im Ziel als
+  lokale Änderung und lässt sich dort verwerfen.

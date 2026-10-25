@@ -1,9 +1,9 @@
-import { readFile, stat } from 'node:fs/promises';
-import { basename, dirname, join } from 'node:path';
+import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { parseDiff } from './diffParser';
 import type { ParsedFile } from './diffParser';
 import { markParts } from './lineParts';
-import { GitError, runGit } from './process';
+import { GitError, runGit, runGitBytes } from './process';
 import { isHidden, refPath } from './hidden';
 import { LOCAL } from './repo';
 import type { Comparison, LoadOptions, RepoData, RepoSource } from './repo';
@@ -53,7 +53,7 @@ const DIFF = [
 
 /**
  * Ein echtes Repo als Quelle, gelesen über Git im Verzeichnis eines Worktrees. Git ändert dabei
- * nichts am Repo, außer bei `commit` und `push`.
+ * nichts am Repo, außer bei `commit` und `push`; `write` schreibt eine Datei in den Worktree.
  */
 export function gitSource(worktree: string): RepoSource {
   const git = (...args: string[]) => runGit(worktree, args);
@@ -112,7 +112,27 @@ export function gitSource(worktree: string): RepoSource {
       // Ohne Terminal kann Git nicht nach einem Passwort fragen und bricht sonst nicht ab.
       await plain(runGit(worktree, ['push', '--quiet', ...lease, ...target], { GIT_TERMINAL_PROMPT: '0' }));
     },
+    content: async (revision, path) =>
+      revision === LOCAL
+        ? readFile(inWorktree(worktree, path))
+        : plain(runGitBytes(worktree, ['cat-file', 'blob', `${revision}:${path}`])),
+    write: async (branch, path, content) => {
+      await checkedOutIs(worktree, branch);
+      const target = inWorktree(worktree, path);
+      await mkdir(dirname(target), { recursive: true });
+      await writeFile(target, content);
+    },
   };
+}
+
+/** Der Pfad einer Datei im Worktree; ein Pfad, der aus dem Worktree hinausführt, bricht ab. */
+function inWorktree(worktree: string, path: string): string {
+  const target = resolve(worktree, path);
+  const inside = relative(worktree, target);
+  if (inside === '' || inside === '..' || inside.startsWith(`..${sep}`) || isAbsolute(inside)) {
+    throw new Error(`Der Pfad '${path}' liegt nicht im Worktree.`);
+  }
+  return target;
 }
 
 /**

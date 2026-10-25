@@ -223,12 +223,47 @@ const SHOTS = [
       await page.locator('.ref', { hasText: 'origin/live_coding' }).waitFor();
     },
   ],
+  // Das Kopieren schreibt in den Worktree mit live_coding und steht deshalb ebenfalls am Ende.
+  [
+    '28-kopieren-nach',
+    async (page) => {
+      await whereMenu(page);
+      await page.getByRole('button', { name: 'live_coding in neuem Tab öffnen' }).click();
+      await page.locator('.tab[aria-selected="true"]', { hasText: 'live_coding' }).waitFor();
+      await page.locator('.tab-label', { hasText: 'schritte' }).click();
+      await commit(page, '07').click();
+      const row = page.locator('.file-list li', { hasText: 'LoanService' });
+      await row.hover();
+      await row.getByRole('button', { name: 'Kopieren nach …' }).click();
+      await page.locator('.copy-to-panel .menu-item').first().hover();
+    },
+  ],
+  [
+    '29-kopiert',
+    async (page) => {
+      await whereMenu(page);
+      await page.getByRole('button', { name: 'live_coding in neuem Tab öffnen' }).click();
+      await page.locator('.tab[aria-selected="true"]', { hasText: 'live_coding' }).waitFor();
+      await page.locator('.tab-label', { hasText: 'schritte' }).click();
+      await commit(page, '07').click();
+      const row = page.locator('.file-list li', { hasText: 'LoanService' });
+      await row.hover();
+      await row.getByRole('button', { name: 'Kopieren nach …' }).click();
+      await page.locator('.copy-to-panel .menu-item').first().click();
+      await page.locator('.copy-to-panel').waitFor({ state: 'detached' });
+      await page.locator('.tab-label', { hasText: 'live_coding' }).click();
+      await page.locator('.commit-local').click();
+      await page.locator('.file', { hasText: 'LoanService' }).click();
+    },
+  ],
 ];
 
 await mkdir('screenshots', { recursive: true });
 const browser = await webkit.launch();
 const context = await browser.newContext({ viewport, deviceScaleFactor: 2 });
-for (const [name, act] of SHOTS) {
+// Mit ONLY=… entstehen nur die Bilder, deren Name so beginnt.
+const only = process.env.ONLY ?? '';
+for (const [name, act] of SHOTS.filter(([name]) => name.startsWith(only))) {
   await new Promise((resolve) => setTimeout(resolve, SETTLE));
   await rm(STATE, { force: true });
   const page = await context.newPage();

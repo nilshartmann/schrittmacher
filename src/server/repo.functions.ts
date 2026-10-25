@@ -1,6 +1,6 @@
 import { realpath } from 'node:fs/promises';
 import { homedir } from 'node:os';
-import { isAbsolute, join, sep } from 'node:path';
+import { dirname, isAbsolute, join, sep } from 'node:path';
 import { createServerFn, createServerOnlyFn } from '@tanstack/react-start';
 import { buildDemoRepo, DEMO_BASE } from '../git/demoGit';
 import { DEMO_REPO } from '../git/demoRepo';
@@ -245,6 +245,63 @@ export const pushBranch = createServerFn({ method: 'POST' })
   }))
   .handler(async ({ data }) => {
     await (await access(data.worktree)).source.push(data.branch, data.force);
+  });
+
+/**
+ * Kopiert eine Datei aus dem Vergleich in den Worktree eines anderen Tabs, an dieselbe Stelle.
+ * Gelesen wird sie im Commit `revision`, mit `LOCAL` im Worktree. Im Ziel muss der Branch des Tabs
+ * ausgecheckt sein.
+ */
+export const copyFile = createServerFn({ method: 'POST' })
+  .validator((data: { worktree: string; revision: string; path: string; target: { worktree: string; branch: string } }) => ({
+    worktree: text(data.worktree, 'worktree'),
+    revision: text(data.revision, 'revision'),
+    path: text(data.path, 'path'),
+    target: { worktree: text(data.target.worktree, 'target.worktree'), branch: text(data.target.branch, 'target.branch') },
+  }))
+  .handler(async ({ data }) => {
+    const [from, to] = await Promise.all([access(data.worktree), access(data.target.worktree)]);
+    const content = await from.source.content(data.revision, data.path);
+    await to.source.write(data.target.branch, data.path, content);
+  });
+
+/** Wo ein Ziel zum Kopieren liegt, vom Repo der Quelle aus gesehen. */
+export type CopyPlace = 'repo' | 'sister' | 'other';
+
+/**
+ * Die Tabs, in die sich eine Datei aus `worktree` kopieren lässt: die, deren Branch in ihrem
+ * Worktree ausgecheckt ist, ohne den Tab der Quelle. Zuerst stehen die Tabs desselben Repos, auch
+ * aus seinen anderen Worktrees, dann die von Schwester-Repos im selben Ordner, dann alle übrigen;
+ * innerhalb davon in der Reihenfolge der Tableiste. Ein Tab, dessen Worktree es nicht mehr gibt,
+ * fehlt.
+ */
+export const copyTargets = createServerFn({ method: 'POST' })
+  .validator((data: { worktree: string; branch: string; tabs: Tab[] }) => {
+    if (!Array.isArray(data.tabs)) {
+      throw new Error('Die Tabs sind keine Liste.');
+    }
+    return { worktree: text(data.worktree, 'worktree'), branch: text(data.branch, 'branch'), tabs: data.tabs };
+  })
+  .handler(async ({ data }): Promise<(Tab & { place: CopyPlace })[]> => {
+    const { repoPath } = await access(data.worktree);
+    const found = await Promise.all(
+      data.tabs.map(async (tab) => {
+        if (tab.worktree === data.worktree && tab.branch === data.branch) {
+          return null;
+        }
+        const where = await access(tab.worktree)
+          .then((target) => locate(target.worktreePath).then((located) => ({ ...located, repoPath: target.repoPath })))
+          .catch(() => null);
+        if (where === null || where.checkedOut !== tab.branch) {
+          return null;
+        }
+        const place: CopyPlace =
+          where.repoPath === repoPath ? 'repo' : dirname(where.repoPath) === dirname(repoPath) ? 'sister' : 'other';
+        return { ...tab, place };
+      }),
+    );
+    const order: CopyPlace[] = ['repo', 'sister', 'other'];
+    return order.flatMap((place) => found.filter((tab) => tab?.place === place)).filter((tab) => tab !== null);
   });
 
 /** Ein Repo in der Auswahl, mit der Ansicht, die ein Klick darauf öffnet. */

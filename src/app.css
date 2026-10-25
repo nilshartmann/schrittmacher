@@ -815,6 +815,12 @@ a.menu-item {
   cursor: pointer;
 }
 
+/* Neben dem Haken schrumpft die Zeile, damit die Liste nicht seitlich scrollt. */
+.file-list li > .file {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
 .file:hover {
   background: var(--hover);
 }
@@ -1465,6 +1471,44 @@ a.menu-item {
 
 .tab:has(> .tab-close) {
   --hover-tools-end: 28px;
+}
+
+/* Solange ein Menü der Leiste offen ist oder kopiert wird, bleibt sie stehen. */
+.hover-tools:has([aria-expanded='true']) {
+  display: flex;
+}
+
+/* Über einer Datei hat die Leiste den Hintergrund der Zeile, die beim Überfahren hervorgehoben ist. */
+.file-list li.hover-tools-host {
+  position: relative;
+  --hover-tools-end: 8px;
+}
+
+.file-list li.hover-tools-host:hover > .file:not([aria-current='true']),
+.file-list li.hover-tools-host:has([aria-expanded='true']) > .file:not([aria-current='true']) {
+  background: var(--hover);
+}
+
+.file-list .hover-tools {
+  background: var(--hover);
+}
+
+.file-list li:has(> .file[aria-current='true']) > .hover-tools {
+  background: var(--selected);
+}
+
+.file-list:focus-within li:has(> .file[aria-current='true']) > .hover-tools {
+  background: var(--selected-focus);
+}
+
+.file-list:focus-within li:has(> .file[aria-current='true']) > .hover-tools .hover-tool {
+  color: var(--selected-focus-ink);
+}
+
+/* Das Menü zum Kopieren steht fest im Fenster, damit die Liste es nicht abschneidet. */
+.copy-to-panel {
+  position: fixed;
+  cursor: default;
 }
 
 .hover-tool {
