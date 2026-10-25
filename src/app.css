@@ -391,6 +391,29 @@ a.menu-item {
   flex: none;
 }
 
+/* Das Menü des Timers, nur so breit wie sein Feld und seine Knöpfe */
+.menu-panel-narrow {
+  width: auto;
+  white-space: nowrap;
+}
+
+.timer-form {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px;
+}
+
+.timer-minutes {
+  width: 72px;
+  text-align: right;
+}
+
+.timer-unit {
+  margin-right: 6px;
+  color: var(--quiet);
+}
+
 .menu-note {
   margin: 8px 8px 8px 34px;
   color: var(--quiet);
@@ -471,7 +494,8 @@ a.menu-item {
   background: #ffeec4;
 }
 
-.tool[aria-pressed='true'] {
+.tool[aria-pressed='true'],
+.tool-running {
   border-color: var(--accent);
   background: var(--accent-tint);
   color: var(--accent);

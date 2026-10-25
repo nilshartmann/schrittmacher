@@ -26,6 +26,11 @@ export interface Settings {
   listHeight: number;
   /** Ob die Commit-Liste alle Branches zeigt; der Server liest das beim Laden. */
   allBranches: boolean;
+  /**
+   * Das Ende des Vortrags in Millisekunden seit 1970, ohne Timer `null`. Es steht hier, damit der
+   * Timer ein Neuladen der Web-App übersteht.
+   */
+  timerEnd: number | null;
 }
 
 const DEFAULTS: Settings = {
@@ -40,6 +45,7 @@ const DEFAULTS: Settings = {
   filesWidth: FILES_WIDTH.start,
   listHeight: LIST_HEIGHT.start,
   allBranches: false,
+  timerEnd: null,
 };
 
 /** Die Zeit in Millisekunden, nach der eine Änderung gespeichert wird, wenn keine weitere folgt. */
@@ -67,6 +73,7 @@ export function settingsOf(raw: Record<string, unknown>): Settings {
     filesWidth: number(raw.filesWidth, DEFAULTS.filesWidth, FILES_WIDTH.min, 2000),
     listHeight: number(raw.listHeight, DEFAULTS.listHeight, LIST_HEIGHT.min, 2000),
     allBranches: flag(raw.allBranches, DEFAULTS.allBranches),
+    timerEnd: typeof raw.timerEnd === 'number' && Number.isFinite(raw.timerEnd) ? raw.timerEnd : DEFAULTS.timerEnd,
   };
 }
 

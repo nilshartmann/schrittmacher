@@ -12,6 +12,8 @@ interface MenuProps {
   className?: string;
   /** Das Menü schließt rechts mit dem Knopf ab, etwa am rechten Rand des Fensters. */
   end?: boolean;
+  /** Eine Klasse für das offene Menü, etwa für eine andere Breite. */
+  panelClassName?: string;
   /** Beim ersten Rendern schon offen, etwa beim allerersten Start. */
   initiallyOpen?: boolean;
   /** Der Inhalt des offenen Menüs; `close` schließt es nach einer Wahl. */
@@ -63,7 +65,11 @@ export function Menu(props: MenuProps) {
         {props.button}
       </button>
       {open && (
-        <div className={props.end === true ? 'menu-panel menu-panel-end' : 'menu-panel'} role="menu" aria-label={props.label}>
+        <div
+          className={['menu-panel', props.end === true ? 'menu-panel-end' : '', props.panelClassName ?? ''].join(' ').trim()}
+          role="menu"
+          aria-label={props.label}
+        >
           {props.children(() => {
             setOpen(false);
           })}

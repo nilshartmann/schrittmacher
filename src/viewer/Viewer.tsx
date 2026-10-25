@@ -292,6 +292,10 @@ export function Viewer({ view, search, onSearch, onOpen, onShow, tabs }: ViewerP
         onFilesOpen={() => {
           set({ filesOpen: !settings.filesOpen });
         }}
+        timerEnd={settings.timerEnd}
+        onTimerEnd={(timerEnd) => {
+          set({ timerEnd });
+        }}
       />
       <CommitList
         commits={repo.commits}

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import type { RepoInfo } from '../git/types';
 import type { ViewSearch } from '../server/store';
+import { Timer } from './Timer';
 import { RecentMenu, RepoMenu } from './ViewMenus';
 
 /**
@@ -19,12 +20,14 @@ interface HeaderProps {
   onFontSize: (change: number) => void;
   filesOpen: boolean;
   onFilesOpen: () => void;
+  timerEnd: number | null;
+  onTimerEnd: (end: number | null) => void;
 }
 
 /**
  * Die schmale Kopfzeile: links die Knöpfe für Dateiliste und alle Branches und die Knöpfe zum
- * Wechseln von Repo, Worktree und Branch; rechts die Knöpfe für die Schriftgröße, deren Wert der
- * Tooltip nennt. Den gewählten Vergleich zeigt die Commit-Liste, den zweier Commits zusätzlich die
+ * Wechseln von Repo, Worktree und Branch; rechts der Timer für den Vortrag und die Knöpfe für die
+ * Schriftgröße, deren Wert der Tooltip nennt. Den gewählten Vergleich zeigt die Commit-Liste, den zweier Commits zusätzlich die
  * Zeile darunter (`ComparisonBar`).
  */
 export function Header(props: HeaderProps) {
@@ -59,6 +62,7 @@ export function Header(props: HeaderProps) {
       </div>
       <div className="header-start">{props.where}</div>
       <div className="header-tools">
+        <Timer end={props.timerEnd} onEnd={props.onTimerEnd} />
         <div className="segmented" role="group" aria-label="Schriftgröße">
           <button
             type="button"
