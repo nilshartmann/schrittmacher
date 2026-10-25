@@ -89,8 +89,8 @@ export function WhereMenus({
 }
 
 /**
- * Das Repo, mit den im Projekt zuletzt geöffneten, denen im Ordner des Projekts, den gefundenen und
- * einem Textfeld. Solange keins offen ist, steht „Repo wählen" auf dem Knopf.
+ * Das Repo, mit denen im Ordner des Projekts, den gefundenen und einem Textfeld. Die zuletzt
+ * geöffneten Ansichten stehen hinter der Uhr in der Tableiste. Solange keins offen ist, steht „Repo wählen" auf dem Knopf.
  */
 export function RepoMenu({
   info,
@@ -175,8 +175,6 @@ function RepoList({
       {data === null && error === null && <MenuNote>Sucht Repos …</MenuNote>}
       {data !== null && (
         <div className="menu-scroll">
-          {data.recent.length > 0 && <MenuSection>Zuletzt in {data.project} geöffnet</MenuSection>}
-          {items(data.recent, data.home)}
           {data.folder !== null && data.inFolder.length > 0 && (
             <MenuSection>In {short(data.folder, data.home)}</MenuSection>
           )}
@@ -184,6 +182,8 @@ function RepoList({
           <MenuSection>In {data.roots.map((root) => short(root, data.home)).join(', ')}</MenuSection>
           {items(data.found, data.home)}
           {data.found.length === 0 && <MenuNote>Keine weiteren Repos gefunden.</MenuNote>}
+          {data.opened.length > 0 && <MenuSection>Über den Pfad geöffnet</MenuSection>}
+          {items(data.opened, data.home)}
         </div>
       )}
       <form className="menu-form" onSubmit={onSubmit}>

@@ -300,25 +300,25 @@ export const listRepos = createServerFn({ method: 'GET' }).handler(async () => {
   const roots = await store.roots();
   // Git nennt Pfade ohne symbolische Links, etwa `/private/var` statt `/var`; die Suche ebenso.
   const realRoots = await Promise.all(roots.map((root) => realpath(root).catch(() => root)));
-  const recent = [...new Set(project.views.map((view) => view.repoPath))].flatMap((path) => {
-    const view = lastViews.get(path);
-    return view === undefined ? [] : [choiceOf({ name: view.repo, path })];
-  });
   const folder = project.folder === undefined ? null : await realpath(project.folder).catch(() => null);
   // Ein Repo steht nur im ersten Abschnitt, in dem es vorkommt.
-  const shown = new Set(recent.map((entry) => entry.path));
+  const shown = new Set<string>();
   const unshown = (entries: RepoEntry[]) => {
     const rest = entries.filter((entry) => !shown.has(entry.path));
     rest.forEach((entry) => shown.add(entry.path));
     return rest.map(choiceOf);
   };
   const inFolder = folder === null ? [] : unshown(await findRepos([folder]));
+  const found = unshown(await findRepos(realRoots));
+  // Über das Pfadfeld geöffnete Repos außerhalb der Wurzeln findet die Suche nicht.
+  const opened = unshown(
+    state.opened.map((path) => ({ name: nameOf(path), path })).sort((a, b) => a.name.localeCompare(b.name)),
+  );
   return {
-    project: project.name,
-    recent,
     folder: project.folder ?? null,
     inFolder,
-    found: unshown(await findRepos(realRoots)),
+    found,
+    opened,
     roots,
     home: homedir(),
   };

@@ -18,10 +18,11 @@ zwingend gebraucht.
   Repos, weil ein Repo für einen Workshop weitere Repos enthalten kann.
 - Ein Worktree wird über `--git-common-dir` seinem Repo zugeordnet und erscheint nicht als eigenes
   Repo.
-- Im Menü stehen oben die zuletzt geöffneten Repos (Überschrift „Zuletzt geöffnete Repos“), darunter alle gefundenen nach Name. Das
-  Suchfeld filtert beide Listen.
+- Im Menü stehen oben die Repos im Ordner des Projekts, darunter alle gefundenen nach Name und
+  zuletzt die über das Textfeld geöffneten. Die zuletzt geöffneten Ansichten stehen hinter der Uhr.
+  Das Suchfeld filtert alle Abschnitte.
 - Am Ende des Menüs steht ein freies Textfeld für einen Pfad, der per Copy & Paste eingefügt wird.
-  Ein so geöffnetes Repo landet in der Liste der zuletzt geöffneten.
+  Ein so geöffnetes Repo steht danach im Abschnitt „Über den Pfad geöffnet“.
 - Der Server öffnet nur Pfade, die in einer Wurzel liegen oder über das Textfeld geöffnet wurden.
 
 ## Worktree
