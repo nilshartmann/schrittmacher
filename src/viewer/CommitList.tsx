@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import type { KeyboardEvent, MouseEvent, PointerEvent } from 'react';
 import type { Graph, GraphRow } from '../git/graph';
-import { reachable } from '../git/repo';
+import { LOCAL, reachable } from '../git/repo';
 import type { Comparison } from '../git/repo';
 import type { Commit, Ref } from '../git/types';
 
@@ -25,6 +25,8 @@ export const LIST_HEIGHT = { min: 24, start: 156, restMin: 240 };
 
 interface CommitListProps {
   commits: Commit[];
+  /** Ob ganz oben die Zeile der lokalen Änderungen steht. */
+  changes: boolean;
   refs: Ref[];
   /** Der Graph, wenn die Liste die Commits aller Branches zeigt; die Zeilen der neueste zuerst. */
   graph: Graph | null;
@@ -47,10 +49,12 @@ interface CommitListProps {
  * den Fokus, wählen ↑ und ↓ den Commit darüber oder darunter; mit ⇧ wandert ein Ende des
  * Vergleichs, und der zuerst gewählte Commit bleibt fest. Ganz einklappen lässt sich das Band
  * nicht, nur bis auf eine Zeile verkleinern. Mit allen Branches steht links der Graph, und Commits
- * anderer Branches sind blasser.
+ * anderer Branches sind blasser. Hat der Worktree lokale Änderungen, steht über allen Commits wie in
+ * Fork ihre Zeile; sie lässt sich nur allein wählen, ohne ⇧.
  */
 export function CommitList(props: CommitListProps) {
   const { commits, comparison, onChoose } = props;
+  const local = comparison.to === LOCAL;
   const toIndex = commits.findIndex((commit) => commit.sha === comparison.to);
   const fromSha = comparison.from ?? commits[toIndex]?.parents[0] ?? null;
   // Zwischen zwei gewählten Commits liegt, was `to` erreicht und `from` nicht.
@@ -87,11 +91,22 @@ export function CommitList(props: CommitListProps) {
     event.preventDefault();
     // Die Liste zeigt den neuesten Commit oben, in der Historie steht er hinten.
     const step = event.key === 'ArrowUp' ? 1 : -1;
+    if (local) {
+      const newest = commits[commits.length - 1];
+      if (step === -1 && newest !== undefined) {
+        moved.current = newest.sha;
+        choose(newest.sha);
+      }
+      return;
+    }
     if (!event.shiftKey) {
       const next = commits[toIndex + step];
       if (next !== undefined) {
         moved.current = next.sha;
         choose(next.sha);
+      } else if (step === 1 && props.changes) {
+        moved.current = LOCAL;
+        choose(LOCAL);
       }
       return;
     }
@@ -119,7 +134,7 @@ export function CommitList(props: CommitListProps) {
 
   const onClick = (event: MouseEvent, index: number, commit: Commit) => {
     moved.current = null;
-    if (event.shiftKey && index !== toIndex) {
+    if (event.shiftKey && index !== toIndex && !local) {
       const older = commits[Math.min(index, toIndex)];
       const newer = commits[Math.max(index, toIndex)];
       if (older !== undefined && newer !== undefined) {
@@ -143,6 +158,24 @@ export function CommitList(props: CommitListProps) {
         <div className="commit-scroll">
         <table className="commit-table">
           <tbody>
+            {props.changes && (
+              <tr
+                className={`commit commit-local${local ? ' commit-to' : ''}`}
+                aria-current={local ? 'true' : undefined}
+                data-sha={LOCAL}
+                onClick={() => {
+                  moved.current = null;
+                  choose(LOCAL);
+                }}
+              >
+                {props.graph !== null && <td className="commit-graph" />}
+                <td className="commit-step" />
+                <td className="commit-title">Lokale Änderungen</td>
+                <td className="commit-meta" />
+                <td className="commit-meta commit-sha" />
+                <td className="commit-meta" />
+              </tr>
+            )}
             {/* Die Indizes bleiben die der Historie, nur die Anzeige ist umgedreht. */}
             {[...commits.entries()].reverse().map(([index, commit], row) => {
               const state =

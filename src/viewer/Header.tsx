@@ -1,5 +1,5 @@
 import type { Hidden } from '../git/hidden';
-import { previousOf } from '../git/repo';
+import { LOCAL, previousOf } from '../git/repo';
 import type { Comparison } from '../git/repo';
 import type { Commit, Ref, RepoInfo, Worktree } from '../git/types';
 import type { ViewSearch } from '../server/store';
@@ -20,6 +20,8 @@ interface HeaderProps {
   hidden: Hidden;
   onToggleHidden: (path: string) => void;
   commits: Commit[];
+  /** Der neueste Commit des Branches; die lokalen Änderungen gelten gegen ihn. */
+  start: string;
   comparison: Comparison;
   allBranches: boolean;
   onAllBranches: () => void;
@@ -38,13 +40,16 @@ interface HeaderProps {
  */
 export function Header(props: HeaderProps) {
   const { info, commits, comparison } = props;
+  const local = comparison.to === LOCAL;
   const to = commits.find((commit) => commit.sha === comparison.to);
-  const from =
-    comparison.from === null
+  const from = local
+    ? commits.find((commit) => commit.sha === props.start)
+    : comparison.from === null
       ? to === undefined
         ? undefined
         : previousOf(commits, to)
       : commits.find((commit) => commit.sha === comparison.from);
+  const title = local ? 'Lokale Änderungen' : to?.title;
   return (
     <header className="header">
       <div className="header-start">
@@ -89,12 +94,12 @@ export function Header(props: HeaderProps) {
       </div>
       <div
         className={comparison.from === null ? 'header-comparison' : 'header-comparison header-comparison-free'}
-        data-tip={to === undefined ? undefined : to.title}
+        data-tip={title}
       >
         <span className="header-step">{from === undefined ? '∅' : stepLabel(from)}</span>
         <span className="header-arrow">→</span>
-        <span className="header-step">{to === undefined ? '' : stepLabel(to)}</span>
-        {to !== undefined && comparison.from === null && <span className="header-title">{to.title}</span>}
+        <span className="header-step">{local ? 'Lokal' : to === undefined ? '' : stepLabel(to)}</span>
+        {title !== undefined && comparison.from === null && <span className="header-title">{title}</span>}
       </div>
       <div className="header-tools">
         <div className="segmented" role="group" aria-label="Schriftgröße">

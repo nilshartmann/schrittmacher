@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import type { KeyboardEvent, PointerEvent } from 'react';
+import type { KeyboardEvent, PointerEvent, ReactNode } from 'react';
 import type { DiffFile } from '../git/types';
 
 function nameOf(path: string): string {
@@ -32,10 +32,18 @@ function PathText({ path }: { path: string }) {
 /** Die Grenzen der Breite der Dateiliste in Pixeln; der Rest bleibt mindestens für den Diff. */
 export const FILES_WIDTH = { min: 140, start: 300, restMin: 400 };
 
+/** Die Haken der Dateien für einen Commit; gemerkt werden die Dateien ohne Haken. */
+export interface Selection {
+  unchecked: ReadonlySet<string>;
+  onChange: (unchecked: ReadonlySet<string>) => void;
+}
+
 /**
  * Die Dateien des Vergleichs als Spalte links vom Diff, mit einer Trennlinie für die Breite. Jede
  * Datei steht mit ihrem ganzen Pfad da; wird es eng, kürzt er vorn, damit der Dateiname bleibt.
- * Hat die Liste den Fokus, wählen ↑ und ↓ die Datei darüber oder darunter.
+ * Hat die Liste den Fokus, wählen ↑ und ↓ die Datei darüber oder darunter. Mit `selection` hat
+ * jede Datei einen Haken, darüber stehen Knöpfe für alle und keine, und die Leertaste schaltet den
+ * Haken der gewählten Datei um. Unter der Liste steht `footer`.
  */
 export function FileList({
   files,
@@ -43,18 +51,40 @@ export function FileList({
   onChoose,
   width,
   onWidth,
+  selection,
+  footer,
 }: {
   files: DiffFile[];
   current: string;
   onChoose: (path: string) => void;
   width: number;
   onWidth: (width: number) => void;
+  selection?: Selection;
+  footer?: ReactNode;
 }) {
   const list = useRef<HTMLElement>(null);
   useEffect(() => {
     list.current?.querySelector('[aria-current="true"]')?.scrollIntoView({ block: 'nearest' });
   }, [current]);
+  const toggle = (path: string) => {
+    if (selection === undefined) {
+      return;
+    }
+    const next = new Set(selection.unchecked);
+    if (next.has(path)) {
+      next.delete(path);
+    } else {
+      next.add(path);
+    }
+    selection.onChange(next);
+  };
   const onKeyDown = (event: KeyboardEvent) => {
+    // Die Leertaste auf einem Haken schaltet ihn schon selbst um.
+    if (event.key === ' ' && selection !== undefined && !(event.target instanceof HTMLInputElement)) {
+      event.preventDefault();
+      toggle(current);
+      return;
+    }
     if ((event.key !== 'ArrowUp' && event.key !== 'ArrowDown') || event.metaKey || event.altKey || event.ctrlKey) {
       return;
     }
@@ -67,10 +97,48 @@ export function FileList({
   };
   return (
     <>
-    <nav ref={list} className="file-list" aria-label="Dateien" tabIndex={0} style={{ width }} onKeyDown={onKeyDown}>
+    <div className="files-column" style={{ width }}>
+    {selection !== undefined && (
+      <div className="files-tools">
+        <button
+          type="button"
+          className="icon-button"
+          aria-label="Alle auswählen"
+          data-tip="Alle auswählen"
+          onClick={() => {
+            selection.onChange(new Set());
+          }}
+        >
+          <CheckAllIcon />
+        </button>
+        <button
+          type="button"
+          className="icon-button"
+          aria-label="Auswahl aufheben"
+          data-tip="Auswahl aufheben"
+          onClick={() => {
+            selection.onChange(new Set(files.map((file) => file.path)));
+          }}
+        >
+          <CheckNoneIcon />
+        </button>
+      </div>
+    )}
+    <nav ref={list} className="file-list" aria-label="Dateien" tabIndex={0} onKeyDown={onKeyDown}>
       <ol>
         {files.map((file) => (
           <li key={file.path}>
+            {selection !== undefined && (
+              <input
+                type="checkbox"
+                className="file-check"
+                aria-label={`${file.path} committen`}
+                checked={!selection.unchecked.has(file.path)}
+                onChange={() => {
+                  toggle(file.path);
+                }}
+              />
+            )}
             <button
               type="button"
               className="file"
@@ -87,8 +155,29 @@ export function FileList({
         ))}
       </ol>
     </nav>
+    {footer}
+    </div>
     <WidthSplitter width={width} onWidth={onWidth} />
     </>
+  );
+}
+
+/** Ein Kästchen mit Haken: alle Dateien anhaken. */
+function CheckAllIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+      <rect x="1.5" y="1.5" width="13" height="13" rx="3" fill="none" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M4.5 8.2l2.4 2.4 4.6-5.2" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/** Ein leeres Kästchen: alle Haken entfernen. */
+function CheckNoneIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+      <rect x="1.5" y="1.5" width="13" height="13" rx="3" fill="none" stroke="currentColor" strokeWidth="1.4" />
+    </svg>
   );
 }
 

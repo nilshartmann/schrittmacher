@@ -223,9 +223,39 @@ export const compareCommits = createServerFn({ method: 'GET' })
   .validator((data: { worktree: string; comparison: Comparison }) => data)
   .handler(async ({ data }) => (await access(data.worktree)).source.compare(data.comparison));
 
+/** Der Stand des Repos; mit `local` auch der lokalen Änderungen, siehe `RepoSource.state`. */
 export const repoState = createServerFn({ method: 'GET' })
-  .validator((data: { worktree: string }) => ({ worktree: text(data.worktree, 'worktree') }))
-  .handler(async ({ data }) => (await access(data.worktree)).source.state());
+  .validator((data: { worktree: string; local: boolean }) => ({
+    worktree: text(data.worktree, 'worktree'),
+    local: data.local === true,
+  }))
+  .handler(async ({ data }) => (await access(data.worktree)).source.state(data.local));
+
+/** Committet die gewählten Dateien im Worktree und liefert den SHA des neuen Commits. */
+export const commitChanges = createServerFn({ method: 'POST' })
+  .validator((data: { worktree: string; branch: string; message: string; paths: string[] }) => {
+    if (!Array.isArray(data.paths) || !data.paths.every((path) => typeof path === 'string')) {
+      throw new Error('Die Dateien sind keine Liste von Pfaden.');
+    }
+    return {
+      worktree: text(data.worktree, 'worktree'),
+      branch: text(data.branch, 'branch'),
+      message: text(data.message, 'message'),
+      paths: data.paths,
+    };
+  })
+  .handler(async ({ data }) => (await access(data.worktree)).source.commit(data.branch, data.message, data.paths));
+
+/** Pusht den ausgecheckten Branch des Worktrees. */
+export const pushBranch = createServerFn({ method: 'POST' })
+  .validator((data: { worktree: string; branch: string; force: boolean }) => ({
+    worktree: text(data.worktree, 'worktree'),
+    branch: text(data.branch, 'branch'),
+    force: data.force === true,
+  }))
+  .handler(async ({ data }) => {
+    await (await access(data.worktree)).source.push(data.branch, data.force);
+  });
 
 /** Ein Repo in der Auswahl, mit der Ansicht, die ein Klick darauf öffnet. */
 export interface RepoChoice extends RepoEntry {

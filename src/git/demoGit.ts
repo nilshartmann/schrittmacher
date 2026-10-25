@@ -26,8 +26,10 @@ function environment(date: string): Record<string, string> {
 
 /**
  * Baut die Testdaten als echtes Repo auf und liefert den Pfad des Worktrees mit dem Branch der
- * Commits. Daneben liegt das Repo selbst, mit einem anderen Branch ausgecheckt, wie bei einem
- * Workshop mit Worktrees. Geschrieben wird dabei nur im eigenen Verzeichnis unter `tmpdir()`.
+ * Commits. Daneben liegt das Repo selbst, mit dem Branch des Live-Codings und lokalen Änderungen,
+ * wie bei einem Workshop mit Worktrees. Sein `origin` ist ein leeres Repo im selben Verzeichnis, damit
+ * sich der Push ausprobieren lässt. Geschrieben wird dabei nur im eigenen Verzeichnis unter
+ * `tmpdir()`.
  */
 export async function buildDemoRepo(repo: MemoryRepo): Promise<string> {
   const main = join(DEMO_BASE, repo.info.repo);
@@ -38,8 +40,8 @@ export async function buildDemoRepo(repo: MemoryRepo): Promise<string> {
 
   await git(['init', '--quiet', `--initial-branch=${repo.info.branch}`]);
   const shas = new Map<string, string>();
-  const commit = async (stored: StoredCommit) => {
-    for (const [path, text] of Object.entries(stored.files)) {
+  const write = async (files: Record<string, string | null>) => {
+    for (const [path, text] of Object.entries(files)) {
       const file = join(main, path);
       if (text === null) {
         await rm(file);
@@ -48,6 +50,9 @@ export async function buildDemoRepo(repo: MemoryRepo): Promise<string> {
         await writeFile(file, text);
       }
     }
+  };
+  const commit = async (stored: StoredCommit) => {
+    await write(stored.files);
     const message = stored.step === null ? stored.title : `${stored.step}: ${stored.title}`;
     await git(['add', '--all']);
     await git(['commit', '--quiet', '--no-verify', `--message=${message}`], stored.date);
@@ -78,8 +83,12 @@ export async function buildDemoRepo(repo: MemoryRepo): Promise<string> {
       await git(['branch', ref.name, sha]);
     }
   }
-  const other = repo.refs.find((ref) => ref.kind === 'local' && ref.name !== repo.info.branch);
-  await git(other === undefined ? ['switch', '--quiet', '--detach'] : ['switch', '--quiet', other.name]);
+  const origin = join(DEMO_BASE, 'origin.git');
+  await mkdir(origin);
+  await runGit(origin, ['init', '--quiet', '--bare'], environment(repo.commits[0]?.date ?? ''));
+  await git(['remote', 'add', 'origin', origin]);
+  await git(['switch', '--quiet', repo.checkedOut]);
   await git(['worktree', 'add', '--quiet', worktree, repo.info.branch]);
+  await write(repo.local);
   return worktree;
 }

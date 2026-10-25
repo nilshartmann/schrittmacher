@@ -29,7 +29,7 @@ const button = (page, title) => page.locator(`button[data-tip="${title}"]`);
 const commit = (page, step) =>
   page.locator('.commit', { has: page.locator('.commit-step', { hasText: new RegExp(`^${step}$`) }) });
 
-/** Zieht ein Element um dx/dy Pixel, wie mit Maus oder Pencil. */
+/** Zieht ein Element um dx/dy Pixel, wie mit der Maus. */
 async function dragBy(page, selector, dx, dy) {
   const box = await page.locator(selector).boundingBox();
   const x = box.x + box.width / 2;
@@ -38,6 +38,14 @@ async function dragBy(page, selector, dx, dy) {
   await page.mouse.down();
   await page.mouse.move(x + dx, y + dy, { steps: 5 });
   await page.mouse.up();
+}
+
+/** Wechselt in den Worktree mit live_coding und wählt dort die lokalen Änderungen. */
+async function openLocal(page) {
+  await page.getByRole('button', { name: 'Worktree', exact: true }).click();
+  await page.getByRole('menuitem', { name: /live_coding/ }).click();
+  await page.locator('.commit-local').click();
+  await page.locator('.file', { hasText: 'NOTIZEN.md' }).waitFor();
 }
 
 /** Schiebt die Commit-Liste bis auf ihre kleinste Höhe zusammen. */
@@ -173,12 +181,41 @@ const SHOTS = [
       await page.locator('.choice').first().waitFor();
     },
   ],
+  ['23-lokale-aenderungen', openLocal],
+  [
+    '24-lokal-neue-datei',
+    async (page) => {
+      await openLocal(page);
+      await page.locator('.file', { hasText: 'NOTIZEN.md' }).click();
+    },
+  ],
   [
     '25-tab-pfad-kopieren',
     async (page) => {
       await page.locator('.tab').first().hover();
       await page.locator('.hover-tool').first().hover();
       await page.waitForTimeout(700);
+    },
+  ],
+  [
+    '26-commit-auswahl',
+    async (page) => {
+      await openLocal(page);
+      await page.getByRole('checkbox', { name: 'NOTIZEN.md committen' }).click();
+      await page.getByLabel('Commit-Nachricht').fill('04a: Wann ist ein Buch überfällig?');
+    },
+  ],
+  // Der Commit ändert das Repo der Testdaten und steht deshalb am Ende; danach braucht es einen
+  // Neustart des Servers.
+  [
+    '27-commit-gepusht',
+    async (page) => {
+      await openLocal(page);
+      await page.getByRole('checkbox', { name: 'NOTIZEN.md committen' }).click();
+      await page.getByLabel('Commit-Nachricht').fill('04a: Wann ist ein Buch überfällig?');
+      await page.getByRole('button', { name: 'Commit', exact: true }).click();
+      await page.locator('.push-note-done').waitFor();
+      await page.locator('.ref', { hasText: 'origin/live_coding' }).waitFor();
     },
   ],
 ];

@@ -2,15 +2,17 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import { useRouter } from '@tanstack/react-router';
 import { graphOf } from '../git/graph';
-import { commitKey, findCommit, followComparison, reachable } from '../git/repo';
+import { commitKey, findCommit, followComparison, LOCAL, reachable, showsCheckedOut } from '../git/repo';
 import type { Comparison, RepoData } from '../git/repo';
 import type { Commit, DiffFile, Worktree } from '../git/types';
 import { rangesOf, splitRows, unifiedRows } from '../diff/rows';
 import type { Extent } from '../diff/rows';
 import { isHidden } from '../git/hidden';
-import { compareCommits } from '../server/repo.functions';
+import { compareCommits, pushBranch } from '../server/repo.functions';
 import type { Tab, ViewSearch } from '../server/store';
 import { CommitList } from './CommitList';
+import { CommitPanel, EMPTY_DRAFT, PushNote } from './CommitPanel';
+import type { Draft, PushState } from './CommitPanel';
 import { DiffView } from './DiffView';
 import { FileBar, FileList } from './FileList';
 import { Header } from './Header';
@@ -22,6 +24,9 @@ import type { Layout } from './Header';
 import type { OpenView } from './ViewMenus';
 
 const NO_GAPS: ReadonlyMap<string, ReadonlySet<number>> = new Map();
+
+/** So lange bleibt die Meldung eines gelungenen Pushs stehen, in Millisekunden. */
+const PUSHED_FOR = 3000;
 const NO_LINES: ReadonlySet<number> = new Set();
 
 /** Die Dateien eines Vergleichs, mit dem Vergleich, zu dem sie gehören. */
@@ -46,9 +51,19 @@ export interface LoadedView {
 
 /**
  * Der Vergleich aus den Kennungen der URL; ohne `to` oder mit einer unbekannten gilt `start`. Eine
- * Nummer findet zuerst die Commits des Branches (`line`).
+ * Nummer findet zuerst die Commits des Branches (`line`). Die lokalen Änderungen gelten nur, wenn
+ * es welche gibt (`changes`).
  */
-function comparisonOf(commits: Commit[], line: ReadonlySet<string>, search: ViewSearch, start: string): Comparison {
+function comparisonOf(
+  commits: Commit[],
+  line: ReadonlySet<string>,
+  search: ViewSearch,
+  start: string,
+  changes: boolean,
+): Comparison {
+  if (search.to === LOCAL) {
+    return { from: null, to: changes ? LOCAL : start };
+  }
   const to = search.to === undefined ? undefined : findCommit(commits, search.to, line);
   if (to === undefined) {
     return { from: null, to: start };
@@ -64,6 +79,9 @@ function keysOf(
   comparison: Comparison,
 ): Pick<ViewSearch, 'to' | 'from'> {
   const key = (sha: string | null) => {
+    if (sha === LOCAL) {
+      return LOCAL;
+    }
     const commit = sha === null ? undefined : commits.find((candidate) => candidate.sha === sha);
     return commit === undefined ? undefined : commitKey(commit, commits, line);
   };
@@ -88,6 +106,9 @@ export function Viewer({ view, search, onSearch, onOpen, onShow, tabs }: ViewerP
   const [settings, set, saveNow] = useSettings(view.settings);
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Eingabe und Push je Worktree, damit sie einen Wechsel zum Tab mit den Schritten überstehen.
+  const [drafts, setDrafts] = useState<ReadonlyMap<string, Draft>>(new Map());
+  const [pushes, setPushes] = useState<ReadonlyMap<string, PushState>>(new Map());
   // Die aufgeklappten Trenner je Datei, nach ihrer ersten Zeile; sie gelten nur für einen Vergleich
   // und einen Umfang, weil sich sonst die Stellen verschieben.
   const [expanded, setExpanded] = useState<{ key: string; gaps: ReadonlyMap<string, ReadonlySet<number>> }>({
@@ -100,9 +121,12 @@ export function Viewer({ view, search, onSearch, onOpen, onShow, tabs }: ViewerP
     () => (repo.all ? graphOf([...repo.commits].reverse(), repo.start) : null),
     [repo.commits, repo.all, repo.start],
   );
-  const comparison = comparisonOf(repo.commits, line, search, repo.start);
+  const comparison = comparisonOf(repo.commits, line, search, repo.start, repo.changes);
   const worktree = repo.info.worktreePath;
   const comparisonKey = `${worktree}\n${comparison.from ?? ''}\n${comparison.to}`;
+  // Die lokalen Änderungen werden mit jedem neuen Stand neu geladen, ihr Diff bleibt aber derselbe
+  // und behält seine Stelle beim Scrollen.
+  const fetchKey = comparison.to === LOCAL ? `${comparisonKey}\n${repo.state}` : comparisonKey;
   const [hidden, toggleHidden] = useHidden(repo.info.repoPath, worktree, view.hidden, () => {
     if (repo.all) {
       void router.invalidate();
@@ -113,17 +137,64 @@ export function Viewer({ view, search, onSearch, onOpen, onShow, tabs }: ViewerP
     () => repo.refs.filter((ref) => ref.name === repo.info.branch || !isHidden(hidden, ref)),
     [repo.refs, repo.info.branch, hidden],
   );
+  const draft = drafts.get(worktree) ?? EMPTY_DRAFT;
+  const setDraft = (next: Draft) => {
+    setDrafts((current) => new Map(current).set(worktree, next));
+  };
+  const branch = repo.info.branch ?? '';
+  const pushState = pushes.get(worktree);
+  const setPush = (target: string, next: PushState | null) => {
+    setPushes((current) => {
+      const changed = new Map(current);
+      if (next === null) {
+        changed.delete(target);
+      } else {
+        changed.set(target, next);
+      }
+      return changed;
+    });
+  };
+  const push = (force: boolean) => {
+    const target = worktree;
+    setPush(target, { kind: 'running' });
+    pushBranch({ data: { worktree: target, branch, force } }).then(
+      () => {
+        setPush(target, { kind: 'done' });
+        setTimeout(() => {
+          setPushes((current) => {
+            if (current.get(target)?.kind !== 'done') {
+              return current;
+            }
+            const changed = new Map(current);
+            changed.delete(target);
+            return changed;
+          });
+        }, PUSHED_FOR);
+        void router.invalidate();
+      },
+      (failure: unknown) => {
+        setPush(target, { kind: 'failed', message: failure instanceof Error ? failure.message : String(failure), force });
+      },
+    );
+  };
   const choose = (next: Comparison) => {
     onSearch({ ...keysOf(repo.commits, line, next), file: search.file });
   };
 
-  useRepoChanges(worktree, repo.state);
+  useRepoChanges(worktree, repo.state, showsCheckedOut(repo.info));
   // Nach dem Neuladen bleibt der gewählte Vergleich stehen. Eine Nummer findet ihren Commit auch
   // nach einem Rebase; für einen Commit ohne Nummer sucht `followComparison` nach dem Titel.
   const shown = useRef({ commits: repo.commits, line });
   useEffect(() => {
     const before = shown.current;
     shown.current = { commits: repo.commits, line };
+    // Ohne lokale Änderungen, etwa nach einem Commit, gilt wieder der neueste Commit.
+    if (search.to === LOCAL) {
+      if (!repo.changes) {
+        onSearch({ ...keysOf(repo.commits, line, { from: null, to: repo.start }), file: search.file }, true);
+      }
+      return;
+    }
     if (
       before.commits === repo.commits ||
       search.to === undefined ||
@@ -131,10 +202,10 @@ export function Viewer({ view, search, onSearch, onOpen, onShow, tabs }: ViewerP
     ) {
       return;
     }
-    const old = comparisonOf(before.commits, before.line, search, repo.start);
+    const old = comparisonOf(before.commits, before.line, search, repo.start, repo.changes);
     const followed = followComparison(old, before.commits, repo.commits, repo.start);
     onSearch({ ...keysOf(repo.commits, line, followed), file: search.file }, true);
-  }, [repo.commits]);
+  }, [repo.commits, repo.changes]);
 
   // Bis die Dateien des neuen Vergleichs da sind, bleiben die alten stehen.
   useEffect(() => {
@@ -156,7 +227,7 @@ export function Viewer({ view, search, onSearch, onOpen, onShow, tabs }: ViewerP
     return () => {
       current = false;
     };
-  }, [comparisonKey]);
+  }, [fetchKey]);
 
   const files = loaded?.files;
   const { sideBySide, share, showRemoved } = settings;
@@ -203,6 +274,7 @@ export function Viewer({ view, search, onSearch, onOpen, onShow, tabs }: ViewerP
         hidden={hidden}
         onToggleHidden={toggleHidden}
         commits={repo.commits}
+        start={repo.start}
         comparison={comparison}
         allBranches={settings.allBranches}
         onAllBranches={() => {
@@ -221,6 +293,7 @@ export function Viewer({ view, search, onSearch, onOpen, onShow, tabs }: ViewerP
       />
       <CommitList
         commits={repo.commits}
+        changes={repo.changes}
         refs={shownRefs}
         graph={graph}
         line={line}
@@ -247,6 +320,44 @@ export function Viewer({ view, search, onSearch, onOpen, onShow, tabs }: ViewerP
             onWidth={(filesWidth) => {
               set({ filesWidth });
             }}
+            selection={
+              comparison.to === LOCAL
+                ? {
+                    unchecked: draft.unchecked,
+                    onChange: (unchecked) => {
+                      setDraft({ ...draft, unchecked });
+                    },
+                  }
+                : undefined
+            }
+            footer={
+              <>
+                {comparison.to === LOCAL && loaded?.comparison.to === LOCAL && (
+                  <CommitPanel
+                    worktree={worktree}
+                    branch={branch}
+                    files={loaded.files}
+                    draft={draft}
+                    onDraft={setDraft}
+                    onCommitted={(sha, force) => {
+                      // Der neue Commit ist gewählt, auch wenn noch lokale Änderungen übrig sind.
+                      void router.invalidate().then(() => {
+                        onSearch({ to: sha.slice(0, 7) });
+                      });
+                      push(force);
+                    }}
+                  />
+                )}
+                {pushState !== undefined && (
+                  <PushNote
+                    push={pushState}
+                    onRetry={() => {
+                      push(pushState.kind === 'failed' && pushState.force);
+                    }}
+                  />
+                )}
+              </>
+            }
           />
         )}
         <section className="diff-column">
@@ -254,7 +365,11 @@ export function Viewer({ view, search, onSearch, onOpen, onShow, tabs }: ViewerP
             <p className="empty">{error}</p>
           ) : current === undefined ? (
             <p className="empty">
-              {loaded === null ? 'Lädt …' : 'Zwischen diesen Commits gibt es keinen Unterschied.'}
+              {loaded === null
+                ? 'Lädt …'
+                : comparison.to === LOCAL
+                  ? 'Es gibt keine lokalen Änderungen.'
+                  : 'Zwischen diesen Commits gibt es keinen Unterschied.'}
             </p>
           ) : (
             <>

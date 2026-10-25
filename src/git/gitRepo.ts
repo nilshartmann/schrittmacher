@@ -1,9 +1,11 @@
-import { basename, dirname } from 'node:path';
+import { readFile, stat } from 'node:fs/promises';
+import { basename, dirname, join } from 'node:path';
 import { parseDiff } from './diffParser';
 import type { ParsedFile } from './diffParser';
 import { markParts } from './lineParts';
-import { runGit } from './process';
+import { GitError, runGit } from './process';
 import { isHidden, refPath } from './hidden';
+import { LOCAL } from './repo';
 import type { Comparison, LoadOptions, RepoData, RepoSource } from './repo';
 import type { Commit, DiffFile, DiffLine, Ref, Worktree } from './types';
 
@@ -27,9 +29,31 @@ const CACHED_COMPARISONS = 100;
  */
 const MAX_COMMITS = 1000;
 
+/** So viele Bytes vom Anfang einer Datei prüft Git auf ein Nullbyte, um eine Binärdatei zu erkennen. */
+const BINARY_PROBE = 8000;
+
+/**
+ * Die Optionen für `git diff`. Mit dem größten Umfang an Kontext steht jede Datei ganz im Diff. Die
+ * festen Präfixe und Optionen setzen eine abweichende Konfiguration des Benutzers außer Kraft, die
+ * Ausgabe sonst anders formen würde.
+ */
+const DIFF = [
+  '-c',
+  'core.quotePath=false',
+  'diff',
+  '--no-color',
+  '--no-ext-diff',
+  '--no-textconv',
+  '--no-relative',
+  '--find-renames',
+  '--unified=2147483647',
+  '--src-prefix=a/',
+  '--dst-prefix=b/',
+];
+
 /**
  * Ein echtes Repo als Quelle, gelesen über Git im Verzeichnis eines Worktrees. Git ändert dabei
- * nichts am Repo.
+ * nichts am Repo, außer bei `commit` und `push`.
  */
 export function gitSource(worktree: string): RepoSource {
   const git = (...args: string[]) => runGit(worktree, args);
@@ -38,6 +62,10 @@ export function gitSource(worktree: string): RepoSource {
   return {
     load: (branch, options) => load(git, worktree, branch, options),
     compare: async (comparison) => {
+      // Die lokalen Änderungen ändern sich laufend und werden deshalb nie vorgehalten.
+      if (comparison.to === LOCAL) {
+        return localChanges(git, worktree);
+      }
       const [older, newer] = await sides(git, comparison);
       const key = `${older}..${newer}`;
       const cached = cache.get(key) ?? compare(git, older, newer);
@@ -52,13 +80,59 @@ export function gitSource(worktree: string): RepoSource {
       cached.catch(() => cache.delete(key));
       return cached;
     },
-    state: () => stateOf(git),
+    state: async (local) => (await stateOf(git, worktree, local)).state,
     worktrees: () => worktreesOf(git),
     branches: async () =>
       lines(await git('for-each-ref', `--format=%(refname)${FIELD}%(objectname)`, 'refs/heads', 'refs/remotes')).flatMap(
         refOf,
       ),
+    commit: async (branch, message, paths) => {
+      await checkedOutIs(worktree, branch);
+      if (message.trim() === '') {
+        throw new Error('Der Commit hat keine Nachricht.');
+      }
+      if (paths.length === 0) {
+        throw new Error('Für den Commit ist keine Datei ausgewählt.');
+      }
+      // Ein Pfad gilt wörtlich, auch mit `*` oder `:` darin. `add` nimmt neue und gelöschte Dateien
+      // auf, `--only` committet dann nur diese Pfade und lässt den übrigen Index stehen.
+      await plain(git('--literal-pathspecs', 'add', '--all', '--', ...paths));
+      await plain(git('--literal-pathspecs', 'commit', '--quiet', '--only', `--message=${message}`, '--', ...paths));
+      return (await git('rev-parse', 'HEAD')).trim();
+    },
+    push: async (branch, force) => {
+      await checkedOutIs(worktree, branch);
+      const config = async (key: string) => (await git('config', '--get', key).catch(() => '')).trim();
+      const [remote, merge] = await Promise.all([config(`branch.${branch}.remote`), config(`branch.${branch}.merge`)]);
+      const lease = force ? ['--force-with-lease'] : [];
+      const target =
+        remote === '' || merge === ''
+          ? ['--set-upstream', 'origin', `refs/heads/${branch}`]
+          : [remote, `refs/heads/${branch}:${merge}`];
+      // Ohne Terminal kann Git nicht nach einem Passwort fragen und bricht sonst nicht ab.
+      await plain(runGit(worktree, ['push', '--quiet', ...lease, ...target], { GIT_TERMINAL_PROMPT: '0' }));
+    },
   };
+}
+
+/**
+ * Ein Befehl, dessen Fehler die Oberfläche zeigt: nur mit dem, was Git dazu sagt, ohne Befehl und
+ * Pfad.
+ */
+async function plain<T>(command: Promise<T>): Promise<T> {
+  try {
+    return await command;
+  } catch (failure) {
+    throw failure instanceof GitError ? new Error(failure.output) : failure;
+  }
+}
+
+/** Bricht ab, wenn im Worktree nicht `branch` ausgecheckt ist, etwa nach einem Wechsel in Fork. */
+async function checkedOutIs(worktree: string, branch: string): Promise<void> {
+  const { checkedOut } = await locate(worktree);
+  if (checkedOut !== branch) {
+    throw new Error(`Im Worktree ist nicht ${branch} ausgecheckt, sondern ${checkedOut ?? 'kein Branch'}.`);
+  }
 }
 
 type Git = (...args: string[]) => Promise<string>;
@@ -87,13 +161,12 @@ export async function locate(
  * dazu, die nicht ausgeblendet sind, nach Datum sortiert wie im Graphen von Fork.
  */
 async function load(git: Git, worktree: string, wanted: string | null, options: LoadOptions): Promise<RepoData> {
-  // Der Stand wird vor allem anderen gelesen. Kommt danach ein Commit hinzu, fällt er deshalb bei
-  // der nächsten Abfrage auf.
-  const state = await stateOf(git);
-  const [where, refs] = await Promise.all([
-    locate(worktree),
-    git('for-each-ref', `--format=%(refname)${FIELD}%(objectname)`, 'refs/heads', 'refs/remotes'),
-  ]);
+  const where = await locate(worktree);
+  // Der Stand wird vor Commits und Branches gelesen. Kommt danach ein Commit hinzu, fällt er deshalb
+  // bei der nächsten Abfrage auf. Ohne einen Branch, den es gibt, gilt der ausgecheckte.
+  const local = where.checkedOut !== null && (wanted === null || wanted === where.checkedOut);
+  const { state, changes } = await stateOf(git, worktree, local);
+  const refs = await git('for-each-ref', `--format=%(refname)${FIELD}%(objectname)`, 'refs/heads', 'refs/remotes');
   const allRefs = lines(refs).flatMap(refOf);
   const found =
     allRefs.find((ref) => ref.kind === 'local' && ref.name === wanted) ??
@@ -135,6 +208,7 @@ async function load(git: Git, worktree: string, wanted: string | null, options: 
     refs: allRefs,
     all: options.all,
     start,
+    changes,
     state,
   };
 }
@@ -155,14 +229,47 @@ async function worktreesOf(git: Git): Promise<Worktree[]> {
     });
 }
 
-/** Der ausgecheckte Commit und Branch und alle Branches mit ihrem Commit. */
-async function stateOf(git: Git): Promise<string> {
+/**
+ * Der ausgecheckte Commit und Branch und alle Branches mit ihrem Commit. Mit `local` kommen die
+ * lokalen Änderungen dazu, und `changes` sagt, ob es welche gibt.
+ */
+async function stateOf(git: Git, worktree: string, local: boolean): Promise<{ state: string; changes: boolean }> {
   const outputs = await Promise.all([
     git('rev-parse', 'HEAD'),
     git('branch', '--show-current'),
     git('for-each-ref', '--format=%(refname) %(objectname)', 'refs/heads', 'refs/remotes'),
+    local ? localState(git, worktree) : '',
   ]);
-  return outputs.join('');
+  return { state: outputs.join(''), changes: outputs[3] !== '' };
+}
+
+/**
+ * Die geänderten Dateien laut `git status`, je mit Größe und Zeitpunkt der letzten Änderung. Git
+ * nennt eine Datei, die schon geändert ist, nach jeder weiteren Änderung gleich; erst der Zeitpunkt
+ * zeigt, dass sich ihr Diff geändert hat. Ohne Änderungen ist der Text leer.
+ */
+async function localState(git: Git, worktree: string): Promise<string> {
+  const status = await git('status', '--porcelain=v1', '-z', '--untracked-files=all');
+  const paths: string[] = [];
+  // Bei einer Umbenennung folgt auf den neuen Pfad der alte als eigener Eintrag.
+  let skip = false;
+  for (const entry of status.split('\0')) {
+    if (skip || entry === '') {
+      skip = false;
+      continue;
+    }
+    paths.push(entry.slice(3));
+    skip = entry.startsWith('R') || entry.startsWith('C');
+  }
+  const stats = await Promise.all(
+    paths.map((path) =>
+      stat(join(worktree, path)).then(
+        (found) => `${String(found.size)} ${String(found.mtimeMs)}`,
+        () => '-',
+      ),
+    ),
+  );
+  return status === '' ? '' : `${status}\n${stats.join('\n')}`;
 }
 
 function lines(output: string): string[] {
@@ -203,30 +310,48 @@ async function sides(git: Git, comparison: Comparison): Promise<[string, string]
   return (await isAncestor(git, to, from)) ? [to, from] : [from, to];
 }
 
-/**
- * Die Dateien, die sich zwischen beiden Commits unterscheiden, nach Pfad sortiert. Mit dem größten
- * Umfang an Kontext steht jede Datei ganz im Diff. Die festen Präfixe und Optionen setzen eine
- * abweichende Konfiguration des Benutzers außer Kraft, die Ausgabe sonst anders formen würde.
- */
+/** Die Dateien, die sich zwischen beiden Commits unterscheiden, nach Pfad sortiert. */
 async function compare(git: Git, older: string, newer: string): Promise<DiffFile[]> {
-  const output = await git(
-    '-c',
-    'core.quotePath=false',
-    'diff',
-    '--no-color',
-    '--no-ext-diff',
-    '--no-textconv',
-    '--no-relative',
-    '--find-renames',
-    '--unified=2147483647',
-    '--src-prefix=a/',
-    '--dst-prefix=b/',
-    older,
-    newer,
+  return sorted(parseDiff(await git(...DIFF, older, newer)));
+}
+
+/**
+ * Die lokalen Änderungen gegen `HEAD`, nach Pfad sortiert. `git diff HEAD` kennt nur Dateien, die
+ * Git schon kennt; die übrigen kommen als neue Dateien dazu, außer denen aus `.gitignore`. Git
+ * schreibt dabei nichts, auch nicht in den Index.
+ */
+async function localChanges(git: Git, worktree: string): Promise<DiffFile[]> {
+  const [tracked, untracked] = await Promise.all([
+    git(...DIFF, 'HEAD'),
+    git('ls-files', '--others', '--exclude-standard', '-z'),
+  ]);
+  const added = await Promise.all(
+    untracked
+      .split('\0')
+      .filter((path) => path !== '')
+      .map((path) => untrackedFile(worktree, path)),
   );
-  return parseDiff(output)
-    .map(fileOf)
-    .sort((a, b) => a.path.localeCompare(b.path));
+  return sorted([...parseDiff(tracked), ...added]);
+}
+
+/** Eine Datei, die Git noch nicht kennt, als neue Datei; eine mit Nullbyte gilt wie bei Git als binär. */
+async function untrackedFile(worktree: string, path: string): Promise<ParsedFile> {
+  const content = await readFile(join(worktree, path));
+  const binary = content.subarray(0, BINARY_PROBE).includes(0);
+  const text = binary ? '' : content.toString('utf8');
+  const texts = text === '' ? [] : (text.endsWith('\n') ? text.slice(0, -1) : text).split('\n');
+  return {
+    oldPath: path,
+    newPath: path,
+    kind: 'added',
+    binary,
+    lines: texts.map((line, index) => ({ kind: 'added', oldNumber: null, newNumber: index + 1, text: line, parts: [] })),
+    hunks: texts.length === 0 ? 0 : 1,
+  };
+}
+
+function sorted(parsed: ParsedFile[]): DiffFile[] {
+  return parsed.map(fileOf).sort((a, b) => a.path.localeCompare(b.path));
 }
 
 /** Eine Datei für die Oberfläche, mit den Teilen jeder geänderten Zeile und beiden Fassungen. */

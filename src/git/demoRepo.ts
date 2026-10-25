@@ -27,6 +27,10 @@ export interface MemoryRepo {
   side: SideBranch[];
   /** Die Branches mit der Kennung des Commits, auf den sie zeigen. */
   refs: Ref[];
+  /** Der Branch, der im Repo selbst ausgecheckt ist; `info.branch` liegt in einem eigenen Worktree. */
+  checkedOut: string;
+  /** Die Dateien, die im Repo selbst geändert und nicht committet sind, wie in `StoredCommit.files`. */
+  local: Record<string, string | null>;
 }
 
 const POM_1 = `<?xml version="1.0" encoding="UTF-8"?>
@@ -690,6 +694,16 @@ export const DEMO_REPO: MemoryRepo = {
     { name: 'schritte', kind: 'local', sha: '84c7d2f' },
     { name: 'origin/schritte', kind: 'remote', sha: '84c7d2f' },
   ],
+  checkedOut: 'live_coding',
+  // Das Live-Coding steckt mitten in Schritt 04a, und eine Notiz ist dazugekommen.
+  local: {
+    'src/main/java/nh/demo/bibliothek/loan/LoanService.java': SERVICE_2,
+    'NOTIZEN.md': `# Notizen zum Live-Coding
+
+- Nach 04a eine Pause machen
+- Bei 06b auf die Transaktion achten
+`,
+  },
   // Das Live-Coding im Workshop zweigt nach dem ersten Schritt ab und baut die Schritte nach.
   side: [
     {

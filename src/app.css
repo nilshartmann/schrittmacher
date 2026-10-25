@@ -674,12 +674,30 @@ a.menu-item {
 
 /* Dateien */
 
-.file-list {
+.files-column {
   display: flex;
   flex-direction: column;
   flex: none;
   min-height: 0;
   background: var(--surface);
+}
+
+.file-list {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* Die Knöpfe für alle und keine Haken über den lokalen Änderungen. */
+.files-tools {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  height: 36px;
+  padding: 0 6px;
+  border-bottom: 1px solid var(--line);
 }
 
 .file-list ol {
@@ -692,7 +710,89 @@ a.menu-item {
 
 /* Die Zeilen mit Abstand zum Rand und runden Ecken wie in Fork. */
 .file-list li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   padding: 0 6px;
+}
+
+.file-check {
+  flex: none;
+  margin: 0 0 0 4px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+/* Nachricht, Force-Push und Commit unter den lokalen Änderungen, wie in Fork. */
+.commit-panel {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.commit-message {
+  height: 72px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font: inherit;
+  font-size: 13px;
+  resize: vertical;
+}
+
+.commit-message:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.commit-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.commit-force {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--quiet);
+  font-size: var(--size-small);
+  cursor: pointer;
+}
+
+.commit-force input {
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.commit-error,
+.push-error {
+  margin: 0;
+  color: var(--diff-removed-ink);
+  font-size: var(--size-small);
+  overflow-wrap: anywhere;
+}
+
+.push-note {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  max-height: 40%;
+  overflow-y: auto;
+  padding: 8px;
+  border-top: 1px solid var(--line);
+  color: var(--quiet);
+  font-size: var(--size-small);
+}
+
+.push-note-done {
+  color: var(--diff-added-ink);
 }
 
 .file {

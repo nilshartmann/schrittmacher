@@ -7,10 +7,10 @@ const INTERVAL = 1500;
 
 /**
  * Lädt das Repo neu, sobald der Stand des Worktrees nicht mehr zu `state` passt, etwa nach einem
- * Commit aus Fork oder der IDE. Abgefragt wird nur, solange das Fenster sichtbar ist, und sofort,
- * wenn es wieder sichtbar wird.
+ * Commit aus Fork oder der IDE, mit `local` auch nach jeder lokalen Änderung. Abgefragt wird nur,
+ * solange das Fenster sichtbar ist, und sofort, wenn es wieder sichtbar wird.
  */
-export function useRepoChanges(worktree: string, state: string): void {
+export function useRepoChanges(worktree: string, state: string, local: boolean): void {
   const router = useRouter();
   useEffect(() => {
     let active = true;
@@ -21,7 +21,7 @@ export function useRepoChanges(worktree: string, state: string): void {
       }
       busy = true;
       try {
-        const next = await repoState({ data: { worktree } });
+        const next = await repoState({ data: { worktree, local } });
         if (active && next !== state) {
           await router.invalidate();
         }
@@ -42,5 +42,5 @@ export function useRepoChanges(worktree: string, state: string): void {
       clearInterval(timer);
       document.removeEventListener('visibilitychange', onCheck);
     };
-  }, [worktree, state, router]);
+  }, [worktree, state, local, router]);
 }

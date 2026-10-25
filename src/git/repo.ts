@@ -1,7 +1,16 @@
 import type { Hidden } from './hidden';
 import type { Commit, DiffFile, Ref, RepoInfo, Worktree } from './types';
 
-/** Ein Vergleich von `from` nach `to`. Ohne `from` ist der Vorgänger von `to` gemeint. */
+/**
+ * Die Kennung der lokalen Änderungen im Worktree, anstelle eines Commits in `Comparison.to` und in
+ * der URL. Eine Nummer oder ein SHA kann nicht so heißen.
+ */
+export const LOCAL = 'lokal';
+
+/**
+ * Ein Vergleich von `from` nach `to`. Ohne `from` ist der Vorgänger von `to` gemeint. Mit `LOCAL`
+ * als `to` gilt der Worktree gegen `HEAD`, und `from` bleibt leer.
+ */
 export interface Comparison {
   from: string | null;
   to: string;
@@ -17,8 +26,18 @@ export interface RepoData {
   all: boolean;
   /** Der Commit, den die Oberfläche ohne Wahl zeigt: der neueste des Branches. */
   start: string;
+  /**
+   * Ob der Worktree lokale Änderungen hat. Gefragt wird nur, wenn der Branch im Worktree
+   * ausgecheckt ist, sonst ist es immer `false`.
+   */
+  changes: boolean;
   /** Der Stand des Repos beim Laden, wie ihn `RepoSource.state` liefert. */
   state: string;
+}
+
+/** Ob die Liste den Branch zeigt, der im Worktree ausgecheckt ist; nur dann zählen lokale Änderungen. */
+export function showsCheckedOut(info: RepoInfo): boolean {
+  return info.branch !== null && info.branch === info.checkedOut;
 }
 
 /** Welche Commits außer denen des Branches geladen werden. */
@@ -32,16 +51,30 @@ export interface LoadOptions {
 export interface RepoSource {
   /** Repo und Commits eines Branches; ohne Branch die Commits von `HEAD`. */
   load: (branch: string | null, options: LoadOptions) => Promise<RepoData>;
-  /** Die Dateien, die sich unterscheiden, nach Pfad sortiert, vom älteren zum neueren Commit. */
+  /**
+   * Die Dateien, die sich unterscheiden, nach Pfad sortiert, vom älteren zum neueren Commit. Mit
+   * `LOCAL` die lokalen Änderungen, auch die Dateien, die Git noch nicht kennt.
+   */
   compare: (comparison: Comparison) => Promise<DiffFile[]>;
   /**
-   * Ein Text, der sich ändert, sobald sich Commits oder Branches ändern. Die Oberfläche fragt ihn
-   * regelmäßig ab und lädt das Repo neu, wenn er nicht mehr zu `RepoData.state` passt.
+   * Ein Text, der sich ändert, sobald sich Commits oder Branches ändern, mit `local` auch bei jeder
+   * lokalen Änderung. Die Oberfläche fragt ihn regelmäßig ab und lädt das Repo neu, wenn er nicht
+   * mehr zu `RepoData.state` passt.
    */
-  state: () => Promise<string>;
+  state: (local: boolean) => Promise<string>;
   worktrees: () => Promise<Worktree[]>;
   /** Die lokalen Branches und die der Remotes, ohne ihre Commits zu laden. */
   branches: () => Promise<Ref[]>;
+  /**
+   * Committet die Dateien unter `paths` auf `branch` und liefert den SHA des neuen Commits. Der
+   * Branch muss im Worktree ausgecheckt sein. Andere Dateien bleiben, wie sie sind, auch im Index.
+   */
+  commit: (branch: string, message: string, paths: string[]) => Promise<string>;
+  /**
+   * Pusht den ausgecheckten `branch` zu seinem Ziel auf dem Remote, ohne Ziel nach `origin` unter
+   * demselben Namen. Mit `force` gilt `--force-with-lease`.
+   */
+  push: (branch: string, force: boolean) => Promise<void>;
 }
 
 /**

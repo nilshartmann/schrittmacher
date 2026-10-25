@@ -26,9 +26,11 @@ Frag vor jeder Bibliothek, die über TanStack, React, Vite und Lezer hinausgeht.
 
 - `src/git/` importiert nichts aus React oder TanStack, damit Electron später eine Option bleibt.
 - Git läuft nur lesend und mit `--no-optional-locks`, weil Fork parallel auf demselben Repo
-  arbeitet.
+  arbeitet. Die einzige Ausnahme sind Commit und Push im Worktree eines Tabs
+  (`docs/commit.md`).
 - Fenstergröße zum Prüfen: 1194 × 764 pt (Sidecar abzüglich Menü- und Titelleiste der Web-App)
-- Bedienung mit Pencil oder vom Mac aus; mit dem Finger wird nur gescrollt.
+- Bedienung mit Maus oder Trackpad des MacBooks, nicht mit dem Pencil; mit dem Finger wird nur
+  gescrollt.
 - Farben des Diffs, Symbole der Dateiarten und Zeilennummern wie in Fork
 - Neuester Commit oben; Dateinamen in der Liste nicht fett; Kopfzeile und Leisten mit fester Höhe
 - Tooltips über `data-tip` statt `title`, weil die Web-App aus Safari `title` nicht anzeigt.

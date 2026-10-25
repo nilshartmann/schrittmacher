@@ -89,7 +89,7 @@ interface MenuItemProps {
   onChoose: () => void;
 }
 
-/** Eine Zeile des Menüs, hoch genug für den Pencil; die aktuelle hat einen Haken. */
+/** Eine Zeile des Menüs; die aktuelle hat einen Haken. */
 export function MenuItem(props: MenuItemProps) {
   const newTab = useContext(NewTabContext);
   const content = (
