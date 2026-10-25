@@ -132,12 +132,6 @@ export function reachable(commits: Commit[], tip: string): ReadonlySet<string> {
   return found;
 }
 
-/** Der Vorgänger eines Commits in der Liste: sein erster Parent, falls die Liste ihn enthält. */
-export function previousOf(commits: Commit[], commit: Commit): Commit | undefined {
-  const parent = commit.parents[0];
-  return parent === undefined ? undefined : commits.find((candidate) => candidate.sha === parent);
-}
-
 /**
  * Die Kennung eines Commits in der URL und im Gedächtnis einer Ansicht: die Nummer des Schritts,
  * ohne Schritt die ersten sieben Zeichen des SHA. Eine Nummer übersteht einen Rebase. Findet die

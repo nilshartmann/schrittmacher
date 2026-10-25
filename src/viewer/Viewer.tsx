@@ -12,6 +12,7 @@ import { compareCommits, pushBranch } from '../server/repo.functions';
 import type { Tab, ViewSearch } from '../server/store';
 import { CommitList } from './CommitList';
 import { CommitPanel, EMPTY_DRAFT, PushNote } from './CommitPanel';
+import { ComparisonBar } from './ComparisonBar';
 import type { Draft, PushState } from './CommitPanel';
 import { DiffView } from './DiffView';
 import { FileBar, FileList } from './FileList';
@@ -281,9 +282,6 @@ export function Viewer({ view, search, onSearch, onOpen, onShow, tabs }: ViewerP
             onShow={onShow}
           />
         }
-        commits={repo.commits}
-        start={repo.start}
-        comparison={comparison}
         allBranches={settings.allBranches}
         onAllBranches={() => {
           void saveNow({ allBranches: !settings.allBranches }).then(() => router.invalidate());
@@ -314,6 +312,7 @@ export function Viewer({ view, search, onSearch, onOpen, onShow, tabs }: ViewerP
           set({ listHeight });
         }}
       />
+      <ComparisonBar commits={repo.commits} comparison={comparison} />
       <main className="body">
         {settings.filesOpen && (
           <FileList

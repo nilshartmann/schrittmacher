@@ -84,7 +84,7 @@ const SHOTS = [
     '08-zwei-commits',
     async (page) => {
       await commit(page, '04b').click();
-      await commit(page, '07').click({ modifiers: ['Shift'] });
+      await commit(page, '07').click({ modifiers: ['Meta'] });
     },
   ],
   [

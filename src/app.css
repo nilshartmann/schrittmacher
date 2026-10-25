@@ -16,7 +16,6 @@
   --selected-focus-ink: #ffffff;
   --accent: #3e5c9a;
   --accent-tint: #e8edf6;
-  --between: #f3f5f9;
 
   /* Die Farben des Diffs wie in Fork. */
   --diff-removed: #ffe4e4;
@@ -384,39 +383,10 @@ a.menu-item {
   color: var(--diff-removed-ink);
 }
 
-.header-comparison {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  flex: 1 1 auto;
-}
-
-.header-step {
-  font-weight: 700;
-}
-
-.header-arrow {
-  color: var(--sign);
-}
-
-.header-comparison-free .header-step {
-  padding: 1px 6px;
-  border-radius: 4px;
-  background: var(--accent-tint);
-  color: var(--accent);
-}
-
-.header-title {
-  overflow: hidden;
-  min-width: 0;
-  text-overflow: ellipsis;
-  color: var(--quiet);
-}
-
 .header-tools {
   display: flex;
   align-items: center;
+  margin-left: auto;
   gap: 6px;
   flex: none;
 }
@@ -539,7 +509,7 @@ a.menu-item {
 
 .commit-table {
   min-width: 100%;
-  /* Sonst markiert der ⇧-Klick den Text zwischen zwei Commits. */
+  /* Sonst markiert ein Klick mit gedrückter Taste den Text zwischen zwei Commits. */
   user-select: none;
   -webkit-user-select: none;
   border-collapse: collapse;
@@ -563,15 +533,7 @@ a.menu-item {
   background: var(--hover);
 }
 
-.commit-between {
-  background: var(--between);
-}
-
-.commit-from {
-  background: var(--accent-tint);
-}
-
-.commit-to {
+.commit-chosen {
   background: var(--selected);
 }
 
@@ -876,6 +838,58 @@ a.menu-item {
   flex: 1 1 auto;
   min-width: 0;
   background: var(--surface);
+}
+
+/* Der Vergleich zweier Commits unter der Commit-Liste, wie in Fork */
+.comparison {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  height: 52px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  font-size: 13px;
+}
+
+.compared {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.compared-author,
+.compared-date {
+  flex: none;
+  color: var(--quiet);
+}
+
+.compared-sha {
+  flex: none;
+  padding: 0 4px;
+  border-radius: 3px;
+  font-family: var(--font-code);
+  font-size: 12px;
+}
+
+.compared-sha-old {
+  background: var(--diff-removed);
+  color: var(--diff-removed-ink);
+}
+
+.compared-sha-new {
+  background: var(--diff-added);
+  color: var(--diff-added-ink);
+}
+
+.compared-title {
+  overflow: hidden;
+  min-width: 0;
+  text-overflow: ellipsis;
 }
 
 .file-bar {
@@ -1636,22 +1650,22 @@ a.menu-item {
 }
 
 /* Die Auswahl wie in Fork: blau im Bereich mit dem Fokus, sonst grau. */
-.commit-band:focus-within .commit-to,
+.commit-band:focus-within .commit-chosen,
 .file-list:focus-within .file[aria-current='true'] {
   background: var(--selected-focus);
   color: var(--selected-focus-ink);
 }
 
-.commit-band:focus-within .commit-to > td,
-.commit-band:focus-within .commit-to .path-folder,
+.commit-band:focus-within .commit-chosen > td,
+.commit-band:focus-within .commit-chosen .path-folder,
 .file-list:focus-within .file[aria-current='true'] .path-folder {
   color: inherit;
 }
 
-.commit-band:focus-within .commit-to .ref {
+.commit-band:focus-within .commit-chosen .ref {
   color: var(--ink);
 }
 
-.commit-band:focus-within .commit-to .ref-remote {
+.commit-band:focus-within .commit-chosen .ref-remote {
   color: var(--quiet);
 }

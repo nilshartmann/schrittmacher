@@ -1,15 +1,10 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import type { KeyboardEvent, MouseEvent, PointerEvent } from 'react';
 import type { Graph, GraphRow } from '../git/graph';
-import { LOCAL, reachable } from '../git/repo';
+import { LOCAL } from '../git/repo';
 import type { Comparison } from '../git/repo';
 import type { Commit, Ref } from '../git/types';
 import { BranchIcon } from './Icons';
-
-/** Die Nummer des Schritts, für einen Commit ohne Schritt der Anfang seines SHA. */
-export function stepLabel(commit: Commit): string {
-  return commit.step ?? commit.sha.slice(0, 7);
-}
 
 /** Die Breite einer Spalte des Graphen und die Höhe einer Zeile in Pixeln. */
 const LANE = 14;
@@ -46,26 +41,17 @@ interface CommitListProps {
 /**
  * Die Commits als Band über Dateien und Diff, wie in Fork der neueste oben. Das Band
  * scrollt in beide Richtungen, eine Trennlinie darunter ändert seine Höhe. Ein Klick vergleicht
- * einen Commit mit seinem Vorgänger, ein ⇧-Klick den gewählten mit dem geklickten. Hat das Band
- * den Fokus, wählen ↑ und ↓ den Commit darüber oder darunter; mit ⇧ wandert ein Ende des
- * Vergleichs, und der zuerst gewählte Commit bleibt fest. Ganz einklappen lässt sich das Band
+ * einen Commit mit seinem Vorgänger, ein ⌘-Klick wie in Fork den gewählten mit dem geklickten;
+ * dann sind beide gewählt. Hat das Band den Fokus, wählen ↑ und ↓ den Commit darüber oder darunter;
+ * mit ⇧ wandert ein Ende des Vergleichs, und der zuerst gewählte Commit bleibt fest. Ganz einklappen lässt sich das Band
  * nicht, nur bis auf eine Zeile verkleinern. Mit allen Branches steht links der Graph, und Commits
  * anderer Branches sind blasser. Hat der Worktree lokale Änderungen, steht über allen Commits wie in
- * Fork ihre Zeile; sie lässt sich nur allein wählen, ohne ⇧.
+ * Fork ihre Zeile; sie lässt sich nur allein wählen.
  */
 export function CommitList(props: CommitListProps) {
   const { commits, comparison, onChoose } = props;
   const local = comparison.to === LOCAL;
   const toIndex = commits.findIndex((commit) => commit.sha === comparison.to);
-  const fromSha = comparison.from ?? commits[toIndex]?.parents[0] ?? null;
-  // Zwischen zwei gewählten Commits liegt, was `to` erreicht und `from` nicht.
-  const between = useMemo(() => {
-    if (comparison.from === null) {
-      return new Set<string>();
-    }
-    const older = reachable(commits, comparison.from);
-    return new Set([...reachable(commits, comparison.to)].filter((sha) => !older.has(sha)));
-  }, [commits, comparison.from, comparison.to]);
   const band = useRef<HTMLElement>(null);
   // Der Commit, der fest bleibt, wenn ⇧ mit einer Pfeiltaste den Vergleich erweitert.
   const anchor = useRef<string | null>(null);
@@ -135,7 +121,7 @@ export function CommitList(props: CommitListProps) {
 
   const onClick = (event: MouseEvent, index: number, commit: Commit) => {
     moved.current = null;
-    if (event.shiftKey && index !== toIndex && !local) {
+    if (event.metaKey && index !== toIndex && !local) {
       const older = commits[Math.min(index, toIndex)];
       const newer = commits[Math.max(index, toIndex)];
       if (older !== undefined && newer !== undefined) {
@@ -161,7 +147,7 @@ export function CommitList(props: CommitListProps) {
           <tbody>
             {props.changes && (
               <tr
-                className={`commit commit-local${local ? ' commit-to' : ''}`}
+                className={`commit commit-local${local ? ' commit-chosen' : ''}`}
                 aria-current={local ? 'true' : undefined}
                 data-sha={LOCAL}
                 onClick={() => {
@@ -179,14 +165,7 @@ export function CommitList(props: CommitListProps) {
             )}
             {/* Die Indizes bleiben die der Historie, nur die Anzeige ist umgedreht. */}
             {[...commits.entries()].reverse().map(([index, commit], row) => {
-              const state =
-                index === toIndex
-                  ? 'commit-to'
-                  : commit.sha === fromSha && comparison.from !== null
-                    ? 'commit-from'
-                    : between.has(commit.sha)
-                      ? 'commit-between'
-                      : '';
+              const state = index === toIndex || commit.sha === comparison.from ? 'commit-chosen' : '';
               const other = props.graph !== null && !props.line.has(commit.sha) ? ' commit-other' : '';
               const graphRow = props.graph?.rows[row];
               return (

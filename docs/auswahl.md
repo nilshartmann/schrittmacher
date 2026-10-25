@@ -4,10 +4,12 @@ Festgelegt und umgesetzt am 24.10.2026.
 
 ## Kopfzeile
 
-Die Teile `Repo / ⌂ Worktree / ⑂ Branch` der Kopfzeile werden Knöpfe. Jeder öffnet direkt darunter
-ein Menü. Die Kopfzeile behält ihre feste Höhe. Die Zeilen im Menü sind mindestens 36 pt hoch,
-damit sie sich mit dem Pencil treffen lassen. Ein Suchfeld dient der Tastatur des Macs und wird
-nie zwingend gebraucht.
+Repo, Worktree und Branch stehen im Tab und nicht in der Kopfzeile. Die Kopfzeile hat dafür
+Knöpfe mit einem Symbol, die direkt darunter ein Menü öffnen: einen Ordner für das Repo, ⌂ für
+den Worktree und das Symbol eines Branches für den Branch. Den Namen nennt der Tooltip. Der Knopf
+für den Worktree fehlt, wenn es nur einen gibt. Die Kopfzeile behält ihre feste Höhe. Die Zeilen
+im Menü sind mindestens 36 pt hoch. Ein Suchfeld dient der Tastatur des Macs und wird nie
+zwingend gebraucht.
 
 ## Repo
 
@@ -37,8 +39,8 @@ dem Live-Coding in `live_coding` zeigen.
 
 - Im Menü stehen die lokalen Branches, darunter die Remotes eingeklappt wie in Fork. Der
   ausgecheckte Branch des Worktrees ist markiert.
-- Weicht der gewählte Branch vom ausgecheckten ab, zeigt die Kopfzeile ihn in der Farbe der
-  Branch-Badges, mit dem Tooltip „Nicht ausgecheckt“.
+- Weicht der gewählte Branch vom ausgecheckten ab, ist sein Knopf in der Kopfzeile in der Farbe
+  der Branch-Badges hinterlegt, und der Tooltip nennt den ausgecheckten.
 - Ein Klick auf einen Branch-Badge in der Commit-Liste wählt diesen Branch.
 - Die Remotes sind im Menü nach Remote gruppiert, wie in der Seitenleiste von Fork.
 
@@ -54,7 +56,8 @@ Commit-Liste aus und wieder ein. Wählbar bleibt der Branch, im Menü steht er b
 
 ### Alle Branches
 
-Ein Knopf mit dem Symbol zweier Branches, rechts neben dem Uhr-Knopf, schaltet die Commit-Liste um.
+Ein Knopf mit dem Symbol zweier Branches, rechts neben dem Knopf für die Dateiliste, schaltet die
+Commit-Liste um.
 Sie zeigt dann die Commits aller Branches, nach Datum sortiert und mit einem Graphen wie in Fork.
 
 - Die Commits ausgeblendeter Branches fehlen in diesem Modus ganz.
@@ -80,15 +83,16 @@ anderen Speicher als Safari hat.
 
 - Die Ansicht steht in der URL, etwa `/?repo=…&worktree=live_coding&branch=schritte&to=07&file=…`.
   Zurück, Vor und Lesezeichen funktionieren damit.
-- Ein Knopf mit Uhr-Symbol ganz links in der Kopfzeile, neben dem Knopf für die Dateiliste, öffnet
-  die zuletzt geöffneten Ansichten. Jede Zeile nennt Repo, Branch und Schritt.
+- Ein Knopf mit Uhr-Symbol ganz links in der Tableiste, vor dem Projekt, öffnet die zuletzt
+  geöffneten Ansichten. Jede Zeile nennt Repo, Branch und Schritt.
 - Die Einträge der zuletzt geöffneten Ansichten und der Repos sind Links. Mit ⌘-Klick oder der
   mittleren Maustaste öffnen sie sich in einem neuen Tab der Tableiste.
 
 ## Tabs
 
-Die Web-App aus dem Dock hat keine Tabs. Deshalb liegt wie in Fork eine eigene Tableiste unter
-der Kopfzeile. Jeder Tab ist eine Ansicht.
+Die Web-App aus dem Dock hat keine Tabs. Deshalb liegt wie in Fork eine eigene Tableiste über
+der Kopfzeile. Jeder Tab ist eine Ansicht. Die Tabs dienen nur zum Lesen; ein Klick wechselt den
+Tab, gewechselt wird über die Knöpfe der Kopfzeile.
 
 - Ein neuer Tab öffnet sich im Hintergrund rechts neben dem aktiven.
 - Ein Wechsel von Repo, Worktree oder Branch in der Kopfzeile ersetzt die Ansicht des aktiven
@@ -96,7 +100,18 @@ der Kopfzeile. Jeder Tab ist eine Ansicht.
 - Ein Tab öffnet seine Ansicht mit dem gemerkten Vergleich und der gemerkten Datei.
 - Das Schließen-Kreuz steht am aktiven Tab und erscheint beim Überfahren der anderen. Der letzte
   Tab lässt sich nicht schließen.
-- Die Beschriftung nennt Repo, Worktree und Branch. Zuerst wird der Name des Repos gekürzt.
+- Die Beschriftung nennt Repo, Worktree und Branch. Zuerst wird der Name des Repos gekürzt. Der
+  aktive Tab ist breiter als die übrigen.
+- Das Kommando `schrittmacher <pfad>` öffnet den Worktree zum Pfad in einem neuen Tab und macht
+  ihn aktiv, wie `fork <pfad>` in Fork. Ist er schon offen, wird sein Tab aktiv.
 - Die offenen Tabs speichert der Server in `state.json`.
 - Beim Start öffnet die App die zuletzt geöffnete Ansicht. Beim allerersten Start ist das Menü der
   Repos offen.
+
+## Vergleich zweier Commits
+
+Ein Klick in der Commit-Liste vergleicht einen Commit mit seinem Vorgänger. Ein ⌘-Klick wie in
+Fork vergleicht den gewählten mit dem geklickten; dann sind beide blau. Darunter steht eine Zeile
+mit beiden Commits, je mit Autor, SHA, Datum und Titel, der ältere oben. Die SHAs haben die
+Farben der entfernten und der neuen Zeilen. Mit ⇧ und einer Pfeiltaste wandert ein Ende des
+Vergleichs.

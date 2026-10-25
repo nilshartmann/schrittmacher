@@ -1,9 +1,6 @@
-import { LOCAL, previousOf } from '../git/repo';
-import type { Comparison } from '../git/repo';
-import type { Commit, RepoInfo } from '../git/types';
 import type { ReactNode } from 'react';
+import type { RepoInfo } from '../git/types';
 import type { ViewSearch } from '../server/store';
-import { stepLabel } from './CommitList';
 import { RecentMenu, RepoMenu } from './ViewMenus';
 
 /**
@@ -16,10 +13,6 @@ interface HeaderProps {
   info: RepoInfo;
   /** Die Knöpfe zum Wechseln von Repo, Worktree und Branch. */
   where: ReactNode;
-  commits: Commit[];
-  /** Der neueste Commit des Branches; die lokalen Änderungen gelten gegen ihn. */
-  start: string;
-  comparison: Comparison;
   allBranches: boolean;
   onAllBranches: () => void;
   fontSize: number;
@@ -30,20 +23,11 @@ interface HeaderProps {
 
 /**
  * Die schmale Kopfzeile: links die Knöpfe für Dateiliste und alle Branches und die Knöpfe zum
- * Wechseln von Repo, Worktree und Branch, dann der gewählte Vergleich; rechts die Schriftgröße.
+ * Wechseln von Repo, Worktree und Branch; rechts die Schriftgröße. Den gewählten Vergleich zeigt die
+ * Commit-Liste, den zweier Commits zusätzlich die Zeile darunter (`ComparisonBar`).
  */
 export function Header(props: HeaderProps) {
-  const { info, commits, comparison } = props;
-  const local = comparison.to === LOCAL;
-  const to = commits.find((commit) => commit.sha === comparison.to);
-  const from = local
-    ? commits.find((commit) => commit.sha === props.start)
-    : comparison.from === null
-      ? to === undefined
-        ? undefined
-        : previousOf(commits, to)
-      : commits.find((commit) => commit.sha === comparison.from);
-  const title = local ? 'Lokale Änderungen' : to?.title;
+  const { info } = props;
   return (
     <header className="header">
       <div className="header-start">
@@ -73,15 +57,6 @@ export function Header(props: HeaderProps) {
         </button>
       </div>
       <div className="header-start">{props.where}</div>
-      <div
-        className={comparison.from === null ? 'header-comparison' : 'header-comparison header-comparison-free'}
-        data-tip={title}
-      >
-        <span className="header-step">{from === undefined ? '∅' : stepLabel(from)}</span>
-        <span className="header-arrow">→</span>
-        <span className="header-step">{local ? 'Lokal' : to === undefined ? '' : stepLabel(to)}</span>
-        {title !== undefined && comparison.from === null && <span className="header-title">{title}</span>}
-      </div>
       <div className="header-tools">
         <div className="segmented" role="group" aria-label="Schriftgröße">
           <button
