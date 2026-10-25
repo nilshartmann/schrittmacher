@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react';
-import type { MouseEvent, PointerEvent } from 'react';
+import type { KeyboardEvent, MouseEvent, PointerEvent } from 'react';
 import type { Graph, GraphRow } from '../git/graph';
 import { reachable } from '../git/repo';
 import type { Comparison } from '../git/repo';
@@ -43,9 +43,11 @@ interface CommitListProps {
 /**
  * Die Commits als Band über Dateien und Diff, wie in Fork der neueste oben. Das Band
  * scrollt in beide Richtungen, eine Trennlinie darunter ändert seine Höhe. Ein Klick vergleicht
- * einen Commit mit seinem Vorgänger, ein ⇧-Klick den gewählten mit dem geklickten. Ganz
- * einklappen lässt sich das Band nicht, nur bis auf eine Zeile verkleinern. Mit allen Branches
- * steht links der Graph, und Commits anderer Branches sind blasser.
+ * einen Commit mit seinem Vorgänger, ein ⇧-Klick den gewählten mit dem geklickten. Hat das Band
+ * den Fokus, wählen ↑ und ↓ den Commit darüber oder darunter; mit ⇧ wandert ein Ende des
+ * Vergleichs, und der zuerst gewählte Commit bleibt fest. Ganz einklappen lässt sich das Band
+ * nicht, nur bis auf eine Zeile verkleinern. Mit allen Branches steht links der Graph, und Commits
+ * anderer Branches sind blasser.
  */
 export function CommitList(props: CommitListProps) {
   const { commits, comparison, onChoose } = props;
@@ -60,13 +62,63 @@ export function CommitList(props: CommitListProps) {
     return new Set([...reachable(commits, comparison.to)].filter((sha) => !older.has(sha)));
   }, [commits, comparison.from, comparison.to]);
   const band = useRef<HTMLElement>(null);
+  // Der Commit, der fest bleibt, wenn ⇧ mit einer Pfeiltaste den Vergleich erweitert.
+  const anchor = useRef<string | null>(null);
+  // Der Commit, den eine Pfeiltaste zuletzt erreicht hat; er wird sichtbar gehalten.
+  const moved = useRef<string | null>(null);
 
-  // Der gewählte Commit bleibt im Band sichtbar, auch wenn das Band kleiner geschoben wird.
+  // Der gewählte Commit bleibt im Band sichtbar, auch wenn das Band kleiner geschoben wird. Nach
+  // einer Pfeiltaste ist es der erreichte Commit, auch wenn er das ältere Ende ist.
   useEffect(() => {
-    band.current?.querySelector('[aria-current="true"]')?.scrollIntoView({ block: 'nearest' });
-  }, [comparison.to, props.height]);
+    const target =
+      moved.current === null ? '[aria-current="true"]' : `[data-sha="${moved.current}"]`;
+    band.current?.querySelector(target)?.scrollIntoView({ block: 'nearest' });
+  }, [comparison.from, comparison.to, props.height]);
+
+  const choose = (sha: string) => {
+    anchor.current = sha;
+    onChoose({ from: null, to: sha });
+  };
+
+  const onKeyDown = (event: KeyboardEvent) => {
+    if ((event.key !== 'ArrowUp' && event.key !== 'ArrowDown') || event.metaKey || event.altKey || event.ctrlKey) {
+      return;
+    }
+    event.preventDefault();
+    // Die Liste zeigt den neuesten Commit oben, in der Historie steht er hinten.
+    const step = event.key === 'ArrowUp' ? 1 : -1;
+    if (!event.shiftKey) {
+      const next = commits[toIndex + step];
+      if (next !== undefined) {
+        moved.current = next.sha;
+        choose(next.sha);
+      }
+      return;
+    }
+    const fixed =
+      comparison.from !== null && (anchor.current === comparison.from || anchor.current === comparison.to)
+        ? anchor.current
+        : comparison.to;
+    const moving = comparison.from === null ? comparison.to : fixed === comparison.to ? comparison.from : comparison.to;
+    const fixedIndex = commits.findIndex((commit) => commit.sha === fixed);
+    const next = commits[commits.findIndex((commit) => commit.sha === moving) + step];
+    const fixedCommit = commits[fixedIndex];
+    if (next === undefined || fixedCommit === undefined) {
+      return;
+    }
+    anchor.current = fixed;
+    moved.current = next.sha;
+    const nextIndex = commits.indexOf(next);
+    if (nextIndex === fixedIndex) {
+      onChoose({ from: null, to: fixed });
+      return;
+    }
+    const [older, newer] = nextIndex < fixedIndex ? [next, fixedCommit] : [fixedCommit, next];
+    onChoose({ from: older.sha, to: newer.sha });
+  };
 
   const onClick = (event: MouseEvent, index: number, commit: Commit) => {
+    moved.current = null;
     if (event.shiftKey && index !== toIndex) {
       const older = commits[Math.min(index, toIndex)];
       const newer = commits[Math.max(index, toIndex)];
@@ -75,12 +127,19 @@ export function CommitList(props: CommitListProps) {
       }
       return;
     }
-    onChoose({ from: null, to: commit.sha });
+    choose(commit.sha);
   };
 
   return (
     <>
-      <nav ref={band} className="commit-band" aria-label="Commits" style={{ height: props.height }}>
+      <nav
+        ref={band}
+        className="commit-band"
+        aria-label="Commits"
+        tabIndex={0}
+        style={{ height: props.height }}
+        onKeyDown={onKeyDown}
+      >
         <div className="commit-scroll">
         <table className="commit-table">
           <tbody>
@@ -101,6 +160,7 @@ export function CommitList(props: CommitListProps) {
                   key={commit.sha}
                   className={`commit ${state}${other}`}
                   aria-current={index === toIndex ? 'true' : undefined}
+                  data-sha={commit.sha}
                   data-tip={commit.step === null ? commit.title : `${commit.step}: ${commit.title}`}
                   onClick={(event) => {
                     onClick(event, index, commit);

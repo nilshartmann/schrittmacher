@@ -1442,3 +1442,25 @@ a.menu-item {
 .tabs-project-icon {
   flex: none;
 }
+
+/* Commit-Liste und Dateiliste nehmen mit dem Fokus die Pfeiltasten an; eine Linie zeigt, welche. */
+.commit-band,
+.file-list {
+  outline: none;
+}
+
+/* Eine Ebene über dem Inhalt, weil der scrollende Inhalt in Safari eine Umrandung verdeckt. */
+.commit-band,
+.file-list {
+  position: relative;
+}
+
+.commit-band:focus-within::after,
+.file-list:focus-within::after {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  border: 2px solid var(--accent);
+  content: '';
+  pointer-events: none;
+}

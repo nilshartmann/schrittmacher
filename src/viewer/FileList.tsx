@@ -1,5 +1,5 @@
-import { useRef } from 'react';
-import type { PointerEvent } from 'react';
+import { useEffect, useRef } from 'react';
+import type { KeyboardEvent, PointerEvent } from 'react';
 import type { DiffFile } from '../git/types';
 
 function nameOf(path: string): string {
@@ -35,6 +35,7 @@ export const FILES_WIDTH = { min: 140, start: 300, restMin: 400 };
 /**
  * Die Dateien des Vergleichs als Spalte links vom Diff, mit einer Trennlinie für die Breite. Jede
  * Datei steht mit ihrem ganzen Pfad da; wird es eng, kürzt er vorn, damit der Dateiname bleibt.
+ * Hat die Liste den Fokus, wählen ↑ und ↓ die Datei darüber oder darunter.
  */
 export function FileList({
   files,
@@ -49,9 +50,24 @@ export function FileList({
   width: number;
   onWidth: (width: number) => void;
 }) {
+  const list = useRef<HTMLElement>(null);
+  useEffect(() => {
+    list.current?.querySelector('[aria-current="true"]')?.scrollIntoView({ block: 'nearest' });
+  }, [current]);
+  const onKeyDown = (event: KeyboardEvent) => {
+    if ((event.key !== 'ArrowUp' && event.key !== 'ArrowDown') || event.metaKey || event.altKey || event.ctrlKey) {
+      return;
+    }
+    event.preventDefault();
+    const at = files.findIndex((file) => file.path === current);
+    const next = files[Math.max(0, at) + (event.key === 'ArrowUp' ? -1 : 1)];
+    if (next !== undefined) {
+      onChoose(next.path);
+    }
+  };
   return (
     <>
-    <nav className="file-list" aria-label="Dateien" style={{ width }}>
+    <nav ref={list} className="file-list" aria-label="Dateien" tabIndex={0} style={{ width }} onKeyDown={onKeyDown}>
       <ol>
         {files.map((file) => (
           <li key={file.path}>
