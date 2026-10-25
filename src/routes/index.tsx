@@ -122,10 +122,10 @@ function OpenedView({ view, search }: { view: LoadedView; search: ViewSearch }) 
 
 /** Ohne Ansicht, beim allerersten Start oder wenn sie sich nicht öffnen lässt. */
 function NoView({ message }: { message?: string }) {
-  const { show, open } = useOpen();
+  const { show } = useOpen();
   return (
     <div className="app">
-      <EmptyHeader onOpen={open} onShow={show} />
+      <EmptyHeader onShow={show} />
       <p className="empty">{message ?? 'Noch ist kein Repo geöffnet.'}</p>
       <Tooltips />
     </div>

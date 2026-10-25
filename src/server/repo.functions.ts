@@ -189,23 +189,50 @@ export const repoState = createServerFn({ method: 'GET' })
   .validator((data: { worktree: string }) => ({ worktree: text(data.worktree, 'worktree') }))
   .handler(async ({ data }) => (await access(data.worktree)).source.state());
 
+/** Ein Repo in der Auswahl, mit der Ansicht, die ein Klick darauf öffnet. */
+export interface RepoChoice extends RepoEntry {
+  view: ViewSearch;
+}
+
+/** Die Teile einer gemerkten Ansicht, die in die URL gehören; ohne leere. */
+function searchOf(view: SavedView): ViewSearch {
+  const search: ViewSearch = { worktree: view.worktree, branch: view.branch };
+  for (const key of ['to', 'from', 'file'] as const) {
+    if (view[key] !== undefined) {
+      search[key] = view[key];
+    }
+  }
+  return search;
+}
+
 /**
  * Die zuletzt geöffneten und alle gefundenen Repos, dazu die Wurzeln und das Home-Verzeichnis,
- * damit die Oberfläche Pfade mit `~` kürzen kann.
+ * damit die Oberfläche Pfade mit `~` kürzen kann. Jedes Repo nennt die Ansicht, die ein Klick
+ * öffnet: seine zuletzt geöffnete, sonst sein erster Worktree. So kann die Oberfläche jedes Repo
+ * als Link zeigen, der sich auch in einem neuen Tab öffnen lässt.
  */
 export const listRepos = createServerFn({ method: 'GET' }).handler(async () => {
   const { store } = await server();
   const views = (await store.state()).views;
-  const recent = new Map<string, RepoEntry>();
+  const lastViews = new Map<string, SavedView>();
   for (const view of views) {
-    if (!recent.has(view.repoPath)) {
-      recent.set(view.repoPath, { name: view.repo, path: view.repoPath });
+    if (!lastViews.has(view.repoPath)) {
+      lastViews.set(view.repoPath, view);
     }
   }
+  const choiceOf = (entry: RepoEntry): RepoChoice => {
+    const last = lastViews.get(entry.path);
+    return { ...entry, view: last === undefined ? { worktree: entry.path } : searchOf(last) };
+  };
   const roots = await store.roots();
   // Git nennt Pfade ohne symbolische Links, etwa `/private/var` statt `/var`; die Suche ebenso.
   const realRoots = await Promise.all(roots.map((root) => realpath(root).catch(() => root)));
-  return { recent: [...recent.values()], found: await findRepos(realRoots), roots, home: homedir() };
+  return {
+    recent: [...lastViews.values()].map((view) => choiceOf({ name: view.repo, path: view.repoPath })),
+    found: (await findRepos(realRoots)).map(choiceOf),
+    roots,
+    home: homedir(),
+  };
 });
 
 /**
@@ -238,9 +265,9 @@ export const openRepo = createServerFn({ method: 'POST' })
     return complete(last ?? { worktree: where.worktreePath });
   });
 
-/** Die zuletzt geöffneten Ansichten, die neueste zuerst. */
+/** Die zuletzt geöffneten Ansichten, die neueste zuerst, jede mit ihren Teilen für die URL. */
 export const listViews = createServerFn({ method: 'GET' }).handler(async () =>
-  (await (await server()).store.state()).views.slice(0, 10),
+  (await (await server()).store.state()).views.slice(0, 10).map((view) => ({ ...view, search: searchOf(view) })),
 );
 
 /** Merkt sich die Ansicht als die zuletzt geöffnete, mit Vergleich und Datei. */

@@ -51,7 +51,7 @@ export function Header(props: HeaderProps) {
         >
           <SidebarIcon />
         </button>
-        <RecentMenu info={info} onOpen={props.onOpen} />
+        <RecentMenu info={info} />
       </div>
       <div className="header-where">
         <RepoMenu info={info} onShow={props.onShow} />
@@ -100,11 +100,11 @@ export function Header(props: HeaderProps) {
  * Die Kopfzeile, solange keine Ansicht offen ist, etwa beim allerersten Start: nur die zuletzt
  * geöffneten Ansichten und das Repo, dessen Menü schon offen ist.
  */
-export function EmptyHeader({ onOpen, onShow }: { onOpen: OpenView; onShow: (view: ViewSearch) => void }) {
+export function EmptyHeader({ onShow }: { onShow: (view: ViewSearch) => void }) {
   return (
     <header className="header">
       <div className="header-start">
-        <RecentMenu info={null} onOpen={onOpen} />
+        <RecentMenu info={null} />
       </div>
       <div className="header-where">
         <RepoMenu info={null} initiallyOpen onShow={onShow} />

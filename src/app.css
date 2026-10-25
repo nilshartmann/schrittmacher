@@ -225,6 +225,11 @@ button.crumb-foreign:hover,
   cursor: pointer;
 }
 
+a.menu-item {
+  color: inherit;
+  text-decoration: none;
+}
+
 .menu-item:hover {
   background: var(--hover);
 }

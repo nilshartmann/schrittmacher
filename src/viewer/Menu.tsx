@@ -1,5 +1,7 @@
+import { Link } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
-import type { ReactNode } from 'react';
+import type { MouseEvent, ReactNode } from 'react';
+import type { ViewSearch } from '../server/store';
 
 interface MenuProps {
   /** Der Inhalt des Knopfs. */
@@ -75,20 +77,19 @@ interface MenuItemProps {
   aside?: ReactNode;
   current?: boolean;
   tip?: string;
+  /**
+   * Die Ansicht, zu der die Zeile führt. Die Zeile ist dann ein Link, der sich mit ⌘-Klick oder
+   * über das Kontextmenü auch in einem neuen Tab öffnen lässt; `onChoose` folgt nur einem
+   * gewöhnlichen Klick.
+   */
+  link?: ViewSearch;
   onChoose: () => void;
 }
 
 /** Eine Zeile des Menüs, hoch genug für den Pencil; die aktuelle hat einen Haken. */
 export function MenuItem(props: MenuItemProps) {
-  return (
-    <button
-      type="button"
-      role="menuitem"
-      className="menu-item"
-      aria-current={props.current === true ? 'true' : undefined}
-      data-tip={props.tip}
-      onClick={props.onChoose}
-    >
+  const content = (
+    <>
       <span className="menu-check" aria-hidden="true">
         {props.current === true ? '✓' : ''}
       </span>
@@ -97,6 +98,29 @@ export function MenuItem(props: MenuItemProps) {
         {props.sub !== undefined && <span className="menu-sub">{props.sub}</span>}
       </span>
       {props.aside !== undefined && <span className="menu-aside">{props.aside}</span>}
+    </>
+  );
+  const shared = {
+    role: 'menuitem',
+    className: 'menu-item',
+    'aria-current': props.current === true ? ('true' as const) : undefined,
+    'data-tip': props.tip,
+  };
+  if (props.link !== undefined) {
+    const onClick = (event: MouseEvent) => {
+      if (!event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey && event.button === 0) {
+        props.onChoose();
+      }
+    };
+    return (
+      <Link {...shared} to="/" search={props.link} onClick={onClick}>
+        {content}
+      </Link>
+    );
+  }
+  return (
+    <button type="button" {...shared} onClick={props.onChoose}>
+      {content}
     </button>
   );
 }

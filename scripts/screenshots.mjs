@@ -131,7 +131,7 @@ const SHOTS = [
       await page.getByRole('menuitem', { name: 'main' }).click();
       await page.locator('.crumb-foreign').waitFor();
       await page.waitForTimeout(600);
-      await page.getByRole('button', { name: 'Zuletzt geöffnet' }).click();
+      await page.getByRole('button', { name: 'Zuletzt geöffnete Ansichten' }).click();
       await page.locator('.menu-item').nth(1).waitFor();
     },
   ],

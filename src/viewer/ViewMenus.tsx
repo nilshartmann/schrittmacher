@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
-import type { RepoEntry } from '../git/repos';
 import type { Ref, RepoInfo, Worktree } from '../git/types';
 import { listRepos, listViews, openRepo } from '../server/repo.functions';
+import type { RepoChoice } from '../server/repo.functions';
 import type { SavedView, ViewSearch } from '../server/store';
 import { Menu, MenuItem, MenuNote, MenuSection } from './Menu';
 
@@ -103,20 +103,19 @@ function RepoList({
       onShow(view);
     });
   };
-  const matches = (entry: RepoEntry) => {
+  const matches = (entry: RepoChoice) => {
     const wanted = filter.trim().toLowerCase();
     return wanted === '' || entry.name.toLowerCase().includes(wanted) || entry.path.toLowerCase().includes(wanted);
   };
-  const items = (entries: RepoEntry[], home: string): ReactNode =>
+  const items = (entries: RepoChoice[], home: string): ReactNode =>
     entries.filter(matches).map((entry) => (
       <MenuItem
         key={entry.path}
         main={entry.name}
         sub={short(entry.path, home)}
         current={entry.path === current}
-        onChoose={() => {
-          open(entry.path);
-        }}
+        link={entry.view}
+        onChoose={close}
       />
     ));
   const onSubmit = (event: FormEvent) => {
@@ -142,7 +141,7 @@ function RepoList({
       {data === null && error === null && <MenuNote>Sucht Repos …</MenuNote>}
       {data !== null && (
         <div className="menu-scroll">
-          {data.recent.length > 0 && <MenuSection>Zuletzt geöffnet</MenuSection>}
+          {data.recent.length > 0 && <MenuSection>Zuletzt geöffnete Repos</MenuSection>}
           {items(data.recent, data.home)}
           <MenuSection>In {data.roots.map((root) => short(root, data.home)).join(', ')}</MenuSection>
           {items(data.found, data.home)}
@@ -299,17 +298,21 @@ function BranchList({
 }
 
 /** Die zuletzt geöffneten Ansichten hinter dem Knopf mit der Uhr. */
-export function RecentMenu({ info, onOpen }: { info: RepoInfo | null; onOpen: OpenView }) {
+export function RecentMenu({ info }: { info: RepoInfo | null }) {
   return (
-    <Menu button={<ClockIcon />} label="Zuletzt geöffnet" tip="Zuletzt geöffnete Ansichten (⌃Tab: vorige)" className="tool">
-      {(close) => <RecentList info={info} close={close} onOpen={onOpen} />}
+    <Menu
+      button={<ClockIcon />}
+      label="Zuletzt geöffnete Ansichten"
+      tip="Zuletzt geöffnete Ansichten (⌃Tab: vorige)"
+      className="tool"
+    >
+      {(close) => <RecentList info={info} close={close} />}
     </Menu>
   );
 }
 
-function RecentList({ info, close, onOpen }: { info: RepoInfo | null; close: () => void; onOpen: OpenView }) {
+function RecentList({ info, close }: { info: RepoInfo | null; close: () => void }) {
   const { data, error } = useLoaded(() => listViews());
-  const [openError, choose] = useChoice(close);
   const isCurrent = (view: SavedView) =>
     info !== null && view.worktree === info.worktreePath && view.branch === (info.branch ?? '');
   return (
@@ -331,12 +334,10 @@ function RecentList({ info, close, onOpen }: { info: RepoInfo | null; close: () 
           aside={view.to ?? 'neuester'}
           tip={view.worktree}
           current={isCurrent(view)}
-          onChoose={() => {
-            choose(() => onOpen(view));
-          }}
+          link={view.search}
+          onChoose={close}
         />
       ))}
-      {openError !== null && <MenuNote error>{openError}</MenuNote>}
     </div>
   );
 }

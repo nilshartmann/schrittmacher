@@ -16,7 +16,7 @@ nie zwingend gebraucht.
   Repos, weil ein Repo für einen Workshop weitere Repos enthalten kann.
 - Ein Worktree wird über `--git-common-dir` seinem Repo zugeordnet und erscheint nicht als eigenes
   Repo.
-- Im Menü stehen oben die zuletzt geöffneten Repos, darunter alle gefundenen nach Name. Das
+- Im Menü stehen oben die zuletzt geöffneten Repos (Überschrift „Zuletzt geöffnete Repos“), darunter alle gefundenen nach Name. Das
   Suchfeld filtert beide Listen.
 - Am Ende des Menüs steht ein freies Textfeld für einen Pfad, der per Copy & Paste eingefügt wird.
   Ein so geöffnetes Repo landet in der Liste der zuletzt geöffneten.
@@ -58,6 +58,8 @@ anderen Speicher als Safari hat.
   Zurück, Vor und Lesezeichen funktionieren damit.
 - Ein Knopf mit Uhr-Symbol ganz links in der Kopfzeile, neben dem Knopf für die Dateiliste, öffnet
   die zuletzt geöffneten Ansichten. Jede Zeile nennt Repo, Branch und Schritt.
+- Die Einträge der zuletzt geöffneten Ansichten und der Repos sind Links. Mit ⌘-Klick oder über
+  das Kontextmenü öffnen sie sich in einem neuen Tab.
 - Vom Mac aus springt ⌃Tab zur vorigen Ansicht.
 - Beim Start öffnet die App die zuletzt geöffnete Ansicht. Beim allerersten Start ist das Menü der
   Repos offen.
