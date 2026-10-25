@@ -63,7 +63,7 @@ export interface Chunk {
 
 /** The language of a file and the dialect that its parser needs, empty without one. */
 export interface Language {
-  name: 'java' | 'markdown' | 'javascript' | 'json' | 'sql';
+  name: 'java' | 'markdown' | 'javascript' | 'json' | 'sql' | 'shell';
   dialect: string;
 }
 
@@ -78,16 +78,27 @@ const LANGUAGES = new Map<string, Language>([
   ['tsx', { name: 'javascript', dialect: 'ts jsx' }],
   ['json', { name: 'json', dialect: '' }],
   ['sql', { name: 'sql', dialect: '' }],
+  ['sh', { name: 'shell', dialect: '' }],
+  ['bash', { name: 'shell', dialect: '' }],
+  ['zsh', { name: 'shell', dialect: '' }],
 ]);
 
-/** The language that the ending of the path names, none for every other file. */
-export function languageOf(path: string): Language | null {
+/** The first line of a script for a shell, such as `#!/usr/bin/env bash`. */
+const SHELL_SHEBANG = /^#!\S*(?:\/|\s)(?:ba|z|da|k)?sh\b/;
+
+/**
+ * The language that the ending of the path names. A file without a known ending is a script for
+ * a shell if its text begins with the shebang of one, as a script in `bin/` does; every other
+ * file has none.
+ */
+export function languageOf(path: string, text = ''): Language | null {
   const name = path.slice(path.lastIndexOf('/') + 1);
   const dot = name.lastIndexOf('.');
-  if (dot < 0) {
-    return null;
+  const language = dot < 0 ? undefined : LANGUAGES.get(name.slice(dot + 1));
+  if (language !== undefined) {
+    return language;
   }
-  return LANGUAGES.get(name.slice(dot + 1)) ?? null;
+  return SHELL_SHEBANG.test(text) ? { name: 'shell', dialect: '' } : null;
 }
 
 /** The ending of a file that a fenced code block of Markdown names with its language. */
@@ -345,7 +356,10 @@ const MARKDOWN: TextParser = markdownParser.configure([
   }),
 ]);
 
-/** The parser of a language, none for SQL, which has no parser of Lezer and goes through `sqlSpans`. */
+/**
+ * The parser of a language, none for SQL and the shell, which have no parser of Lezer and go
+ * through `sqlSpans` and `shellSpans`.
+ */
 function parserOf(language: Language): TextParser | null {
   switch (language.name) {
     case 'java':
@@ -355,6 +369,7 @@ function parserOf(language: Language): TextParser | null {
     case 'json':
       return JSON_PARSER;
     case 'sql':
+    case 'shell':
       return null;
     case 'javascript': {
       let parser = JAVASCRIPT_PARSERS.get(language.dialect);
@@ -413,6 +428,14 @@ function piecesOf(source: string, from: number, to: number, found: Found) {
   } else if (escape !== undefined) {
     marked = matches(text, from, escape, 'escape');
   }
+  return filled(from, to, kind, marked);
+}
+
+/**
+ * The spans that cover the range from `from` to `to` without a gap, in order: the marked spans,
+ * and the kind of the range between them. A marked span inside another one is left out.
+ */
+function filled(from: number, to: number, kind: CodeKind, marked: Span[]): Span[] {
   marked.sort((a, b) => a.from - b.from);
   const pieces: Span[] = [];
   let position = from;
@@ -510,6 +533,322 @@ function sqlSpans(source: string): Span[] {
   return spans;
 }
 
+/**
+ * The words of the shell that build its structure, and the builtins that declare a variable or
+ * leave a function or a loop.
+ */
+const SHELL_KEYWORDS: ReadonlySet<string> = new Set(
+  `if then else elif fi for in do done while until case esac function select time break continue
+  declare exit export local readonly return shift source typeset unset`.split(/\s+/),
+);
+
+/** The keywords after which a command follows, as it does at the beginning of a line. */
+const SHELL_BEFORE_COMMAND: ReadonlySet<string> = new Set(
+  `if then else elif do while until time !`.split(/\s+/),
+);
+
+/** The keywords after which the name of a variable follows and then `in`. */
+const SHELL_BEFORE_IN: ReadonlySet<string> = new Set(['for', 'case', 'select']);
+
+/** A variable of the shell: `$name`, `${…}`, and a special one such as `$1` or `$?`. */
+const SHELL_VARIABLE = /\$(?:\{[^}\n]*\}?|[A-Za-z_]\w*|[0-9@*#?$!-])/g;
+
+/** An escape in a heredoc; elsewhere outside of quotes a backslash stays as it is. */
+const SHELL_HEREDOC_ESCAPE = /\\[$`\\\n]/g;
+
+/** An escape in a string in `$'…'`. */
+const SHELL_ANSI_ESCAPE = /\\(?:x[0-9a-fA-F]{1,2}|u[0-9a-fA-F]{1,4}|[0-7]{1,3}|[\s\S])/g;
+
+/**
+ * The tokens of the shell, one group for each: a comment, a character after a backslash, a string
+ * in `$'…'` and in single quotes, the start of a string in double quotes and of a heredoc, a
+ * variable, the start of a command substitution and of an arithmetic expansion, a closing bracket,
+ * a redirection, a sign that ends a command, the assignment to a variable, and a word.
+ */
+const SHELL_TOKEN = new RegExp(
+  [
+    /(#[^\n]*)/,
+    /(\\[\s\S])/,
+    /(\$'(?:[^'\\]|\\[\s\S])*'?)/,
+    /('[^']*'?)/,
+    /(")/,
+    // A string, because a backreference in a literal counts only the groups of that literal.
+    "(<<-?[ \\t]*(['\"]?)([A-Za-z_]\\w*)\\7)",
+    /(\$(?:\{[^}\n]*\}?|[A-Za-z_]\w*|[0-9@*#?$!-]))/,
+    /(\$\((?!\()|`)/,
+    /(\$\(\()/,
+    /(\))/,
+    /(\d*(?:<<<|<>|>>|[<>])&?(?:\d+-?|-)?)/,
+    /(&&|\|\||;;|[;&|(\n]|\{(?=\s))/,
+    /([A-Za-z_]\w*(?:\[[^\]\n]*\])?\+?=)/,
+    /([^\s;&|()<>"'`$\\]+)/,
+  ]
+    .map((part) => (typeof part === 'string' ? part : part.source))
+    .join('|'),
+  'g',
+);
+
+/** The spans of a string in which the shell replaces variables, with them and its escapes. */
+function expandedPieces(source: string, from: number, to: number, escape: RegExp): Span[] {
+  const text = source.slice(from, to);
+  return filled(from, to, 'string', [
+    ...matches(text, from, SHELL_VARIABLE, 'parameter'),
+    ...matches(text, from, escape, 'escape'),
+  ]);
+}
+
+/** The spans of a script for the shell, in order. */
+function shellSpans(source: string): Span[] {
+  const spans: Span[] = [];
+  shellCommands(source, 0, null, spans);
+  return spans;
+}
+
+/**
+ * Places the spans of the commands from `start` on, up to the end of the text or, inside a
+ * command substitution, up to the sign `end` that closes it, and gives the position after it.
+ * Without a parser of Lezer for the shell, the tokens decide, and the place of a word: at the
+ * beginning of a command, it is a keyword or the call of a command; behind it, an argument.
+ */
+function shellCommands(source: string, start: number, end: ')' | '`' | null, spans: Span[]): number {
+  const token = new RegExp(SHELL_TOKEN);
+  token.lastIndex = start;
+  /** Whether the next word begins a command. */
+  let command = true;
+  /** Where the value of an assignment begins, which is no command, though one may follow it. */
+  let valueAt = -1;
+  /** The keyword before a word `in`, which makes it a keyword: `for`, `case` or `select`. */
+  let expectIn: string | null = null;
+  /** Whether the words are a pattern of `case`, up to its `)`. */
+  let pattern = false;
+  /** Whether the next word names a function, after the keyword `function`. */
+  let definition = false;
+  /** The brackets that are open, of a subshell or an arithmetic expansion. */
+  let depth = 0;
+  /** The heredocs of the line, whose texts begin after its end. */
+  const heredocs: Heredoc[] = [];
+  for (let match = token.exec(source); match !== null; match = token.exec(source)) {
+    const text = match[0];
+    const from = match.index;
+    const to = from + text.length;
+    const value = from === valueAt;
+    if (end === '`' && text === '`') {
+      return to;
+    }
+    if (match[1] !== undefined) {
+      if (from === 0 || /[\s;&|()]/.test(source.charAt(from - 1))) {
+        spans.push(...piecesOf(source, from, to, { kind: 'comment' }));
+      } else {
+        token.lastIndex = from + 1;
+      }
+      continue;
+    }
+    if (match[2] !== undefined) {
+      continue;
+    }
+    if (match[3] !== undefined) {
+      spans.push(...expandedPieces(source, from, to, SHELL_ANSI_ESCAPE));
+    } else if (match[4] !== undefined) {
+      spans.push({ from, to, kind: 'string' });
+    } else if (match[5] !== undefined) {
+      token.lastIndex = doubleQuoted(source, from, spans);
+    } else if (match[6] !== undefined) {
+      heredocs.push({ word: match[8] ?? '', tabs: text.startsWith('<<-'), quoted: match[7] !== '' });
+      continue;
+    } else if (match[9] !== undefined) {
+      spans.push({ from, to, kind: 'parameter' });
+    } else if (match[10] !== undefined) {
+      token.lastIndex = shellCommands(source, to, text === '`' ? '`' : ')', spans);
+    } else if (match[11] !== undefined) {
+      token.lastIndex = arithmetic(source, to, spans);
+    } else if (match[12] !== undefined) {
+      depth--;
+      if (depth < 0 && end === ')') {
+        return to;
+      }
+      depth = Math.max(depth, 0);
+      command = pattern;
+      pattern = false;
+      continue;
+    } else if (match[13] !== undefined) {
+      continue;
+    } else if (match[14] !== undefined) {
+      command = !(value && text === '(');
+      expectIn = null;
+      pattern ||= text === ';;';
+      if (text === '(') {
+        depth++;
+      }
+      if (text === '\n') {
+        for (const heredoc of heredocs.splice(0)) {
+          token.lastIndex = heredocText(source, token.lastIndex, heredoc, spans);
+        }
+      }
+      continue;
+    } else if (match[15] !== undefined) {
+      const name = text.length - (text.endsWith('+=') ? 2 : 1);
+      spans.push({ from, to: from + name, kind: 'parameter' });
+      valueAt = to;
+      continue;
+    } else if (pattern && text !== 'esac') {
+      continue;
+    } else {
+      const kind = shellWordKind(text, source, to, {
+        command: command && !value,
+        expectIn: expectIn !== null,
+        definition,
+      });
+      if (kind !== null) {
+        spans.push({ from, to, kind });
+      }
+      definition = kind === 'keyword' && text === 'function';
+      if (kind === 'keyword') {
+        pattern = text === 'in' && expectIn === 'case';
+        if (SHELL_BEFORE_IN.has(text)) {
+          expectIn = text;
+        } else if (text === 'in') {
+          expectIn = null;
+        }
+        command = SHELL_BEFORE_COMMAND.has(text);
+        continue;
+      }
+    }
+    if (!value) {
+      command = false;
+    }
+  }
+  return source.length;
+}
+
+/**
+ * Places the spans of an arithmetic expansion whose expression begins at `start`, with its
+ * variables and its numbers, and gives the position after the brackets that close it.
+ */
+function arithmetic(source: string, start: number, spans: Span[]): number {
+  let depth = 2;
+  let at = start;
+  while (at < source.length && depth > 0) {
+    const sign = source.charAt(at++);
+    depth += sign === '(' ? 1 : sign === ')' ? -1 : 0;
+  }
+  const text = source.slice(start, at);
+  const found = [
+    ...matches(text, start, SHELL_VARIABLE, 'parameter'),
+    ...matches(text, start, /\b\d+\b/g, 'number'),
+  ];
+  spans.push(...found.sort((a, b) => a.from - b.from));
+  return at;
+}
+
+/**
+ * Places the spans of a string in double quotes that begins at `from`, with its variables, its
+ * escapes and the commands of a substitution in it, and gives the position after it.
+ */
+function doubleQuoted(source: string, from: number, spans: Span[]): number {
+  const variable = new RegExp(SHELL_VARIABLE.source, 'y');
+  let plain = from;
+  let at = from + 1;
+  const flush = (to: number): void => {
+    if (to > plain) {
+      spans.push({ from: plain, to, kind: 'string' });
+    }
+  };
+  while (at < source.length) {
+    const sign = source.charAt(at);
+    if (sign === '"') {
+      flush(at + 1);
+      return at + 1;
+    }
+    if (sign === '\\') {
+      if (/[$`"\\\n]/.test(source.charAt(at + 1))) {
+        flush(at);
+        spans.push({ from: at, to: at + 2, kind: 'escape' });
+        plain = at + 2;
+      }
+      at += 2;
+      continue;
+    }
+    const substitution = sign === '`' ? 1 : source.startsWith('$(', at) && !source.startsWith('$((', at) ? 2 : 0;
+    if (substitution > 0) {
+      flush(at);
+      at = shellCommands(source, at + substitution, sign === '`' ? '`' : ')', spans);
+      plain = at;
+      continue;
+    }
+    variable.lastIndex = at;
+    const found = sign === '$' ? variable.exec(source) : null;
+    if (found !== null) {
+      flush(at);
+      at += found[0].length;
+      spans.push({ from: at - found[0].length, to: at, kind: 'parameter' });
+      plain = at;
+      continue;
+    }
+    at++;
+  }
+  flush(source.length);
+  return source.length;
+}
+
+/** A heredoc: the word that ends its text, whether tabs may stand before it, and whether it is in quotes. */
+interface Heredoc {
+  word: string;
+  tabs: boolean;
+  quoted: boolean;
+}
+
+/** The place of a word of the shell, as `shellCommands` follows it. */
+interface ShellPlace {
+  command: boolean;
+  expectIn: boolean;
+  definition: boolean;
+}
+
+/**
+ * The kind of a word of the shell: a keyword at the beginning of a command, and `in` where a loop
+ * or a `case` expects it; the name of a function where it is defined; the call of a command; or a
+ * number as an argument.
+ */
+function shellWordKind(word: string, source: string, end: number, place: ShellPlace): CodeKind | null {
+  if (place.definition || /^\s*\(\s*\)/.test(source.slice(end, end + 8))) {
+    return 'function';
+  }
+  if (word === 'in' && place.expectIn) {
+    return 'keyword';
+  }
+  if (place.command) {
+    if (SHELL_KEYWORDS.has(word) || word === '!') {
+      return word === '!' ? null : 'keyword';
+    }
+    return /^[}\]]+$/.test(word) || word === '[' || word === '[[' ? null : 'call';
+  }
+  return /^-?\d+$/.test(word) ? 'number' : null;
+}
+
+/**
+ * Places the text of a heredoc, which begins at `start`, as a string up to the line with its word,
+ * with the variables and escapes the shell replaces unless the word is in quotes. The result is
+ * the end of the line with the word, where the tokens go on.
+ */
+function heredocText(
+  source: string,
+  start: number,
+  heredoc: Heredoc,
+  spans: Span[],
+): number {
+  const end = new RegExp(`^${heredoc.tabs ? '\\t*' : ''}${heredoc.word}$`, 'm');
+  const found = end.exec(source.slice(start));
+  const bodyEnd = found === null ? source.length : start + found.index;
+  if (bodyEnd > start) {
+    if (heredoc.quoted) {
+      spans.push({ from: start, to: bodyEnd, kind: 'string' });
+    } else {
+      spans.push(...expandedPieces(source, start, bodyEnd, SHELL_HEREDOC_ESCAPE));
+    }
+  }
+  return found === null ? source.length : bodyEnd + found[0].length;
+}
+
 /** The words of Java that are a keyword only at a place that the line shows, with that place. */
 const JAVA_KEYWORDS: RegExp[] = [
   /\brecord(?=\s+[A-Za-z_$][\w$]*\s*[(<])/g,
@@ -596,7 +935,7 @@ export function highlightText(language: Language, text: string): CodeRange[][] {
   };
   const parser = parserOf(language);
   if (parser === null) {
-    for (const span of sqlSpans(text)) {
+    for (const span of language.name === 'sql' ? sqlSpans(text) : shellSpans(text)) {
       place(span, false);
     }
     return rows.map((row) => row.ranges);

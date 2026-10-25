@@ -45,7 +45,7 @@ interface SideRanges {
 
 /** Beide Fassungen werden als Ganzes geparst, damit ein Javadoc über mehrere Zeilen stimmt. */
 export function rangesOf(file: DiffFile): SideRanges {
-  const language = languageOf(file.path);
+  const language = languageOf(file.path, file.newText || file.oldText);
   if (language === null) {
     return { old: [], new: [] };
   }

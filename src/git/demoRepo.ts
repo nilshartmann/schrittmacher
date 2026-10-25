@@ -239,6 +239,33 @@ VALUES ('978-3-16-148410-0', 'm-0001', '2026-10-01'),
        ('978-3-86490-552-0', 'm-0002', NULL);
 `;
 
+const START_DB = `#!/usr/bin/env bash
+# Startet Postgres für die Tests von Hand, ohne Testcontainers
+set -euo pipefail
+
+PORT=\${PORT:-5432}
+readonly NAME="bibliothek-db"
+
+warte_auf_db() {
+  local versuche=0
+  until pg_isready -h localhost -p "$PORT" >/dev/null 2>&1; do
+    versuche=$((versuche + 1))
+    [[ $versuche -gt 30 ]] && { echo "Postgres antwortet nicht" >&2; exit 1; }
+    sleep 1
+  done
+}
+
+case "\${1:-start}" in
+  start)
+    docker run -d --name "$NAME" -p "$PORT:5432" postgres:17
+    warte_auf_db
+    echo "Postgres läuft seit $(date +%H:%M) auf Port $PORT"
+    ;;
+  stop) docker rm -f "$NAME" ;;
+  *) echo $'Aufruf:\\tstart-db.sh [start|stop]' >&2; exit 2 ;;
+esac
+`;
+
 const LOAN_REPOSITORY_1 = `package nh.demo.bibliothek.loan;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -845,7 +872,7 @@ export const DEMO_REPO: MemoryRepo = {
       title: 'Tests laufen mit Testcontainers gegen Postgres',
       author: 'Nils Hartmann',
       date: '2026-10-23T16:40:00+02:00',
-      files: { 'pom.xml': POM_2 },
+      files: { 'pom.xml': POM_2, 'scripts/start-db.sh': START_DB },
     },
     {
       sha: '84c7d2f',
