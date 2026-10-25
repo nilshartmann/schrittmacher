@@ -16,6 +16,9 @@ Der ursprüngliche Auftrag steht in `docs/auftrag-klick-dummy.md`, offene Punkte
 - `pnpm dev:echt`: Server mit den echten Repos aus `~/.config/schrittmacher/config.json`; dort liegt
   auch der Zustand (`state.json`), ein anderer Ordner mit `SCHRITTMACHER_CONFIG=…`
 - `pnpm dev:wjax`: wie `dev:echt`, mit einem Worktree für den allerersten Start (`SCHRITTMACHER_REPO`)
+- `schrittmacher [pfad]` (`bin/schrittmacher`, verlinkt nach `~/.local/bin`): öffnet den Worktree
+  zum Pfad als Tab wie `fork <pfad>` und holt die Web-App nach vorn; anderer Server mit
+  `SCHRITTMACHER_URL=…`, ohne Web-App mit leerem `SCHRITTMACHER_APP`
 - `pnpm typecheck`: Typprüfung, vor jedem Commit
 - `pnpm screenshots`: Screenshots mit WebKit in der Fenstergröße unter Sidecar, gegen den Server
   mit Testdaten (anderer Server mit `URL=…`)

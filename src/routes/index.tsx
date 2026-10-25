@@ -1,7 +1,7 @@
 import { createFileRoute, redirect, useRouter } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 import { findCommit, reachable } from '../git/repo';
-import { loadView, resolveView, saveTabs, saveView, tabOf } from '../server/repo.functions';
+import { loadView, resolveView, saveTabs, saveView, tabOf, takeTabRequest } from '../server/repo.functions';
 import type { Tab, ViewSearch } from '../server/store';
 import { EmptyHeader } from '../viewer/Header';
 import { ProjectMenu } from '../viewer/ProjectMenu';
@@ -12,6 +12,9 @@ import type { LoadedView } from '../viewer/Viewer';
 
 /** Die Zeit in Millisekunden, nach der eine Ansicht gemerkt wird, wenn keine Wahl mehr folgt. */
 const SAVE_DELAY = 400;
+
+/** Der Abstand der Fragen nach einem Tab vom Kommando `schrittmacher`, in Millisekunden. */
+const REQUEST_INTERVAL = 1500;
 
 /**
  * Ein Parameter der URL als Text. Der Router liest Werte als JSON, eine Nummer wie `40` kommt
@@ -109,6 +112,7 @@ function OpenedView({ view, search }: { view: LoadedView; search: ViewSearch }) 
   }, [project, worktree, branch, to, from, file, title]);
 
   const tabs = useTabs(view, open);
+  useTabRequests(tabs.openNew);
 
   return (
     <NewTabContext.Provider value={tabs.add}>
@@ -209,20 +213,71 @@ function useTabs(view: LoadedView, open: (target: ViewSearch) => Promise<void>) 
     },
     add: (target: ViewSearch) => {
       void tabOf({ data: target }).then((added) => {
-        if (added === null) {
-          return;
+        if (added !== null) {
+          insert(added);
         }
-        setList((tabs) => {
-          if (tabs.some((tab) => sameTab(tab, added))) {
-            return tabs;
-          }
-          const active = shown.current;
-          const at = active === null ? -1 : tabs.findIndex((tab) => sameTab(tab, active));
-          return at === -1 ? [...tabs, added] : tabs.toSpliced(at + 1, 0, added);
-        });
       });
     },
+    /** Öffnet eine Ansicht in einem neuen Tab und macht ihn aktiv, etwa vom Kommando `schrittmacher`. */
+    openNew: async (target: ViewSearch) => {
+      const added = await tabOf({ data: target });
+      if (added !== null) {
+        insert(added);
+        await open(target);
+      }
+    },
   };
+
+  /** Setzt einen Tab rechts neben den aktiven, wenn er noch fehlt. */
+  function insert(added: Tab) {
+    setList((tabs) => {
+      if (tabs.some((tab) => sameTab(tab, added))) {
+        return tabs;
+      }
+      const active = shown.current;
+      const at = active === null ? -1 : tabs.findIndex((tab) => sameTab(tab, active));
+      return at === -1 ? [...tabs, added] : tabs.toSpliced(at + 1, 0, added);
+    });
+  }
+}
+
+/**
+ * Holt die Tabs ab, die das Kommando `schrittmacher <pfad>` beim Server anfordert. Gefragt wird
+ * beim Start, regelmäßig, solange das Fenster sichtbar ist, und sofort, wenn es sichtbar wird, weil
+ * das Kommando die Web-App danach nach vorn holt.
+ */
+function useTabRequests(openNew: (target: ViewSearch) => Promise<void>) {
+  const latest = useRef(openNew);
+  latest.current = openNew;
+  useEffect(() => {
+    let busy = false;
+    const check = async () => {
+      if (busy || document.visibilityState !== 'visible') {
+        return;
+      }
+      busy = true;
+      try {
+        const requested = await takeTabRequest();
+        if (requested !== null) {
+          await latest.current(requested);
+        }
+      } catch {
+        // Der Server ist kurz nicht erreichbar; die nächste Frage versucht es wieder.
+      } finally {
+        busy = false;
+      }
+    };
+    const onCheck = () => {
+      void check();
+    };
+    onCheck();
+    const timer = setInterval(onCheck, REQUEST_INTERVAL);
+    document.addEventListener('visibilitychange', onCheck);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', onCheck);
+    };
+  }, []);
 }
 
 /** Ohne Ansicht, beim allerersten Start oder wenn sie sich nicht öffnen lässt. */

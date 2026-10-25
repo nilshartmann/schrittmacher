@@ -1,7 +1,7 @@
 import { realpath } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { isAbsolute, join, sep } from 'node:path';
-import { createServerFn } from '@tanstack/react-start';
+import { createServerFn, createServerOnlyFn } from '@tanstack/react-start';
 import { buildDemoRepo, DEMO_BASE } from '../git/demoGit';
 import { DEMO_REPO } from '../git/demoRepo';
 import { gitSource, locate } from '../git/gitRepo';
@@ -9,6 +9,7 @@ import type { Comparison, RepoSource } from '../git/repo';
 import { findRepos } from '../git/repos';
 import type { RepoEntry } from '../git/repos';
 import { isHidden } from '../git/hidden';
+import { shared } from './shared';
 import { activeProject, allViews, createStore, defaultStoreDir, expandHome, sameView } from './store';
 import type { JsonValue, SavedView, Store, Tab, ViewSearch } from './store';
 
@@ -21,7 +22,8 @@ interface Setup {
   allowed: string[];
 }
 
-let setup: Promise<Setup> | undefined;
+/** Die Einrichtung, einmal für alle Instanzen dieses Moduls, siehe `shared`. */
+const once = shared('setup', () => ({ setup: undefined as Promise<Setup> | undefined }));
 
 /**
  * Mit `SCHRITTMACHER_DEMO=1` die Testdaten als Repo unter `tmpdir()`, mit eigenem Speicher daneben
@@ -29,8 +31,8 @@ let setup: Promise<Setup> | undefined;
  * erste Ansicht der Worktree aus `SCHRITTMACHER_REPO`, wenn die Variable gesetzt ist.
  */
 function server(): Promise<Setup> {
-  if (setup === undefined) {
-    setup = (async () => {
+  if (once.setup === undefined) {
+    const setup = (async () => {
       if (process.env.SCHRITTMACHER_DEMO === '1') {
         const worktree = await buildDemoRepo(DEMO_REPO);
         return {
@@ -49,10 +51,11 @@ function server(): Promise<Setup> {
     })();
     // Scheitert der Aufbau, versucht es die nächste Anfrage noch einmal.
     setup.catch(() => {
-      setup = undefined;
+      once.setup = undefined;
     });
+    once.setup = setup;
   }
-  return setup;
+  return once.setup;
 }
 
 /** Ein erlaubter Worktree mit seiner Quelle; die Quelle hält ihre Vergleiche vor. */
@@ -330,19 +333,7 @@ export const openRepo = createServerFn({ method: 'POST' })
   .validator((data: { path: string }) => ({ path: text(data.path, 'path').trim() }))
   .handler(async ({ data }) => {
     const { store } = await server();
-    const path = expandHome(data.path);
-    if (!isAbsolute(path)) {
-      throw new Error('Der Pfad muss absolut sein oder mit ~ beginnen.');
-    }
-    const real = await realpath(path).catch(() => {
-      throw new Error(`Den Ordner '${path}' gibt es nicht.`);
-    });
-    const where = await locate(real).catch(() => {
-      throw new Error(`Der Ordner '${path}' gehört zu keinem Git-Repo.`);
-    });
-    if (!(await isAllowed(where.repoPath, where.worktreePath))) {
-      await store.addOpened(where.repoPath);
-    }
+    const where = await locatePath(data.path);
     const views = allViews(await store.state());
     const last =
       where.worktreePath === where.repoPath
@@ -350,6 +341,54 @@ export const openRepo = createServerFn({ method: 'POST' })
         : views.find((view) => view.worktree === where.worktreePath);
     return complete(last ?? { worktree: where.worktreePath });
   });
+
+/**
+ * Repo und Worktree zu einem Pfad, auch zu einem Ordner darin. Ein Repo außerhalb der Wurzeln wird
+ * als geöffnet gemerkt.
+ */
+async function locatePath(given: string): Promise<{ repoPath: string; worktreePath: string }> {
+  const { store } = await server();
+  const path = expandHome(given);
+  if (!isAbsolute(path)) {
+    throw new Error('Der Pfad muss absolut sein oder mit ~ beginnen.');
+  }
+  const real = await realpath(path).catch(() => {
+    throw new Error(`Den Ordner '${path}' gibt es nicht.`);
+  });
+  const where = await locate(real).catch(() => {
+    throw new Error(`Der Ordner '${path}' gehört zu keinem Git-Repo.`);
+  });
+  if (!(await isAllowed(where.repoPath, where.worktreePath))) {
+    await store.addOpened(where.repoPath);
+  }
+  return where;
+}
+
+/** Der Tab, den das Kommando `schrittmacher <pfad>` zuletzt angefordert hat, bis die Seite ihn abholt. */
+const requested = shared('requested', () => ({ tab: null as ViewSearch | null }));
+
+/**
+ * Merkt sich die Ansicht zu einem Pfad als neuen Tab, siehe `bin/schrittmacher`. Anders als
+ * `openRepo` gilt immer der Worktree des Pfads, mit seiner zuletzt geöffneten Ansicht. Sie läuft
+ * nur im Server, damit ihre Importe nicht in den Code für den Browser geraten.
+ */
+export const requestTab = createServerOnlyFn(async (path: string): Promise<void> => {
+  const { store } = await server();
+  const { worktreePath } = await locatePath(path);
+  const last = allViews(await store.state()).find((view) => view.worktree === worktreePath);
+  const view = await complete(last ?? { worktree: worktreePath });
+  if (view === null) {
+    throw new Error(`Für '${path}' gibt es keine Ansicht.`);
+  }
+  requested.tab = view;
+});
+
+/** Liefert den angeforderten Tab einmal und vergisst ihn dann; ohne Anforderung `null`. */
+export const takeTabRequest = createServerFn({ method: 'POST' }).handler(() => {
+  const view = requested.tab;
+  requested.tab = null;
+  return view;
+});
 
 /** Die im aktiven Projekt zuletzt geöffneten Ansichten, die neueste zuerst, mit ihren Teilen für die URL. */
 export const listViews = createServerFn({ method: 'GET' }).handler(async () =>

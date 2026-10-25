@@ -1,0 +1,20 @@
+#!/bin/sh
+# Öffnet einen Ordner als neuen Tab in Schrittmacher, wie `fork <pfad>` in Fork. Ohne Pfad gilt
+# das aktuelle Verzeichnis. Der Server muss laufen; danach kommt die Web-App nach vorn.
+#
+#   SCHRITTMACHER_URL  der Server, sonst http://127.0.0.1:5310
+#   SCHRITTMACHER_APP  die Web-App, sonst Schrittmacher; leer, um sie nicht zu öffnen
+set -eu
+
+url="${SCHRITTMACHER_URL:-http://127.0.0.1:5310}"
+app="${SCHRITTMACHER_APP-Schrittmacher}"
+dir="$(cd "${1:-.}" && pwd -P)"
+
+# Bei einem Fehler zeigt curl nur die Meldung des Servers; ist er nicht erreichbar, fehlt sie.
+if ! message="$(curl -s --fail-with-body -X POST --data-binary "$dir" "$url/api/tab")"; then
+  echo "schrittmacher: '$dir' ließ sich nicht öffnen. ${message:-Läuft der Server unter $url?}" >&2
+  exit 1
+fi
+if [ -n "$app" ]; then
+  open -a "$app"
+fi
