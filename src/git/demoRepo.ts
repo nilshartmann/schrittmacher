@@ -266,6 +266,27 @@ case "\${1:-start}" in
 esac
 `;
 
+const APPLICATION_YAML = `# Die Konfiguration der Bibliothek
+spring:
+  application:
+    name: bibliothek
+  datasource:
+    url: "jdbc:postgresql://localhost:5432/bibliothek"
+    username: bibliothek
+  jpa:
+    open-in-view: false
+bibliothek:
+  ausleihe:
+    tage: 28
+    verlaengerbar: true
+`;
+
+const APPLICATION_TEST_PROPERTIES = `# Für die Tests mit Testcontainers
+spring.datasource.url=jdbc:tc:postgresql:17:///bibliothek
+spring.jpa.show-sql = true
+bibliothek.gruss=Gr\\u00fc\\u00dfe aus dem Test
+`;
+
 const LOAN_REPOSITORY_1 = `package nh.demo.bibliothek.loan;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -785,6 +806,7 @@ export const DEMO_REPO: MemoryRepo = {
         'src/main/java/nh/demo/bibliothek/loan/Loan.java': LOAN_1,
         'src/main/java/nh/demo/bibliothek/loan/LoanRepository.java': LOAN_REPOSITORY_1,
         'src/main/resources/db/migration/V1__loan.sql': MIGRATION_1,
+        'src/main/resources/application.yaml': APPLICATION_YAML,
       },
     },
     {
@@ -872,7 +894,11 @@ export const DEMO_REPO: MemoryRepo = {
       title: 'Tests laufen mit Testcontainers gegen Postgres',
       author: 'Nils Hartmann',
       date: '2026-10-23T16:40:00+02:00',
-      files: { 'pom.xml': POM_2, 'scripts/start-db.sh': START_DB },
+      files: {
+        'pom.xml': POM_2,
+        'scripts/start-db.sh': START_DB,
+        'src/test/resources/application-test.properties': APPLICATION_TEST_PROPERTIES,
+      },
     },
     {
       sha: '84c7d2f',

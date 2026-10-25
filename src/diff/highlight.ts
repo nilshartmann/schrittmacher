@@ -4,6 +4,8 @@ import { parser as javaParser } from '@lezer/java';
 import { parser as javascriptParser } from '@lezer/javascript';
 import { parser as jsonParser } from '@lezer/json';
 import { GFM, parseCode, parser as markdownParser } from '@lezer/markdown';
+import { parser as xmlParser } from '@lezer/xml';
+import { parser as yamlParser } from '@lezer/yaml';
 
 // Taken from agent-lab (src/main/frontend/src/ticket/highlight.ts), without the parts that work on
 // the lines of its diff.
@@ -63,7 +65,7 @@ export interface Chunk {
 
 /** The language of a file and the dialect that its parser needs, empty without one. */
 export interface Language {
-  name: 'java' | 'markdown' | 'javascript' | 'json' | 'sql' | 'shell';
+  name: 'java' | 'markdown' | 'javascript' | 'json' | 'sql' | 'shell' | 'xml' | 'yaml' | 'properties';
   dialect: string;
 }
 
@@ -81,6 +83,10 @@ const LANGUAGES = new Map<string, Language>([
   ['sh', { name: 'shell', dialect: '' }],
   ['bash', { name: 'shell', dialect: '' }],
   ['zsh', { name: 'shell', dialect: '' }],
+  ['xml', { name: 'xml', dialect: '' }],
+  ['yaml', { name: 'yaml', dialect: '' }],
+  ['yml', { name: 'yaml', dialect: '' }],
+  ['properties', { name: 'properties', dialect: '' }],
 ]);
 
 /** The first line of a script for a shell, such as `#!/usr/bin/env bash`. */
@@ -113,6 +119,9 @@ const FENCE_ENDINGS = new Map<string, string>([
   ['json', 'json'],
   ['md', 'md'],
   ['markdown', 'md'],
+  ['xml', 'xml'],
+  ['yaml', 'yaml'],
+  ['yml', 'yaml'],
 ]);
 
 /** The class of a name; whether it is a constant depends on its spelling, which only the text shows. */
@@ -126,6 +135,12 @@ const ACCESS = 'access';
 
 /** The key of a property in JSON, which `@lezer/json` names like the property of an object. */
 const JSON_KEY = Tag.define('JsonKey');
+
+/** A value of YAML without quotes, whose text decides whether it is a number or a constant. */
+const YAML_LITERAL = Tag.define('YamlLiteral');
+
+/** The class of `YAML_LITERAL`. */
+const YAML_VALUE = 'yaml-value';
 
 /** A name in a place where Java reads a field; the object before the dot has the same place. */
 const FIELD_ACCESS = Tag.define('FieldAccess');
@@ -175,6 +190,8 @@ const KIND_OF_TAG = tagHighlighter([
   { tag: tags.url, class: 'url' },
   { tag: tags.quote, class: 'quote' },
   { tag: JSON_KEY, class: 'json-key' },
+  { tag: tags.attributeValue, class: 'string' },
+  { tag: YAML_LITERAL, class: YAML_VALUE },
   { tag: tags.variableName, class: NAME },
 ]);
 
@@ -189,6 +206,12 @@ const HIGHLIGHTER: Highlighter = {
 };
 
 const CONSTANT = /^[A-Z][A-Z0-9_]+$/;
+
+/** A number of YAML, with the infinity and the not-a-number of its core schema. */
+const YAML_NUMBER = /^[-+]?(?:\d[\d_]*(?:\.\d*)?(?:[eE][-+]?\d+)?|\.\d+|0x[0-9a-fA-F]+|0o[0-7]+|\.inf|\.nan)$/i;
+
+/** A constant of YAML: the truth values and the empty value, `~` too. */
+const YAML_CONSTANT = /^(?:true|false|null|~)$/i;
 
 const DOC_TAG_AT_LINE_START = /^[ \t]*(?:\/\*+|\*)[ \t]*(@[A-Za-z]+)/gm;
 const DOC_TAG_IN_BRACES = /\{@[A-Za-z]+/g;
@@ -250,6 +273,9 @@ function kindOf(classes: string, source: string, start: number, to: number): Fou
     const special = SPECIAL.get(name);
     if (special !== undefined) {
       return special;
+    }
+    if (name === YAML_VALUE) {
+      return YAML_NUMBER.test(text) ? { kind: 'number' } : YAML_CONSTANT.test(text) ? { kind: 'constant' } : null;
     }
     if (name === NAME || name === ACCESS) {
       if (CONSTANT.test(text)) {
@@ -326,8 +352,36 @@ const JSON_PARSER = jsonParser.configure({
   props: [styleTags({ PropertyName: JSON_KEY, String: JSON_STRING })],
 });
 
+/**
+ * The parser of XML: an entity counts as an escape, and the declaration at the beginning and a
+ * doctype as an annotation, the way a line with `<?xml` sets itself apart in Fork.
+ */
+const XML_PARSER = xmlParser.configure({
+  props: [
+    styleTags({
+      'EntityReference CharacterReference': tags.escape,
+      'ProcessingInst DoctypeDecl': tags.meta,
+    }),
+  ],
+});
+
+/**
+ * The parser of YAML: keys like those of JSON, a value without quotes as a number or constant by
+ * its text, the text of a block such as `|` as a string, and an anchor as an annotation.
+ */
+const YAML_PARSER = yamlParser.configure({
+  props: [
+    styleTags({
+      'Key/Literal Key/QuotedLiteral': JSON_KEY,
+      Literal: YAML_LITERAL,
+      BlockLiteralContent: tags.string,
+      'Anchor Alias': tags.annotation,
+    }),
+  ],
+});
+
 /** What the parsers of Lezer have in common for this file: text in, tree out. */
-type TextParser = typeof javaParser | typeof markdownParser;
+type TextParser = typeof javaParser | typeof markdownParser | typeof xmlParser | typeof yamlParser;
 
 const JAVASCRIPT_PARSERS = new Map<string, TextParser>();
 
@@ -357,8 +411,8 @@ const MARKDOWN: TextParser = markdownParser.configure([
 ]);
 
 /**
- * The parser of a language, none for SQL and the shell, which have no parser of Lezer and go
- * through `sqlSpans` and `shellSpans`.
+ * The parser of a language, none for SQL, the shell and the properties of Java, which have no
+ * parser of Lezer and go through `TOKENIZED`.
  */
 function parserOf(language: Language): TextParser | null {
   switch (language.name) {
@@ -368,8 +422,13 @@ function parserOf(language: Language): TextParser | null {
       return MARKDOWN;
     case 'json':
       return JSON_PARSER;
+    case 'xml':
+      return XML_PARSER;
+    case 'yaml':
+      return YAML_PARSER;
     case 'sql':
     case 'shell':
+    case 'properties':
       return null;
     case 'javascript': {
       let parser = JAVASCRIPT_PARSERS.get(language.dialect);
@@ -849,6 +908,54 @@ function heredocText(
   return found === null ? source.length : bodyEnd + found[0].length;
 }
 
+/**
+ * A line of the properties of Java: the white space before it, then a comment with `#` or `!`, or
+ * a key up to the first `=`, `:` or white space without a backslash before it, then the sign and
+ * the value. The value goes on in the next line if the line ends with a backslash.
+ */
+const PROPERTIES_LINE =
+  /^([ \t\f]*)(?:([#!][^\n]*)|((?:[^\s=:\\]|\\[\s\S])+)([ \t\f]*[=:]?[ \t\f]*)((?:[^\n\\]|\\[\s\S])*))/gm;
+
+/** An escape in a key or a value of the properties of Java; a backslash before a break goes on in the next line. */
+const PROPERTIES_ESCAPE = /\\(?:u[0-9a-fA-F]{4}|[\s\S])/g;
+
+/**
+ * The spans of a file with the properties of Java, in order: comments, keys like those of JSON,
+ * and values as strings, each with its escapes.
+ */
+function propertiesSpans(source: string): Span[] {
+  const spans: Span[] = [];
+  for (const match of source.matchAll(PROPERTIES_LINE)) {
+    const [, indent = '', comment, key, separator = '', value = ''] = match;
+    let from = match.index + indent.length;
+    if (comment !== undefined) {
+      spans.push(...piecesOf(source, from, from + comment.length, { kind: 'comment' }));
+      continue;
+    }
+    if (key === undefined) {
+      continue;
+    }
+    for (const [text, kind] of [
+      [key, 'json-key'],
+      [separator, null],
+      [value, 'string'],
+    ] as const) {
+      if (kind !== null && text !== '') {
+        spans.push(...filled(from, from + text.length, kind, matches(text, from, PROPERTIES_ESCAPE, 'escape')));
+      }
+      from += text.length;
+    }
+  }
+  return spans;
+}
+
+/** The languages without a parser of Lezer, whose tokens decide. */
+const TOKENIZED: Partial<Record<Language['name'], (source: string) => Span[]>> = {
+  sql: sqlSpans,
+  shell: shellSpans,
+  properties: propertiesSpans,
+};
+
 /** The words of Java that are a keyword only at a place that the line shows, with that place. */
 const JAVA_KEYWORDS: RegExp[] = [
   /\brecord(?=\s+[A-Za-z_$][\w$]*\s*[(<])/g,
@@ -935,7 +1042,7 @@ export function highlightText(language: Language, text: string): CodeRange[][] {
   };
   const parser = parserOf(language);
   if (parser === null) {
-    for (const span of language.name === 'sql' ? sqlSpans(text) : shellSpans(text)) {
+    for (const span of TOKENIZED[language.name]?.(text) ?? []) {
       place(span, false);
     }
     return rows.map((row) => row.ranges);
