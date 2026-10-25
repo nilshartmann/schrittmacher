@@ -11,7 +11,9 @@
   --line: #d8dce2;
   --line-soft: #e5e8ec;
   --hover: #eceff2;
-  --selected: #dfe5ee;
+  --selected: #dcdcdc;
+  --selected-focus: #0a63d6;
+  --selected-focus-ink: #ffffff;
   --accent: #3e5c9a;
   --accent-tint: #e8edf6;
   --between: #f3f5f9;
@@ -564,11 +566,6 @@ a.menu-item {
   background: var(--selected);
 }
 
-.commit-from > td:first-child,
-.commit-to > td:first-child {
-  box-shadow: inset 3px 0 0 var(--accent);
-}
-
 .commit td.commit-graph {
   width: 1%;
   padding: 0 0 0 4px;
@@ -693,15 +690,20 @@ a.menu-item {
   list-style: none;
 }
 
+/* Die Zeilen mit Abstand zum Rand und runden Ecken wie in Fork. */
+.file-list li {
+  padding: 0 6px;
+}
+
 .file {
   display: flex;
   align-items: center;
   gap: 6px;
   width: 100%;
   height: 22px;
-  padding: 0 8px;
+  padding: 0 4px;
   border: 0;
-  border-radius: 0;
+  border-radius: 5px;
   font-size: 13px;
   background: transparent;
   text-align: left;
@@ -1443,24 +1445,29 @@ a.menu-item {
   flex: none;
 }
 
-/* Commit-Liste und Dateiliste nehmen mit dem Fokus die Pfeiltasten an; eine Linie zeigt, welche. */
+/* Commit-Liste und Dateiliste nehmen mit dem Fokus die Pfeiltasten an; die Auswahl zeigt, welche. */
 .commit-band,
 .file-list {
   outline: none;
 }
 
-/* Eine Ebene über dem Inhalt, weil der scrollende Inhalt in Safari eine Umrandung verdeckt. */
-.commit-band,
-.file-list {
-  position: relative;
+/* Die Auswahl wie in Fork: blau im Bereich mit dem Fokus, sonst grau. */
+.commit-band:focus-within .commit-to,
+.file-list:focus-within .file[aria-current='true'] {
+  background: var(--selected-focus);
+  color: var(--selected-focus-ink);
 }
 
-.commit-band:focus-within::after,
-.file-list:focus-within::after {
-  position: absolute;
-  inset: 0;
-  z-index: 5;
-  border: 2px solid var(--accent);
-  content: '';
-  pointer-events: none;
+.commit-band:focus-within .commit-to > td,
+.commit-band:focus-within .commit-to .path-folder,
+.file-list:focus-within .file[aria-current='true'] .path-folder {
+  color: inherit;
+}
+
+.commit-band:focus-within .commit-to .ref {
+  color: var(--ink);
+}
+
+.commit-band:focus-within .commit-to .ref-remote {
+  color: var(--quiet);
 }
