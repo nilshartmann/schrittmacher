@@ -28,8 +28,6 @@ export interface SavedView {
   repoPath: string;
   repo: string;
   worktreeName: string;
-  /** Der Titel des Commits `to`, als zweite Zeile in der Liste. */
-  title?: string;
 }
 
 /** Ein Tab der Tableiste: eine Ansicht mit den Namen für ihre Beschriftung. */
@@ -58,6 +56,8 @@ export interface State {
   settings: Record<string, JsonValue>;
   /** Die ausgeblendeten Branches je Repo, siehe `Hidden`. */
   hidden: Record<string, string[]>;
+  /** Die Pfade, deren Repos das Menü der Repos nicht zeigt, auch die Repos darunter. */
+  excluded: string[];
 }
 
 /** So viele Ansichten merkt sich der Server. */
@@ -136,6 +136,7 @@ export function createStore(options: StoreOptions) {
             Object.entries(record.hidden).map(([repo, list]) => [repo, Array.isArray(list) ? list.filter(isString) : []]),
           )
         : {},
+      excluded: Array.isArray(record.excluded) ? record.excluded.filter(isString) : [],
     };
   }
 
@@ -157,6 +158,7 @@ export function createStore(options: StoreOptions) {
       })),
     saveTabs: (tabs: Tab[]) => update((current) => ({ ...current, tabs })),
     saveSettings: (settings: Record<string, JsonValue>) => update((current) => ({ ...current, settings })),
+    saveExcluded: (excluded: string[]) => update((current) => ({ ...current, excluded })),
     saveHidden: (repoPath: string, hidden: string[]) =>
       update((current) => ({ ...current, hidden: { ...current.hidden, [repoPath]: hidden } })),
     addOpened: (repoPath: string) =>

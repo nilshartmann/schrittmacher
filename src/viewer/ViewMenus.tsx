@@ -3,11 +3,11 @@ import type { FormEvent, ReactNode } from 'react';
 import { LOCAL_GROUP, REMOTES_GROUP, hiddenBy, refPath, remoteGroup, remoteOf } from '../git/hidden';
 import type { Hidden } from '../git/hidden';
 import type { Ref, RepoInfo, Worktree } from '../git/types';
-import { listRepos, listViews, openRepo } from '../server/repo.functions';
-import type { RepoChoice } from '../server/repo.functions';
+import { listRepos, listViews, openRepo, saveExcluded } from '../server/repo.functions';
+import type { ProjectChoice, RepoChoice } from '../server/repo.functions';
 import type { SavedView, Tab, ViewSearch } from '../server/store';
 import { BranchIcon, RepoIcon } from './Icons';
-import { Menu, MenuItem, MenuNote, MenuSection, NewTabButton } from './Menu';
+import { Menu, MenuDivider, MenuItem, MenuNote, MenuSection, NewTabButton } from './Menu';
 import { CloseButton, sameTab, TabsContext } from './Tabs';
 
 /** Wechselt zu einer Ansicht; fehlende Teile ergänzt der Server. */
@@ -71,6 +71,8 @@ export function WhereMenus({
   refs,
   onOpen,
   onShow,
+  root,
+  onRoot,
   ...hidden
 }: {
   info: RepoInfo;
@@ -78,29 +80,41 @@ export function WhereMenus({
   refs: Ref[];
   onOpen: OpenView;
   onShow: (view: ViewSearch) => void;
-} & HiddenProps) {
+} & RootProps &
+  HiddenProps) {
   return (
     <>
-      <RepoMenu info={info} onShow={onShow} />
+      <RepoMenu info={info} onShow={onShow} root={root} onRoot={onRoot} />
       <WhereMenu info={info} worktrees={worktrees} refs={refs} onOpen={onOpen} {...hidden} />
     </>
   );
 }
 
+/** Die Wurzel, deren Projekte das Menü der Repos zeigt; `null` für alle. */
+interface RootProps {
+  root: string | null;
+  onRoot: (root: string | null) => void;
+}
+
 /**
- * Das Repo, mit den gefundenen und einem Textfeld. Die zuletzt geöffneten Ansichten stehen hinter
- * der Uhr in der Tableiste. Solange keins offen ist, steht „Repo wählen" auf dem Knopf.
+ * Das Repo, mit den zuletzt geöffneten Ansichten, den gefundenen Repos und einem Textfeld. Solange
+ * keins offen ist, steht „Repo wählen" auf dem Knopf. Ohne `onRoot` gilt die Wahl der Wurzel nur,
+ * solange das Menü da ist.
  */
 export function RepoMenu({
   info,
   initiallyOpen,
   onShow,
+  ...chosen
 }: {
   info: RepoInfo | null;
   initiallyOpen?: boolean;
   /** Zeigt die Ansicht, die der Server für das gewählte Repo liefert. */
   onShow: (view: ViewSearch) => void;
-}) {
+} & Partial<RootProps>) {
+  const [ownRoot, setOwnRoot] = useState<string | null>(null);
+  const root = chosen.onRoot === undefined ? ownRoot : (chosen.root ?? null);
+  const onRoot = chosen.onRoot ?? setOwnRoot;
   return (
     <Menu
       button={info === null ? <span className="crumb-repo">Repo wählen</span> : <RepoIcon />}
@@ -109,21 +123,111 @@ export function RepoMenu({
       className={info === null ? 'crumb' : 'tool'}
       initiallyOpen={initiallyOpen}
     >
-      {(close) => <RepoList current={info?.repoPath ?? null} close={close} onShow={onShow} />}
+      {(close) => <RepoList info={info} close={close} onShow={onShow} root={root} onRoot={onRoot} />}
     </Menu>
   );
 }
 
+/** Eine zuletzt geöffnete Ansicht, mit ihren Teilen für die URL. */
+type ListedView = SavedView & { search: ViewSearch };
+
+/** Wo eine zuletzt geöffnete Ansicht liegt, vom offenen Repo aus gesehen. */
+type ViewPlace = 'repo' | 'sister' | 'other';
+
+const VIEW_SECTIONS: Record<ViewPlace, string> = {
+  repo: 'Dieses Repo',
+  sister: 'Schwester-Repos',
+  other: 'Andere Repos',
+};
+
+/** So viele Ansichten anderer Repos zeigt das Menü, damit die Repos darunter zu sehen bleiben. */
+const OTHER_VIEWS = 5;
+
+/** Der Ordner, in dem ein Pfad liegt. */
+function parentOf(path: string): string {
+  return path.slice(0, path.lastIndexOf('/'));
+}
+
+/**
+ * Die zuletzt geöffneten Ansichten in Abschnitten wie im Menü „Kopieren nach …“: die des offenen
+ * Repos mit der offenen Ansicht zuerst, dann die von Schwester-Repos im selben Ordner, dann
+ * höchstens `OTHER_VIEWS` übrige. Innerhalb eines Abschnitts steht die neueste oben. Ohne offenes
+ * Repo gibt es nur einen Abschnitt.
+ */
+function viewSections(views: ListedView[], info: RepoInfo | null): { title: string; views: ListedView[] }[] {
+  if (info === null) {
+    return [{ title: 'Zuletzt geöffnet', views: views.slice(0, OTHER_VIEWS) }];
+  }
+  const placeOf = (view: ListedView): ViewPlace =>
+    view.repoPath === info.repoPath
+      ? 'repo'
+      : parentOf(view.repoPath) === parentOf(info.repoPath)
+        ? 'sister'
+        : 'other';
+  const isCurrent = (view: ListedView) => isCurrentView(view, info);
+  const inRepo = views.filter((view) => placeOf(view) === 'repo');
+  return [
+    { title: VIEW_SECTIONS.repo, views: [...inRepo.filter(isCurrent), ...inRepo.filter((view) => !isCurrent(view))] },
+    { title: VIEW_SECTIONS.sister, views: views.filter((view) => placeOf(view) === 'sister') },
+    { title: VIEW_SECTIONS.other, views: views.filter((view) => placeOf(view) === 'other').slice(0, OTHER_VIEWS) },
+  ];
+}
+
+function isCurrentView(view: SavedView, info: RepoInfo | null): boolean {
+  return info !== null && view.worktree === info.worktreePath && view.branch === (info.branch ?? '');
+}
+
+/** So viele zuletzt geänderte Projekte stehen über den übrigen. */
+const RECENT_PROJECTS = 10;
+
+/** Die `count` zuletzt geänderten Projekte und die übrigen, beide nach Name sortiert. */
+function splitByChange(projects: ProjectChoice[], count: number): { recent: ProjectChoice[]; rest: ProjectChoice[] } {
+  const recent = new Set(projects.toSorted((a, b) => b.changed - a.changed).slice(0, count));
+  return {
+    recent: projects.filter((project) => recent.has(project)),
+    rest: projects.filter((project) => !recent.has(project)),
+  };
+}
+
+/** Der Umschalter zwischen den Wurzeln, mit ihrem Ordnernamen; „Beide" oder „Alle" zeigt jede. */
+function RootSwitch({ roots, root, onRoot }: { roots: string[] } & RootProps) {
+  const choices: { label: string; root: string | null }[] = [
+    ...roots.map((path) => ({ label: path.slice(path.lastIndexOf('/') + 1), root: path })),
+    { label: roots.length === 2 ? 'Beide' : 'Alle', root: null },
+  ];
+  return (
+    <div className="segmented menu-roots" role="group" aria-label="Wurzel">
+      {choices.map((choice) => (
+        <button
+          key={choice.label}
+          type="button"
+          aria-pressed={choice.root === root}
+          data-tip={choice.root ?? undefined}
+          onClick={() => {
+            onRoot(choice.root);
+          }}
+        >
+          {choice.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function RepoList({
-  current,
+  info,
   close,
   onShow,
+  root: chosenRoot,
+  onRoot,
 }: {
-  current: string | null;
+  info: RepoInfo | null;
   close: () => void;
   onShow: (view: ViewSearch) => void;
-}) {
+} & RootProps) {
+  const current = info?.repoPath ?? null;
   const { data, error } = useLoaded(() => listRepos());
+  const views = useLoaded(() => listViews());
   const [filter, setFilter] = useState('');
   const [path, setPath] = useState('');
   const [openError, choose] = useChoice(close);
@@ -136,21 +240,90 @@ function RepoList({
       onShow(view);
     });
   };
-  const matches = (entry: RepoChoice) => {
+  const matching = (...texts: string[]) => {
     const wanted = filter.trim().toLowerCase();
-    return wanted === '' || entry.name.toLowerCase().includes(wanted) || entry.path.toLowerCase().includes(wanted);
+    return wanted === '' || texts.some((text) => text.toLowerCase().includes(wanted));
   };
-  const items = (entries: RepoChoice[], home: string): ReactNode =>
-    entries.filter(matches).map((entry) => (
+  const matches = (entry: RepoChoice) => matching(entry.name, entry.path);
+  // Gemerkt wird die Liste, sobald sie sich hier ändert; bis dahin gilt die des Servers.
+  const [changedExcluded, setChangedExcluded] = useState<string[] | null>(null);
+  const excluded = changedExcluded ?? data?.excluded ?? [];
+  const setExcluded = (next: string[]) => {
+    setChangedExcluded(next);
+    saveExcluded({ data: { excluded: next } }).catch((failure: unknown) => {
+      console.error('Die ausgeschlossenen Repos ließen sich nicht speichern.', failure);
+    });
+  };
+  const isExcluded = (path: string) => excluded.some((entry) => path === entry || path.startsWith(`${entry}/`));
+  // Passt das Projekt, bleiben alle seine Repos; sonst nur die passenden darunter.
+  const filtered = (project: ProjectChoice): ProjectChoice | null => {
+    if (isExcluded(project.path)) {
+      return null;
+    }
+    const kept = { ...project, children: project.children.filter((child) => !isExcluded(child.path)) };
+    if (kept.repo === null && kept.children.length === 0) {
+      return null;
+    }
+    if (matching(kept.name, kept.path)) {
+      return kept;
+    }
+    const children = kept.children.filter(matches);
+    return children.length === 0 ? null : { ...kept, children };
+  };
+  const sections =
+    views.data === null
+      ? []
+      : viewSections(
+          views.data.filter(
+            (view) =>
+              matching(view.repo, view.worktree, view.branch) &&
+              (!isExcluded(view.repoPath) || isCurrentView(view, info)),
+          ),
+          info,
+        ).filter((section) => section.views.length > 0);
+  const excludeButton = (path: string, name: string): ReactNode => (
+    <button
+      type="button"
+      className="menu-close menu-exclude"
+      aria-label={`${name} ausschließen`}
+      data-tip="Aus dem Menü ausschließen"
+      onClick={() => {
+        setExcluded([...excluded, path]);
+      }}
+    >
+      ×
+    </button>
+  );
+  const item = (entry: RepoChoice, main: string, home: string, row: RowOptions = {}): ReactNode => (
+    <div key={entry.path} className={`menu-row menu-excludable ${row.className ?? ''}`}>
       <MenuItem
-        key={entry.path}
-        main={entry.name}
+        main={main}
         sub={short(entry.path, home)}
         current={entry.path === current}
         link={entry.view}
         onChoose={close}
       />
-    ));
+      {row.fold}
+      {excludeButton(row.exclude ?? entry.path, main)}
+    </div>
+  );
+  const items = (entries: RepoChoice[], home: string): ReactNode =>
+    entries.filter((entry) => matches(entry) && !isExcluded(entry.path)).map((entry) => item(entry, entry.name, home));
+  const projects = (list: ProjectChoice[], home: string, initiallyOpen: boolean): ReactNode =>
+    list.map((project) => {
+      const shown = filtered(project);
+      return (
+        shown !== null && (
+          <ProjectItems
+            key={project.path}
+            project={shown}
+            initiallyOpen={initiallyOpen}
+            item={(entry, main, row) => item(entry, main, home, row)}
+            exclude={excludeButton(project.path, project.name)}
+          />
+        )
+      );
+    });
   const onSubmit = (event: FormEvent) => {
     event.preventDefault();
     if (path.trim() !== '') {
@@ -170,15 +343,67 @@ function RepoList({
           setFilter(event.target.value);
         }}
       />
+      {views.error !== null && <MenuNote error>{views.error}</MenuNote>}
       {error !== null && <MenuNote error>{error}</MenuNote>}
       {data === null && error === null && <MenuNote>Sucht Repos …</MenuNote>}
       {data !== null && (
         <div className="menu-scroll">
-          <MenuSection>In {data.roots.map((root) => short(root, data.home)).join(', ')}</MenuSection>
-          {items(data.found, data.home)}
-          {data.found.length === 0 && <MenuNote>Keine weiteren Repos gefunden.</MenuNote>}
-          {data.opened.length > 0 && <MenuSection>Über den Pfad geöffnet</MenuSection>}
+          {sections.map((section) => (
+            <Fragment key={section.title}>
+              <MenuDivider>{section.title}</MenuDivider>
+              {section.views.map((view) => (
+                <MenuItem
+                  key={`${view.worktree}\n${view.branch}`}
+                  main={
+                    <>
+                      {view.repo}
+                      <span className="menu-where">
+                        {view.worktreeName === view.branch ? '' : ` · ⌂ ${view.worktreeName}`} · <BranchIcon />{' '}
+                        {view.branch || 'ohne Branch'}
+                      </span>
+                    </>
+                  }
+                  tip={view.worktree}
+                  current={isCurrentView(view, info)}
+                  link={view.search}
+                  onChoose={close}
+                />
+              ))}
+            </Fragment>
+          ))}
+          {(() => {
+            // Eine Wurzel, die nicht mehr in der Konfiguration steht, gilt wie keine Wahl.
+            const root = chosenRoot !== null && data.roots.includes(chosenRoot) ? chosenRoot : null;
+            const { recent, rest } = splitByChange(
+              data.projects.filter((project) => (root === null || project.root === root) && filtered(project) !== null),
+              RECENT_PROJECTS,
+            );
+            const where = (root === null ? data.roots : [root]).map((path) => short(path, data.home)).join(', ');
+            return (
+              <>
+                <div className="menu-row">
+                  <MenuDivider>Zuletzt geändert</MenuDivider>
+                  {data.roots.length > 1 && <RootSwitch roots={data.roots} root={root} onRoot={onRoot} />}
+                </div>
+                {projects(recent, data.home, true)}
+                {rest.length > 0 && <MenuDivider>Weitere in {where}</MenuDivider>}
+                {projects(rest, data.home, false)}
+                {recent.length === 0 && <MenuNote>Keine Repos in {where} gefunden.</MenuNote>}
+              </>
+            );
+          })()}
+          {data.opened.some((entry) => !isExcluded(entry.path)) && <MenuDivider>Über den Pfad geöffnet</MenuDivider>}
           {items(data.opened, data.home)}
+          {excluded.length > 0 && (
+            <ExcludedList
+              excluded={excluded.filter((entry) => matching(entry))}
+              home={data.home}
+              onOpen={open}
+              onRestore={(path) => {
+                setExcluded(excluded.filter((entry) => entry !== path));
+              }}
+            />
+          )}
         </div>
       )}
       <form className="menu-form" onSubmit={onSubmit}>
@@ -197,6 +422,126 @@ function RepoList({
         </button>
       </form>
       {openError !== null && <MenuNote error>{openError}</MenuNote>}
+    </>
+  );
+}
+
+/** Wie eine Repo-Zeile im Menü der Repos aussieht und was ihr X ausschließt. */
+interface RowOptions {
+  className?: string;
+  /** Das Dreieck eines Projekts, das selbst ein Repo ist. */
+  fold?: ReactNode;
+  /** Der Pfad, den das X ausschließt; ohne ihn der des Repos. */
+  exclude?: string;
+}
+
+/**
+ * Ein Projekt mit seinen Repos. Hat es nur eins, steht es als einzelne Zeile da. Sonst klappt das
+ * Dreieck links die Repos darunter auf und zu. Ist der Ordner des Projekts selbst ein Repo, öffnet
+ * ein Klick auf seinen Namen dieses Repo. Das X in der Zeile des Projekts schließt das ganze
+ * Projekt aus.
+ */
+function ProjectItems({
+  project,
+  initiallyOpen,
+  item,
+  exclude,
+}: {
+  project: ProjectChoice;
+  initiallyOpen: boolean;
+  item: (entry: RepoChoice, main: string, row?: RowOptions) => ReactNode;
+  /** Das X, das das ganze Projekt ausschließt. */
+  exclude: ReactNode;
+}) {
+  const [open, setOpen] = useState(initiallyOpen);
+  const toggle = () => {
+    setOpen((before) => !before);
+  };
+  const [only, ...more] = project.repo === null ? project.children : [project.repo, ...project.children];
+  if (only !== undefined && more.length === 0) {
+    return item(only, only === project.repo ? project.name : `${project.name}/${only.name}`, {
+      exclude: project.path,
+    });
+  }
+  return (
+    <>
+      {project.repo === null ? (
+        <div className="menu-row menu-excludable">
+          <Toggle name={project.name} count={project.children.length} open={open} onToggle={toggle} />
+          {exclude}
+        </div>
+      ) : (
+        item(project.repo, project.name, {
+          className: 'menu-project',
+          fold: (
+            <button
+              type="button"
+              className="menu-fold"
+              aria-expanded={open}
+              aria-label={open ? 'Repos darunter einklappen' : 'Repos darunter aufklappen'}
+              data-tip={open ? 'Repos darunter einklappen' : 'Repos darunter aufklappen'}
+              onClick={toggle}
+            >
+              {open ? '▾' : '▸'}
+            </button>
+          ),
+        })
+      )}
+      {open && project.children.map((child) => item(child, child.name, { className: 'menu-row-nested' }))}
+    </>
+  );
+}
+
+/**
+ * Die ausgeschlossenen Repos, eingeklappt am Ende des Menüs. Ein Klick auf eine Zeile öffnet das
+ * Repo trotzdem, der Pfeil daneben nimmt den Ausschluss zurück.
+ */
+function ExcludedList({
+  excluded,
+  home,
+  onOpen,
+  onRestore,
+}: {
+  excluded: string[];
+  home: string;
+  onOpen: (path: string) => void;
+  onRestore: (path: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <div className="menu-rule" />
+      <Toggle
+        name="Ausgeschlossene Repos"
+        count={excluded.length}
+        open={open}
+        onToggle={() => {
+          setOpen((before) => !before);
+        }}
+      />
+      {open &&
+        excluded.toSorted((a, b) => a.localeCompare(b)).map((path) => (
+          <div key={path} className="menu-row menu-row-nested">
+            <MenuItem
+              main={path.slice(path.lastIndexOf('/') + 1)}
+              sub={short(path, home)}
+              onChoose={() => {
+                onOpen(path);
+              }}
+            />
+            <button
+              type="button"
+              className="menu-close"
+              aria-label={`Ausschluss von ${short(path, home)} zurücknehmen`}
+              data-tip="Wieder im Menü zeigen"
+              onClick={() => {
+                onRestore(path);
+              }}
+            >
+              ↩
+            </button>
+          </div>
+        ))}
     </>
   );
 }
@@ -509,57 +854,7 @@ function groupName(group: string): string {
   return `allen Branches von ${group.slice(REMOTES_GROUP.length, -1)}`;
 }
 
-/**
- * Die zuletzt geöffneten Ansichten hinter dem Knopf mit der Uhr; `current` ist die offene Ansicht
- * und hat einen Haken.
- */
-export function RecentMenu({
-  current,
-  className = 'tool',
-}: {
-  current: { worktree: string; branch: string } | null;
-  className?: string;
-}) {
-  return (
-    <Menu button={<ClockIcon />} label="Zuletzt geöffnete Ansichten" tip="Zuletzt geöffnete Ansichten" className={className}>
-      {(close) => <RecentList current={current} close={close} />}
-    </Menu>
-  );
-}
-
-function RecentList({ current, close }: { current: { worktree: string; branch: string } | null; close: () => void }) {
-  const { data, error } = useLoaded(() => listViews());
-  const isCurrent = (view: SavedView) =>
-    current !== null && view.worktree === current.worktree && view.branch === current.branch;
-  return (
-    <div className="menu-scroll">
-      {error !== null && <MenuNote error>{error}</MenuNote>}
-      {data?.length === 0 && <MenuNote>Noch keine Ansicht geöffnet.</MenuNote>}
-      {data?.map((view) => (
-        <MenuItem
-          key={`${view.worktree}\n${view.branch}`}
-          main={
-            <>
-              {view.repo}
-              <span className="menu-where">
-                {view.worktreeName === view.branch ? '' : ` · ⌂ ${view.worktreeName}`} · <BranchIcon />{' '}
-                {view.branch || 'ohne Branch'}
-              </span>
-            </>
-          }
-          sub={view.title}
-          aside={view.to ?? 'neuester'}
-          tip={view.worktree}
-          current={isCurrent(view)}
-          link={view.search}
-          onChoose={close}
-        />
-      ))}
-    </div>
-  );
-}
-
-/** Eine Uhr als Symbol für die zuletzt geöffneten Ansichten. */
+/** Ein Auge wie in Fork, durchgestrichen für einen ausgeblendeten Branch. */
 function EyeIcon({ crossed }: { crossed: boolean }) {
   return (
     <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
@@ -572,15 +867,6 @@ function EyeIcon({ crossed }: { crossed: boolean }) {
       />
       <circle cx="9" cy="9" r="2.25" fill="none" stroke="currentColor" strokeWidth="1.5" />
       {crossed && <path d="M3 15 15 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />}
-    </svg>
-  );
-}
-
-function ClockIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
-      <circle cx="9" cy="9" r="7.25" fill="none" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M9 4.5V9l3 2" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
     </svg>
   );
 }

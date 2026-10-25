@@ -4,7 +4,6 @@ import type { Tab, ViewSearch } from '../server/store';
 import { CopyButton, HoverTools } from './HoverTools';
 import { BranchIcon } from './Icons';
 import { Menu, MenuItem } from './Menu';
-import { RecentMenu } from './ViewMenus';
 
 /** Die offenen Tabs und das Öffnen neuer, für die Einträge der Menüs. */
 export interface TabActions {
@@ -58,9 +57,8 @@ interface TabBarProps {
 }
 
 /**
- * Die Tabs ganz oben wie in Fork, weil die Web-App aus dem Dock keine eigenen hat. Links davor
- * stehen die zuletzt geöffneten Ansichten. Die Tabs stehen über der Kopfzeile, weil der Tab
- * bestimmt, was darunter steht. Jeder Tab ist eine Ansicht; die Tabs teilen sich die Breite und
+ * Die Tabs ganz oben wie in Fork, weil die Web-App aus dem Dock keine eigenen hat. Die Tabs stehen
+ * über der Kopfzeile, weil der Tab bestimmt, was darunter steht. Jeder Tab ist eine Ansicht; die Tabs teilen sich die Breite und
  * sind gleich breit, ob aktiv oder nicht. Sind es mehr als `SHOWN_TABS`, stehen die übrigen im
  * Menü rechts. Mit nur einem Tab fehlt das Schließen. Über einem Tab erscheint ein Knopf, der den
  * Pfad des Worktrees kopiert. Die Tabs zeigen nur, was offen ist; gewechselt wird über die Knöpfe
@@ -70,7 +68,6 @@ export function TabBar({ tabs, current, onChoose, onClose }: TabBarProps) {
   const rest = tabs.slice(SHOWN_TABS);
   return (
     <nav className="tabs" role="tablist" aria-label="Tabs">
-      <RecentMenu current={current} className="tabs-recent" />
       {tabs.slice(0, SHOWN_TABS).map((tab) => {
         const active = sameTab(tab, current);
         return (

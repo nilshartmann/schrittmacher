@@ -216,6 +216,15 @@ export function MenuSection({ children }: { children: ReactNode }) {
   return <div className="menu-section">{children}</div>;
 }
 
+/** Eine dünne Linie zwischen zwei Abschnitten, darin der Name des folgenden in kleiner Schrift. */
+export function MenuDivider({ children }: { children: ReactNode }) {
+  return (
+    <div className="menu-divider" role="separator">
+      <span>{children}</span>
+    </div>
+  );
+}
+
 export function MenuNote({ children, error }: { children: ReactNode; error?: boolean }) {
   return <p className={error === true ? 'menu-note menu-error' : 'menu-note'}>{children}</p>;
 }

@@ -31,6 +31,8 @@ export interface Settings {
    * Timer ein Neuladen der Web-App übersteht.
    */
   timerEnd: number | null;
+  /** Die Wurzel, deren Projekte das Menü der Repos zeigt, wie in `config.json`; `null` für alle. */
+  root: string | null;
 }
 
 const DEFAULTS: Settings = {
@@ -46,6 +48,7 @@ const DEFAULTS: Settings = {
   listHeight: LIST_HEIGHT.start,
   allBranches: false,
   timerEnd: null,
+  root: null,
 };
 
 /** Die Zeit in Millisekunden, nach der eine Änderung gespeichert wird, wenn keine weitere folgt. */
@@ -74,6 +77,7 @@ export function settingsOf(raw: Record<string, unknown>): Settings {
     listHeight: number(raw.listHeight, DEFAULTS.listHeight, LIST_HEIGHT.min, 2000),
     allBranches: flag(raw.allBranches, DEFAULTS.allBranches),
     timerEnd: typeof raw.timerEnd === 'number' && Number.isFinite(raw.timerEnd) ? raw.timerEnd : DEFAULTS.timerEnd,
+    root: typeof raw.root === 'string' ? raw.root : DEFAULTS.root,
   };
 }
 

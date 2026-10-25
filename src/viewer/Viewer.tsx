@@ -288,6 +288,10 @@ export function Viewer({ view, search, onSearch, onOpen, onShow, tabs }: ViewerP
             onToggleHidden={toggleHidden}
             onOpen={onOpen}
             onShow={onShow}
+            root={settings.root}
+            onRoot={(root) => {
+              set({ root });
+            }}
           />
         }
         allBranches={settings.allBranches}

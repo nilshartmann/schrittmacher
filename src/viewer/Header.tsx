@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import type { RepoInfo } from '../git/types';
 import type { ViewSearch } from '../server/store';
 import { Timer } from './Timer';
-import { RecentMenu, RepoMenu } from './ViewMenus';
+import { RepoMenu } from './ViewMenus';
 
 /**
  * Wie der Diff steht: beide Seiten mit dem Anteil der linken, oder alle Zeilen untereinander, mit
@@ -91,15 +91,12 @@ export function Header(props: HeaderProps) {
 }
 
 /**
- * Die Kopfzeile, solange keine Ansicht offen ist, etwa beim allerersten Start: nur die zuletzt
- * geöffneten Ansichten und das Repo, dessen Menü schon offen ist.
+ * Die Kopfzeile, solange keine Ansicht offen ist, etwa beim allerersten Start: nur das Repo,
+ * dessen Menü schon offen ist.
  */
 export function EmptyHeader({ onShow }: { onShow: (view: ViewSearch) => void }) {
   return (
     <header className="header">
-      <div className="header-start">
-        <RecentMenu current={null} />
-      </div>
       <div className="header-where">
         <RepoMenu info={null} initiallyOpen onShow={onShow} />
       </div>

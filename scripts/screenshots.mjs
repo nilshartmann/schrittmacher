@@ -141,11 +141,10 @@ const SHOTS = [
       // Eine Ansicht wird erst gemerkt, wenn die Wahl eine Weile steht.
       await page.waitForTimeout(600);
       await whereMenu(page);
-      await branchItem(page, 'main').click();
-      await page.locator('.tool-foreign').waitFor();
+      await page.getByRole('menuitem', { name: /^⌂.*live_coding/ }).click();
       await page.waitForTimeout(600);
-      await page.getByRole('button', { name: 'Zuletzt geöffnete Ansichten' }).click();
-      await page.locator('.menu-item').nth(1).waitFor();
+      await page.getByRole('button', { name: 'Repo', exact: true }).click();
+      await page.locator('.menu-divider', { hasText: 'Dieses Repo' }).waitFor();
     },
   ],
   [

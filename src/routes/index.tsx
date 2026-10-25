@@ -1,6 +1,5 @@
 import { createFileRoute, redirect } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
-import { findCommit, reachable } from '../git/repo';
 import { loadView, resolveView, saveTabs, saveView, tabOf, takeTabRequest } from '../server/repo.functions';
 import type { Tab, ViewSearch } from '../server/store';
 import { EmptyHeader } from '../viewer/Header';
@@ -81,8 +80,6 @@ function OpenedView({ view, search }: { view: LoadedView; search: ViewSearch }) 
   const navigate = Route.useNavigate();
   const { show, open } = useOpen();
   const { worktree, branch, to, from, file } = search;
-  const { commits, start } = view.repo;
-  const title = to === undefined ? undefined : findCommit(commits, to, reachable(commits, start))?.title;
 
   // Die Ansicht wird gemerkt, sobald die Wahl eine Weile steht.
   useEffect(() => {
@@ -90,14 +87,14 @@ function OpenedView({ view, search }: { view: LoadedView; search: ViewSearch }) 
       return;
     }
     const timer = setTimeout(() => {
-      saveView({ data: { worktree, branch, to, from, file, title } }).catch((error: unknown) => {
+      saveView({ data: { worktree, branch, to, from, file } }).catch((error: unknown) => {
         console.error('Die Ansicht ließ sich nicht merken.', error);
       });
     }, SAVE_DELAY);
     return () => {
       clearTimeout(timer);
     };
-  }, [worktree, branch, to, from, file, title]);
+  }, [worktree, branch, to, from, file]);
 
   const tabs = useTabs(view, open);
   useTabRequests(tabs.openNew);

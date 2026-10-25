@@ -357,6 +357,51 @@ a.menu-item {
   color: var(--quiet);
 }
 
+/* Ein Projekt, das selbst ein Repo ist: das Dreieck zum Aufklappen liegt über dem Haken. */
+.menu-project {
+  position: relative;
+}
+
+.menu-project > .menu-item .menu-check {
+  visibility: hidden;
+}
+
+.menu-fold {
+  position: absolute;
+  top: 50%;
+  left: 8px;
+  width: 20px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--quiet);
+  transform: translateY(-50%);
+  cursor: pointer;
+}
+
+/* Eine dünne Linie ohne Namen, etwa über den ausgeschlossenen Repos */
+.menu-rule {
+  margin: 6px 8px 2px;
+  border-top: 1px solid var(--line-soft);
+}
+
+/* Das X zum Ausschließen eines Repos erscheint erst beim Überfahren der Zeile. */
+.menu-exclude {
+  visibility: hidden;
+}
+
+.menu-excludable:hover > .menu-exclude,
+.menu-exclude:focus-visible {
+  visibility: visible;
+}
+
+.menu-fold:hover {
+  background: var(--line-soft);
+  color: var(--ink);
+}
+
 .menu-input {
   width: 100%;
   height: var(--target);
@@ -412,6 +457,53 @@ a.menu-item {
 .timer-unit {
   margin-right: 6px;
   color: var(--quiet);
+}
+
+/* Der Umschalter zwischen den Wurzeln, klein am Ende der Linie über den zuletzt geänderten */
+.menu-roots {
+  flex: none;
+  margin: 6px 8px 2px 0;
+}
+
+.menu-roots > button {
+  min-width: 0;
+  height: 22px;
+  padding: 0 8px;
+  font-size: var(--size-small);
+}
+
+.menu-row > .menu-divider {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Ein Abschnitt als Linie mit seinem Namen, ruhiger als `.menu-section` */
+.menu-divider {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 8px 2px;
+  color: var(--sign);
+  font-size: var(--size-small);
+}
+
+.menu-divider::before {
+  flex: none;
+  width: 20px;
+  border-top: 1px solid var(--line-soft);
+  content: '';
+}
+
+.menu-divider::after {
+  flex: 1 1 auto;
+  border-top: 1px solid var(--line-soft);
+  content: '';
+}
+
+.menu-divider > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .menu-note {
@@ -1561,31 +1653,6 @@ a.menu-item {
 }
 
 .menu-close:hover {
-  background: var(--hover);
-  color: var(--ink);
-}
-
-/* Die zuletzt geöffneten Ansichten ganz links in der Tableiste */
-.menu:has(> .tabs-recent) {
-  flex: none;
-  border-right: 1px solid var(--line);
-}
-
-.tabs-recent {
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: var(--tabs-height);
-  padding: 0;
-  border: none;
-  border-radius: 0;
-  background: transparent;
-  color: var(--quiet);
-  cursor: pointer;
-}
-
-.tabs-recent:hover,
-.tabs-recent[aria-expanded='true'] {
   background: var(--hover);
   color: var(--ink);
 }

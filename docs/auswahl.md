@@ -18,9 +18,32 @@ zwingend gebraucht.
   Repos, weil ein Repo für einen Workshop weitere Repos enthalten kann.
 - Ein Worktree wird über `--git-common-dir` seinem Repo zugeordnet und erscheint nicht als eigenes
   Repo.
-- Im Menü stehen oben alle gefundenen Repos nach Name, darunter die über das Textfeld
-  geöffneten. Die zuletzt geöffneten Ansichten stehen hinter der Uhr.
-  Das Suchfeld filtert alle Abschnitte.
+- Im Menü stehen oben die zuletzt geöffneten Ansichten (siehe „Ansichten“). Darunter folgen die
+  gefundenen Repos nach Projekt und zuletzt die über das Textfeld geöffneten. Das Suchfeld filtert
+  alle Abschnitte.
+- Liegt eine Wurzel in einer anderen, etwa `~/develop/javascript` in `~/develop`, gehört ein Repo
+  zur tieferen.
+- Ein Projekt ist ein Ordner direkt unter einer Wurzel, etwa `~/develop/tanstack-ai-talk`. Die
+  Repos darin stehen eingerückt darunter, mit ihrem Pfad relativ zum Projekt. Ist der Ordner selbst
+  ein Repo, öffnet ein Klick auf das Projekt dieses Repo, und ein Dreieck links klappt die Repos
+  darunter auf und zu. Ein Projekt mit nur einem Repo steht als einzelne Zeile da.
+- Die zehn zuletzt geänderten Projekte stehen oben und sind aufgeklappt. Darunter stehen die
+  übrigen eingeklappt. Beide Abschnitte sind nach Name sortiert.
+- Bei mehr als einer Wurzel steht neben „Zuletzt geändert“ ein Umschalter mit einer Wahl je
+  Wurzel und einer für alle, etwa „develop | javascript | Beide“. Er gilt für beide Abschnitte der
+  Projekte; die zehn zuletzt geänderten werden je Wahl ermittelt. Die Ansichten oben und die über
+  das Textfeld geöffneten Repos zeigt das Menü unabhängig davon. Die Wahl wird mit den übrigen
+  Einstellungen gespeichert.
+- Als Änderung gilt das Änderungsdatum eines Ordners wie im Finder. Es ändert sich, wenn im Ordner
+  eine Datei angelegt, gelöscht oder umbenannt wird. Für ein Projekt zählt das jüngste Datum aus
+  seinem Ordner und den Ordnern seiner Repos.
+- Beim Überfahren einer Repo-Zeile erscheint rechts ein X. Es schließt das Repo aus dem Menü aus,
+  in der Zeile eines Projekts das ganze Projekt. Ein ausgeschlossenes Repo fehlt in allen
+  Abschnitten, auch mit seinen zuletzt geöffneten Ansichten, außer der offenen. Unter „Zuletzt
+  geändert“ rückt das nächste Projekt nach.
+- Am Ende der Liste steht eine eingeklappte Zeile „Ausgeschlossene Repos“. Aufgeklappt zeigt sie
+  die ausgeschlossenen Pfade. Ein Klick auf einen öffnet das Repo trotzdem, der Pfeil daneben
+  nimmt den Ausschluss zurück. Gemerkt wird die Liste in `state.json`.
 - Am Ende des Menüs steht ein freies Textfeld für einen Pfad, der per Copy & Paste eingefügt wird.
   Ein so geöffnetes Repo steht danach im Abschnitt „Über den Pfad geöffnet“.
 - Der Server öffnet nur Pfade, die in einer Wurzel liegen oder über das Textfeld geöffnet wurden.
@@ -101,8 +124,16 @@ anderen Speicher als Safari hat.
 
 - Die Ansicht steht in der URL, etwa `/?repo=…&worktree=live_coding&branch=schritte&to=07&file=…`.
   Zurück, Vor und Lesezeichen funktionieren damit.
-- Ein Knopf mit Uhr-Symbol ganz links in der Tableiste öffnet die zuletzt
-  geöffneten Ansichten. Jede Zeile nennt Repo, Branch und Schritt.
+- Die zuletzt geöffneten Ansichten stehen oben im Menü der Repos. Jede Zeile nennt Repo, Worktree
+  und Branch, den gemerkten Commit nennt sie nicht. Die Abschnitte trennt eine dünne Linie mit
+  ihrem Namen. Die Ansichten stehen in Abschnitten wie im Menü „Kopieren nach …“ (`commit.md`),
+  jeweils die neueste oben:
+  1. „Dieses Repo“: Ansichten des offenen Repos, auch aus seinen anderen Worktrees, mit der
+     offenen Ansicht zuerst
+  2. „Schwester-Repos“: Ansichten von Repos im selben Ordner
+  3. „Andere Repos“: die übrigen, höchstens fünf, damit die Repos darunter zu sehen bleiben
+- Ohne offene Ansicht, etwa beim allerersten Start, gibt es nur einen Abschnitt „Zuletzt
+  geöffnet“ mit höchstens fünf Ansichten.
 - Die Einträge der zuletzt geöffneten Ansichten und der Repos sind Links. Mit ⌘-Klick oder der
   mittleren Maustaste öffnen sie sich in einem neuen Tab der Tableiste.
 

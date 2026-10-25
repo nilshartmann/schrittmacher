@@ -6,8 +6,8 @@ import { buildDemoRepo, DEMO_BASE } from '../git/demoGit';
 import { DEMO_REPO } from '../git/demoRepo';
 import { gitSource, locate } from '../git/gitRepo';
 import type { Comparison, RepoSource } from '../git/repo';
-import { findRepos } from '../git/repos';
-import type { RepoEntry } from '../git/repos';
+import { changedAt, findRepos, projectsOf } from '../git/repos';
+import type { RepoEntry, RepoProject } from '../git/repos';
 import { shared } from './shared';
 import { createStore, defaultStoreDir, expandHome, sameView } from './store';
 import type { JsonValue, SavedView, Store, Tab, ViewSearch } from './store';
@@ -320,8 +320,21 @@ function searchOf(view: SavedView): ViewSearch {
   return search;
 }
 
+/** Ein Projekt in der Auswahl, mit den Ansichten, die ein Klick auf seine Repos öffnet. */
+export interface ProjectChoice {
+  name: string;
+  path: string;
+  /** Die Wurzel, unter der das Projekt liegt, wie in `roots`. */
+  root: string;
+  repo: RepoChoice | null;
+  children: RepoChoice[];
+  /** Wann das Projekt zuletzt geändert wurde, siehe `changedAt`. */
+  changed: number;
+}
+
 /**
- * Die gefundenen und die über den Pfad geöffneten Repos, dazu die Wurzeln und das Home-Verzeichnis, damit die Oberfläche Pfade mit `~` kürzen kann. Jedes
+ * Die gefundenen Repos in ihren Projekten, mit dem Datum ihrer letzten Änderung, und die über den
+ * Pfad geöffneten Repos, dazu die Wurzeln und das Home-Verzeichnis, damit die Oberfläche Pfade mit `~` kürzen kann. Jedes
  * Repo nennt die Ansicht, die ein Klick öffnet: seine zuletzt geöffnete, sonst sein erster
  * Worktree. So kann die Oberfläche jedes Repo als Link zeigen, der sich auch in einem neuen Tab
  * öffnen lässt.
@@ -347,16 +360,24 @@ export const listRepos = createServerFn({ method: 'GET' }).handler(async () => {
   const unshown = (entries: RepoEntry[]) => {
     const rest = entries.filter((entry) => !shown.has(entry.path));
     rest.forEach((entry) => shown.add(entry.path));
-    return rest.map(choiceOf);
+    return rest;
   };
-  const found = unshown(await findRepos(realRoots));
+  const projectChoiceOf = async (project: RepoProject): Promise<ProjectChoice> => ({
+    ...project,
+    root: roots[realRoots.indexOf(project.root)] ?? project.root,
+    repo: project.repo === null ? null : choiceOf(project.repo),
+    children: project.children.map(choiceOf),
+    changed: await changedAt(project),
+  });
+  const projects = await Promise.all(projectsOf(unshown(await findRepos(realRoots)), realRoots).map(projectChoiceOf));
   // Über das Pfadfeld geöffnete Repos außerhalb der Wurzeln findet die Suche nicht.
   const opened = unshown(
     state.opened.map((path) => ({ name: nameOf(path), path })).sort((a, b) => a.name.localeCompare(b.name)),
   );
   return {
-    found,
-    opened,
+    projects,
+    opened: opened.map(choiceOf),
+    excluded: state.excluded,
     roots,
     home: homedir(),
   };
@@ -428,20 +449,17 @@ export const takeTabRequest = createServerFn({ method: 'POST' }).handler(() => {
   return view;
 });
 
-/** Die zuletzt geöffneten Ansichten, die neueste zuerst, mit ihren Teilen für die URL. */
+/** Die gemerkten Ansichten, die neueste zuerst, mit ihren Teilen für die URL. */
 export const listViews = createServerFn({ method: 'GET' }).handler(async () =>
-  (await (await server()).store.state()).views
-    .slice(0, 10)
-    .map((view) => ({ ...view, search: searchOf(view) })),
+  (await (await server()).store.state()).views.map((view) => ({ ...view, search: searchOf(view) })),
 );
 
 /** Merkt sich die Ansicht als die zuletzt geöffnete, mit Vergleich und Datei. */
 export const saveView = createServerFn({ method: 'POST' })
-  .validator((data: ViewSearch & { title?: string }) => ({
+  .validator((data: ViewSearch) => ({
     ...viewSearchOf(data),
     worktree: text(data.worktree, 'worktree'),
     branch: text(data.branch, 'branch'),
-    title: optionalText(data.title),
   }))
   .handler(async ({ data }) => {
     const { repoPath, worktreePath } = await access(data.worktree);
@@ -454,7 +472,6 @@ export const saveView = createServerFn({ method: 'POST' })
       repoPath,
       repo: nameOf(repoPath),
       worktreeName: nameOf(worktreePath),
-      title: data.title,
     };
     await (await server()).store.saveView(view);
   });
@@ -487,6 +504,18 @@ export const saveTabs = createServerFn({ method: 'POST' })
   })
   .handler(async ({ data }) => {
     await (await server()).store.saveTabs(data.tabs);
+  });
+
+/** Merkt sich die Pfade, deren Repos das Menü der Repos nicht zeigt. */
+export const saveExcluded = createServerFn({ method: 'POST' })
+  .validator((data: { excluded: string[] }) => {
+    if (!Array.isArray(data.excluded) || !data.excluded.every((entry) => typeof entry === 'string' && isAbsolute(entry))) {
+      throw new Error('Die ausgeschlossenen Repos sind keine Liste von absoluten Pfaden.');
+    }
+    return { excluded: data.excluded };
+  })
+  .handler(async ({ data }) => {
+    await (await server()).store.saveExcluded(data.excluded);
   });
 
 /** Merkt sich die ausgeblendeten Branches des Repos, zu dem der Worktree gehört. */
