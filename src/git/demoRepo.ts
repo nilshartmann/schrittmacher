@@ -223,6 +223,22 @@ public class Loan {
 }
 `;
 
+const MIGRATION_1 = `-- Die Tabelle zur Entity Loan
+CREATE TABLE loan (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    isbn        VARCHAR(17) NOT NULL,
+    member_id   VARCHAR(36) NOT NULL,
+    borrowed_on DATE        NOT NULL DEFAULT current_date
+);
+
+/* TODO: Index erst anlegen, wenn die Suche nach Mitglied kommt */
+CREATE INDEX loan_member_id ON loan (member_id);
+
+INSERT INTO loan (isbn, member_id, borrowed_on)
+VALUES ('978-3-16-148410-0', 'm-0001', '2026-10-01'),
+       ('978-3-86490-552-0', 'm-0002', NULL);
+`;
+
 const LOAN_REPOSITORY_1 = `package nh.demo.bibliothek.loan;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -739,6 +755,7 @@ export const DEMO_REPO: MemoryRepo = {
         'pom.xml': POM_1,
         'src/main/java/nh/demo/bibliothek/loan/Loan.java': LOAN_1,
         'src/main/java/nh/demo/bibliothek/loan/LoanRepository.java': LOAN_REPOSITORY_1,
+        'src/main/resources/db/migration/V1__loan.sql': MIGRATION_1,
       },
     },
     {

@@ -63,7 +63,7 @@ export interface Chunk {
 
 /** The language of a file and the dialect that its parser needs, empty without one. */
 export interface Language {
-  name: 'java' | 'markdown' | 'javascript' | 'json';
+  name: 'java' | 'markdown' | 'javascript' | 'json' | 'sql';
   dialect: string;
 }
 
@@ -77,6 +77,7 @@ const LANGUAGES = new Map<string, Language>([
   ['ts', { name: 'javascript', dialect: 'ts' }],
   ['tsx', { name: 'javascript', dialect: 'ts jsx' }],
   ['json', { name: 'json', dialect: '' }],
+  ['sql', { name: 'sql', dialect: '' }],
 ]);
 
 /** The language that the ending of the path names, none for every other file. */
@@ -344,7 +345,8 @@ const MARKDOWN: TextParser = markdownParser.configure([
   }),
 ]);
 
-function parserOf(language: Language): TextParser {
+/** The parser of a language, none for SQL, which has no parser of Lezer and goes through `sqlSpans`. */
+function parserOf(language: Language): TextParser | null {
   switch (language.name) {
     case 'java':
       return JAVA;
@@ -352,6 +354,8 @@ function parserOf(language: Language): TextParser {
       return MARKDOWN;
     case 'json':
       return JSON_PARSER;
+    case 'sql':
+      return null;
     case 'javascript': {
       let parser = JAVASCRIPT_PARSERS.get(language.dialect);
       if (parser === undefined) {
@@ -426,6 +430,84 @@ function piecesOf(source: string, from: number, to: number, found: Found) {
     pieces.push({ from: position, to, kind });
   }
   return pieces;
+}
+
+/** The keywords of PostgreSQL that a migration or a query uses, in lower case. */
+const SQL_KEYWORDS: ReadonlySet<string> = new Set(
+  `add all alter always and any as asc begin between by cascade case check collate column commit
+  comment concurrently constraint create cross current_date current_time current_timestamp cycle
+  database default deferrable deferred delete desc distinct do drop each else end except exists
+  extension filter first for foreign from full function generated grant group having identity if
+  ilike in increment index inherits initially inner insert intersect into is join key language last
+  lateral left like limit local materialized maxvalue minvalue natural no not nothing nulls of offset
+  on only or order outer over owned partition policy primary procedure references rename replace
+  restrict returning returns revoke right rollback row rows schema select sequence set start stored
+  table temp temporary then to transaction trigger truncate union unique unlogged update using values
+  view when where window with`.split(/\s+/),
+);
+
+/** The types of PostgreSQL, in lower case; `double precision` and the like are two words of a type. */
+const SQL_TYPES: ReadonlySet<string> = new Set(
+  `bigint bigserial bit bool boolean bytea char character date decimal double float int int2 int4 int8
+  integer interval json jsonb money numeric precision real serial smallint smallserial text time
+  timestamp timestamptz timetz uuid varchar varying xml zone`.split(/\s+/),
+);
+
+/** The constants of SQL, in lower case. */
+const SQL_CONSTANTS: ReadonlySet<string> = new Set(['null', 'true', 'false']);
+
+/**
+ * The tokens of SQL: a comment with `--` or `/* *\/`, a string in single quotes or between two
+ * dollar quotes, a quoted name, a parameter such as `$1`, a number and a word.
+ */
+const SQL_TOKEN =
+  /--[^\n]*|\/\*[\s\S]*?(?:\*\/|$)|[Ee]?'(?:[^']|'')*(?:'|$)|(\$[A-Za-z_]*\$)[\s\S]*?(?:\1|$)|"(?:[^"]|"")*"?|\$\d+|\b\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\b|[A-Za-z_][\w$]*/g;
+
+/**
+ * The kind of a word of SQL: a word right before a bracket that is no keyword is a call. A space
+ * before the bracket marks a table with its columns, as in `INSERT INTO loan (isbn)`.
+ */
+function sqlWordKind(word: string, source: string, end: number): CodeKind | null {
+  const lower = word.toLowerCase();
+  if (SQL_CONSTANTS.has(lower)) {
+    return 'constant';
+  }
+  if (SQL_TYPES.has(lower)) {
+    return 'type';
+  }
+  if (SQL_KEYWORDS.has(lower)) {
+    return 'keyword';
+  }
+  return source.charAt(end) === '(' ? 'call' : null;
+}
+
+/**
+ * The spans of a text of SQL, in order. Without a parser of Lezer for SQL, the tokens decide, as
+ * they do in the grammar of SQL of CodeMirror.
+ */
+function sqlSpans(source: string): Span[] {
+  const spans: Span[] = [];
+  for (const match of source.matchAll(SQL_TOKEN)) {
+    const token = match[0];
+    const from = match.index;
+    const to = from + token.length;
+    const first = token.charAt(0);
+    if (token.startsWith('--') || token.startsWith('/*')) {
+      spans.push(...piecesOf(source, from, to, { kind: 'comment' }));
+    } else if (first === "'" || match[1] !== undefined || /^[Ee]'/.test(token)) {
+      spans.push({ from, to, kind: 'string' });
+    } else if (first === '$') {
+      spans.push({ from, to, kind: 'parameter' });
+    } else if (/\d/.test(first)) {
+      spans.push({ from, to, kind: 'number' });
+    } else if (first !== '"') {
+      const kind = sqlWordKind(token, source, to);
+      if (kind !== null) {
+        spans.push({ from, to, kind });
+      }
+    }
+  }
+  return spans;
 }
 
 /** The words of Java that are a keyword only at a place that the line shows, with that place. */
@@ -512,7 +594,14 @@ export function highlightText(language: Language, text: string): CodeRange[][] {
       }
     }
   };
-  highlightTree(parserOf(language).parse(text), HIGHLIGHTER, (start, to, classes) => {
+  const parser = parserOf(language);
+  if (parser === null) {
+    for (const span of sqlSpans(text)) {
+      place(span, false);
+    }
+    return rows.map((row) => row.ranges);
+  }
+  highlightTree(parser.parse(text), HIGHLIGHTER, (start, to, classes) => {
     const found = kindOf(classes, text, start, to);
     if (found !== null) {
       for (const span of piecesOf(text, start, to, found)) {
