@@ -173,12 +173,13 @@ export const loadView = createServerFn({ method: 'GET' })
   }))
   .handler(async ({ data }) => {
     const { source, repoPath } = await access(data.worktree);
-    const [repo, worktrees, state] = await Promise.all([
-      source.load(data.branch === '' ? null : data.branch),
+    const state = await (await server()).store.state();
+    const hidden = state.hidden[repoPath] ?? [];
+    const [repo, worktrees] = await Promise.all([
+      source.load(data.branch === '' ? null : data.branch, { all: state.settings.allBranches === true, hidden }),
       source.worktrees(),
-      (await server()).store.state(),
     ]);
-    return { repo, worktrees, settings: state.settings, hidden: state.hidden[repoPath] ?? [] };
+    return { repo, worktrees, settings: state.settings, hidden };
   });
 
 export const compareCommits = createServerFn({ method: 'GET' })

@@ -1,4 +1,5 @@
 import type { Hidden } from '../git/hidden';
+import { previousOf } from '../git/repo';
 import type { Comparison } from '../git/repo';
 import type { Commit, Ref, RepoInfo, Worktree } from '../git/types';
 import type { ViewSearch } from '../server/store';
@@ -20,6 +21,8 @@ interface HeaderProps {
   onToggleHidden: (path: string) => void;
   commits: Commit[];
   comparison: Comparison;
+  allBranches: boolean;
+  onAllBranches: () => void;
   fontSize: number;
   onFontSize: (change: number) => void;
   filesOpen: boolean;
@@ -36,10 +39,11 @@ interface HeaderProps {
 export function Header(props: HeaderProps) {
   const { info, commits, comparison } = props;
   const to = commits.find((commit) => commit.sha === comparison.to);
-  const toIndex = to === undefined ? -1 : commits.indexOf(to);
   const from =
     comparison.from === null
-      ? commits[toIndex - 1]
+      ? to === undefined
+        ? undefined
+        : previousOf(commits, to)
       : commits.find((commit) => commit.sha === comparison.from);
   return (
     <header className="header">
@@ -55,6 +59,20 @@ export function Header(props: HeaderProps) {
           <SidebarIcon />
         </button>
         <RecentMenu info={info} />
+        <button
+          type="button"
+          className="tool"
+          aria-pressed={props.allBranches}
+          aria-label="Alle Branches"
+          data-tip={
+            props.allBranches
+              ? `Nur die Commits von ${info.branch ?? 'HEAD'} zeigen`
+              : 'Die Commits aller Branches zeigen, außer den ausgeblendeten'
+          }
+          onClick={props.onAllBranches}
+        >
+          <GraphIcon />
+        </button>
       </div>
       <div className="header-where">
         <RepoMenu info={info} onShow={props.onShow} />
@@ -123,6 +141,17 @@ export function EmptyHeader({ onShow }: { onShow: (view: ViewSearch) => void }) 
 }
 
 /** Das Symbol einer Seitenleiste wie in macOS: ein Rahmen mit einem Streifen links. */
+/** Zwei Branches, die auseinanderlaufen, wie im Graphen der Commit-Liste. */
+function GraphIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+      <path d="M5 2.5v13M5 11.5c0-3 8-3 8-6.5V2.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
+      <circle cx="5" cy="6" r="1.75" fill="currentColor" />
+      <circle cx="13" cy="5" r="1.75" fill="currentColor" />
+    </svg>
+  );
+}
+
 function SidebarIcon() {
   return (
     <svg width="20" height="16" viewBox="0 0 20 16" aria-hidden="true">

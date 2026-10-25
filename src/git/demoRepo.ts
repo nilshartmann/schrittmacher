@@ -7,8 +7,14 @@ import type { Commit, Ref } from './types';
  * Ein Commit mit den Dateien, die er ändert. Eine Datei mit `null` wird gelöscht. Der SHA ist nur
  * eine Kennung für die Branches, das echte Repo hat eigene. Das Datum steht in ISO 8601.
  */
-export interface StoredCommit extends Commit {
+export interface StoredCommit extends Omit<Commit, 'parents'> {
   files: Record<string, string | null>;
+}
+
+/** Commits auf einem eigenen Branch, der beim Commit `base` abzweigt. */
+export interface SideBranch {
+  base: string;
+  commits: StoredCommit[];
 }
 
 /** Das Repo der Testdaten. */
@@ -17,6 +23,8 @@ export interface MemoryRepo {
   info: { repo: string; branch: string };
   /** Die Commits vom ersten zum letzten. */
   commits: StoredCommit[];
+  /** Weitere Commits, die abseits von `commits` liegen, etwa die vom Live-Coding. */
+  side: SideBranch[];
   /** Die Branches mit der Kennung des Commits, auf den sie zeigen. */
   refs: Ref[];
 }
@@ -677,10 +685,34 @@ export const DEMO_REPO: MemoryRepo = {
   refs: [
     { name: 'main', kind: 'local', sha: '3a1f0c2' },
     { name: 'origin/main', kind: 'remote', sha: '3a1f0c2' },
-    { name: 'live_coding', kind: 'local', sha: '51c08ad' },
-    { name: 'workshop/live_coding', kind: 'remote', sha: '51c08ad' },
+    { name: 'live_coding', kind: 'local', sha: 'b3e70d1' },
+    { name: 'workshop/live_coding', kind: 'remote', sha: 'b3e70d1' },
     { name: 'schritte', kind: 'local', sha: '84c7d2f' },
     { name: 'origin/schritte', kind: 'remote', sha: '84c7d2f' },
+  ],
+  // Das Live-Coding im Workshop zweigt nach dem ersten Schritt ab und baut die Schritte nach.
+  side: [
+    {
+      base: '3a1f0c2',
+      commits: [
+        {
+          sha: 'a2c4e91',
+          step: '02',
+          title: 'Der LoanService leiht ein Buch aus',
+          author: 'Nils Hartmann',
+          date: '2026-10-24T14:10:00+02:00',
+          files: { 'src/main/java/nh/demo/bibliothek/loan/LoanService.java': SERVICE_1 },
+        },
+        {
+          sha: 'b3e70d1',
+          step: '03',
+          title: 'Ein REST-Endpunkt für die Ausleihe',
+          author: 'Nils Hartmann',
+          date: '2026-10-24T14:35:00+02:00',
+          files: { 'src/main/java/nh/demo/bibliothek/loan/LoanController.java': CONTROLLER_1 },
+        },
+      ],
+    },
   ],
   commits: [
     {

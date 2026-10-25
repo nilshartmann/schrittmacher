@@ -24,6 +24,8 @@ export interface Settings {
   filesOpen: boolean;
   filesWidth: number;
   listHeight: number;
+  /** Ob die Commit-Liste alle Branches zeigt; der Server liest das beim Laden. */
+  allBranches: boolean;
 }
 
 const DEFAULTS: Settings = {
@@ -37,6 +39,7 @@ const DEFAULTS: Settings = {
   filesOpen: true,
   filesWidth: FILES_WIDTH.start,
   listHeight: LIST_HEIGHT.start,
+  allBranches: false,
 };
 
 /** Die Zeit in Millisekunden, nach der eine Änderung gespeichert wird, wenn keine weitere folgt. */
@@ -63,14 +66,18 @@ export function settingsOf(raw: Record<string, unknown>): Settings {
     filesOpen: flag(raw.filesOpen, DEFAULTS.filesOpen),
     filesWidth: number(raw.filesWidth, DEFAULTS.filesWidth, FILES_WIDTH.min, 2000),
     listHeight: number(raw.listHeight, DEFAULTS.listHeight, LIST_HEIGHT.min, 2000),
+    allBranches: flag(raw.allBranches, DEFAULTS.allBranches),
   };
 }
 
 /**
  * Die Einstellungen, anfangs aus `saved`, und eine Funktion, die einen Teil ändert. Jede Änderung
- * wird kurz danach im Server gespeichert, beim Ziehen einer Trennlinie also nur am Ende.
+ * wird kurz danach im Server gespeichert, beim Ziehen einer Trennlinie also nur am Ende. Die
+ * dritte Funktion speichert sofort, für eine Einstellung, die der Server beim Laden braucht.
  */
-export function useSettings(saved: Record<string, unknown>): [Settings, (change: Partial<Settings>) => void] {
+export function useSettings(
+  saved: Record<string, unknown>,
+): [Settings, (change: Partial<Settings>) => void, (change: Partial<Settings>) => Promise<void>] {
   const [settings, setSettings] = useState(() => settingsOf(saved));
   const first = useRef(true);
   useEffect(() => {
@@ -87,7 +94,13 @@ export function useSettings(saved: Record<string, unknown>): [Settings, (change:
       clearTimeout(timer);
     };
   }, [settings]);
-  return [settings, (change) => {
+  const set = (change: Partial<Settings>) => {
     setSettings((current) => ({ ...current, ...change }));
-  }];
+  };
+  const saveNow = (change: Partial<Settings>) => {
+    const next = { ...settings, ...change };
+    setSettings(next);
+    return saveSettings({ data: { ...next } });
+  };
+  return [settings, set, saveNow];
 }

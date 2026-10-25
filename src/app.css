@@ -537,6 +537,21 @@ a.menu-item {
   box-shadow: inset 3px 0 0 var(--accent);
 }
 
+.commit td.commit-graph {
+  width: 1%;
+  padding: 0 0 0 4px;
+  line-height: 0;
+}
+
+.graph {
+  overflow: visible;
+}
+
+.commit-other > .commit-title,
+.commit-other > .commit-step {
+  color: var(--quiet);
+}
+
 .commit-step {
   width: 1%;
   font-weight: 700;

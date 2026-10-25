@@ -1,11 +1,21 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import type { MouseEvent, PointerEvent } from 'react';
-import { commitKey } from '../git/repo';
+import type { Graph, GraphRow } from '../git/graph';
+import { reachable } from '../git/repo';
 import type { Comparison } from '../git/repo';
 import type { Commit, Ref } from '../git/types';
 
 /** Die Nummer des Schritts, für einen Commit ohne Schritt der Anfang seines SHA. */
-export const stepLabel = commitKey;
+export function stepLabel(commit: Commit): string {
+  return commit.step ?? commit.sha.slice(0, 7);
+}
+
+/** Die Breite einer Spalte des Graphen und die Höhe einer Zeile in Pixeln. */
+const LANE = 14;
+const ROW = 22;
+
+/** Die Farben der Spalten des Graphen, der Reihe nach wie in Fork. */
+const LANE_COLORS = ['#2f7cf6', '#af52de', '#34a853', '#f5a623', '#e5484d', '#14b8c4'];
 
 /**
  * Die Grenzen der Höhe des Bands in Pixeln: mindestens eine Zeile, und der Rest bleibt mindestens
@@ -16,6 +26,10 @@ export const LIST_HEIGHT = { min: 24, start: 156, restMin: 240 };
 interface CommitListProps {
   commits: Commit[];
   refs: Ref[];
+  /** Der Graph, wenn die Liste die Commits aller Branches zeigt; die Zeilen der neueste zuerst. */
+  graph: Graph | null;
+  /** Die SHAs der Commits des Branches; die anderen stehen im Graphen blasser da. */
+  line: ReadonlySet<string>;
   /** Der Branch, dessen Commits die Liste zeigt; sein Badge ist hervorgehoben. */
   branch: string | null;
   /** Ein Klick auf einen Badge zeigt die Commits dieses Branches. */
@@ -30,15 +44,21 @@ interface CommitListProps {
  * Die Commits als Band über Dateien und Diff, wie in Fork der neueste oben. Das Band
  * scrollt in beide Richtungen, eine Trennlinie darunter ändert seine Höhe. Ein Klick vergleicht
  * einen Commit mit seinem Vorgänger, ein ⇧-Klick den gewählten mit dem geklickten. Ganz
- * einklappen lässt sich das Band nicht, nur bis auf eine Zeile verkleinern.
+ * einklappen lässt sich das Band nicht, nur bis auf eine Zeile verkleinern. Mit allen Branches
+ * steht links der Graph, und Commits anderer Branches sind blasser.
  */
 export function CommitList(props: CommitListProps) {
   const { commits, comparison, onChoose } = props;
   const toIndex = commits.findIndex((commit) => commit.sha === comparison.to);
-  const fromIndex =
-    comparison.from === null
-      ? toIndex - 1
-      : commits.findIndex((commit) => commit.sha === comparison.from);
+  const fromSha = comparison.from ?? commits[toIndex]?.parents[0] ?? null;
+  // Zwischen zwei gewählten Commits liegt, was `to` erreicht und `from` nicht.
+  const between = useMemo(() => {
+    if (comparison.from === null) {
+      return new Set<string>();
+    }
+    const older = reachable(commits, comparison.from);
+    return new Set([...reachable(commits, comparison.to)].filter((sha) => !older.has(sha)));
+  }, [commits, comparison.from, comparison.to]);
   const band = useRef<HTMLElement>(null);
 
   // Der gewählte Commit bleibt im Band sichtbar, auch wenn das Band kleiner geschoben wird.
@@ -65,25 +85,32 @@ export function CommitList(props: CommitListProps) {
         <table className="commit-table">
           <tbody>
             {/* Die Indizes bleiben die der Historie, nur die Anzeige ist umgedreht. */}
-            {[...commits.entries()].reverse().map(([index, commit]) => {
+            {[...commits.entries()].reverse().map(([index, commit], row) => {
               const state =
                 index === toIndex
                   ? 'commit-to'
-                  : index === fromIndex && comparison.from !== null
+                  : commit.sha === fromSha && comparison.from !== null
                     ? 'commit-from'
-                    : index > fromIndex && index < toIndex
+                    : between.has(commit.sha)
                       ? 'commit-between'
                       : '';
+              const other = props.graph !== null && !props.line.has(commit.sha) ? ' commit-other' : '';
+              const graphRow = props.graph?.rows[row];
               return (
                 <tr
                   key={commit.sha}
-                  className={`commit ${state}`}
+                  className={`commit ${state}${other}`}
                   aria-current={index === toIndex ? 'true' : undefined}
                   data-tip={commit.step === null ? commit.title : `${commit.step}: ${commit.title}`}
                   onClick={(event) => {
                     onClick(event, index, commit);
                   }}
                 >
+                  {props.graph !== null && graphRow !== undefined && (
+                    <td className="commit-graph">
+                      <GraphCell row={graphRow} columns={props.graph.columns} />
+                    </td>
+                  )}
                   <td className="commit-step">{commit.step ?? ''}</td>
                   <td className="commit-title">
                     {commit.title}
@@ -105,6 +132,32 @@ export function CommitList(props: CommitListProps) {
       </nav>
       <HeightSplitter height={props.height} onHeight={props.onHeight} />
     </>
+  );
+}
+
+/** Die Linien einer Zeile des Graphen und der Punkt des Commits. */
+function GraphCell({ row, columns }: { row: GraphRow; columns: number }) {
+  const x = (column: number) => (column + 0.5) * LANE;
+  const color = (lane: number) => LANE_COLORS[lane % LANE_COLORS.length];
+  return (
+    <svg className="graph" width={columns * LANE} height={ROW} aria-hidden="true">
+      {row.lines.map((line, index) => {
+        // Oben und unten ragt die Linie ein Pixel über die Zeile, damit sie ohne Lücke weiterläuft.
+        const y = (at: number) => (at === 0 ? -1 : at === 1 ? ROW + 1 : at * ROW);
+        const [x1, y1, x2, y2] = [x(line.fromColumn), y(line.fromY), x(line.toColumn), y(line.toY)];
+        const middle = (y1 + y2) / 2;
+        return (
+          <path
+            key={index}
+            d={`M${String(x1)} ${String(y1)}C${String(x1)} ${String(middle)} ${String(x2)} ${String(middle)} ${String(x2)} ${String(y2)}`}
+            fill="none"
+            stroke={color(line.lane)}
+            strokeWidth="2"
+          />
+        );
+      })}
+      <circle cx={x(row.column)} cy={ROW / 2} r="4" fill={color(row.column)} stroke="var(--surface)" strokeWidth="1.5" />
+    </svg>
   );
 }
 

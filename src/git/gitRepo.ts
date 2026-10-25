@@ -3,7 +3,8 @@ import { parseDiff } from './diffParser';
 import type { ParsedFile } from './diffParser';
 import { markParts } from './lineParts';
 import { runGit } from './process';
-import type { Comparison, RepoData, RepoSource } from './repo';
+import { isHidden, refPath } from './hidden';
+import type { Comparison, LoadOptions, RepoData, RepoSource } from './repo';
 import type { Commit, DiffFile, DiffLine, Ref, Worktree } from './types';
 
 /** Der Baum ohne Dateien; gegen ihn vergleicht Git den ersten Commit. */
@@ -35,7 +36,7 @@ export function gitSource(worktree: string): RepoSource {
   // Zwei Commits ändern sich nie, deshalb bleibt ihr Vergleich gültig, auch nach einem Rebase.
   const cache = new Map<string, Promise<DiffFile[]>>();
   return {
-    load: (branch) => load(git, worktree, branch),
+    load: (branch, options) => load(git, worktree, branch, options),
     compare: async (comparison) => {
       const [older, newer] = await sides(git, comparison);
       const key = `${older}..${newer}`;
@@ -78,9 +79,10 @@ export async function locate(
 /**
  * Die Commits eines Branches, lokal oder auf einem Remote, unabhängig vom ausgecheckten. Ohne
  * Branch oder mit einem, den es nicht gibt, gelten die Commits von `HEAD`; dann nennt
- * `info.branch` den ausgecheckten Branch.
+ * `info.branch` den ausgecheckten Branch. Mit `options.all` kommen die Commits aller Branches
+ * dazu, die nicht ausgeblendet sind, nach Datum sortiert wie im Graphen von Fork.
  */
-async function load(git: Git, worktree: string, wanted: string | null): Promise<RepoData> {
+async function load(git: Git, worktree: string, wanted: string | null, options: LoadOptions): Promise<RepoData> {
   // Der Stand wird vor allem anderen gelesen. Kommt danach ein Commit hinzu, fällt er deshalb bei
   // der nächsten Abfrage auf.
   const state = await stateOf(git);
@@ -95,16 +97,25 @@ async function load(git: Git, worktree: string, wanted: string | null): Promise<
   const branch = found?.name ?? where.checkedOut;
   const revision =
     found === undefined ? 'HEAD' : `refs/${found.kind === 'local' ? 'heads' : 'remotes'}/${found.name}`;
-  const log = await git(
-    'log',
-    `--max-count=${String(MAX_COMMITS)}`,
-    '--reverse',
-    `--format=%H${FIELD}%an${FIELD}%aI${FIELD}%s`,
-    revision,
-  );
+  const others = options.all
+    ? allRefs.filter((ref) => ref !== found && !isHidden(options.hidden, ref)).map(refPath)
+    : [];
+  const [log, tip] = await Promise.all([
+    git(
+      'log',
+      `--max-count=${String(MAX_COMMITS)}`,
+      '--reverse',
+      ...(options.all ? ['--date-order'] : []),
+      `--format=%H${FIELD}%P${FIELD}%an${FIELD}%aI${FIELD}%s`,
+      revision,
+      ...others,
+      '--',
+    ),
+    git('rev-parse', '--verify', '--quiet', `${revision}^{commit}`).catch(() => ''),
+  ]);
   const commits = lines(log).map(commitOf);
-  const last = commits.at(-1);
-  if (last === undefined) {
+  const start = tip.trim();
+  if (start === '' || commits.length === 0) {
     throw new Error('Der Branch hat noch keinen Commit.');
   }
   return {
@@ -118,7 +129,8 @@ async function load(git: Git, worktree: string, wanted: string | null): Promise<
     },
     commits,
     refs: allRefs,
-    start: last.sha,
+    all: options.all,
+    start,
     state,
   };
 }
@@ -154,7 +166,7 @@ function lines(output: string): string[] {
 }
 
 function commitOf(line: string): Commit {
-  const [sha = '', author = '', date = '', subject = ''] = line.split(FIELD);
+  const [sha = '', parents = '', author = '', date = '', subject = ''] = line.split(FIELD);
   const step = STEP.exec(subject);
   return {
     sha,
@@ -162,6 +174,7 @@ function commitOf(line: string): Commit {
     title: step?.[2] ?? subject,
     author,
     date: DATE.format(new Date(date)),
+    parents: parents === '' ? [] : parents.split(' '),
   };
 }
 

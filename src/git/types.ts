@@ -10,6 +10,8 @@ export interface Commit {
   title: string;
   author: string;
   date: string;
+  /** Die SHAs der Vorgänger, der erste zuerst; der erste Commit hat keinen. */
+  parents: string[];
 }
 
 /** Repo, Worktree und Branch, wie sie die Kopfzeile nennt, mit den Pfaden dazu. */

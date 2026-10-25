@@ -1,7 +1,7 @@
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import type { MemoryRepo } from './demoRepo';
+import type { MemoryRepo, StoredCommit } from './demoRepo';
 import { runGit } from './process';
 
 /** Das Verzeichnis mit den Testdaten; es wird bei jedem Start des Servers neu angelegt. */
@@ -38,8 +38,8 @@ export async function buildDemoRepo(repo: MemoryRepo): Promise<string> {
 
   await git(['init', '--quiet', `--initial-branch=${repo.info.branch}`]);
   const shas = new Map<string, string>();
-  for (const commit of repo.commits) {
-    for (const [path, text] of Object.entries(commit.files)) {
+  const commit = async (stored: StoredCommit) => {
+    for (const [path, text] of Object.entries(stored.files)) {
       const file = join(main, path);
       if (text === null) {
         await rm(file);
@@ -48,10 +48,23 @@ export async function buildDemoRepo(repo: MemoryRepo): Promise<string> {
         await writeFile(file, text);
       }
     }
-    const message = commit.step === null ? commit.title : `${commit.step}: ${commit.title}`;
+    const message = stored.step === null ? stored.title : `${stored.step}: ${stored.title}`;
     await git(['add', '--all']);
-    await git(['commit', '--quiet', '--no-verify', `--message=${message}`], commit.date);
-    shas.set(commit.sha, (await git(['rev-parse', 'HEAD'])).trim());
+    await git(['commit', '--quiet', '--no-verify', `--message=${message}`], stored.date);
+    shas.set(stored.sha, (await git(['rev-parse', 'HEAD'])).trim());
+  };
+  for (const stored of repo.commits) {
+    await commit(stored);
+  }
+  for (const side of repo.side) {
+    const base = shas.get(side.base);
+    if (base === undefined) {
+      throw new Error(`Ein Branch zweigt bei einem Commit ab, den es nicht gibt: ${side.base}`);
+    }
+    await git(['switch', '--quiet', '--detach', base]);
+    for (const stored of side.commits) {
+      await commit(stored);
+    }
   }
 
   for (const ref of repo.refs) {

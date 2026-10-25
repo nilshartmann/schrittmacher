@@ -51,8 +51,19 @@ Commit-Liste aus und wieder ein. Wählbar bleibt der Branch, im Menü steht er b
   einer ausgeblendeten Gruppe lässt sich erst mit der Gruppe wieder einblenden.
 - Der Branch der Liste behält seinen Badge, auch wenn er ausgeblendet ist.
 - Gemerkt werden die ausgeblendeten Branches je Repo in `state.json`.
-- Später kommt ein Umschalter für alle Branches mit einem Graphen dazu. Dort fehlen die Commits
-  ausgeblendeter Branches ganz, wie in Fork.
+
+### Alle Branches
+
+Ein Knopf mit dem Symbol zweier Branches, rechts neben dem Uhr-Knopf, schaltet die Commit-Liste um.
+Sie zeigt dann die Commits aller Branches, nach Datum sortiert und mit einem Graphen wie in Fork.
+
+- Die Commits ausgeblendeter Branches fehlen in diesem Modus ganz.
+- Der gewählte Branch steht im Graphen in der linken Spalte. Commits anderer Branches sind blasser.
+- Der Vorgänger eines Commits ist sein erster Parent, nicht die Zeile darunter.
+- Eine Nummer in der URL findet zuerst den Schritt auf dem gewählten Branch. Ein Schritt mit
+  derselben Nummer auf einem anderen Branch, etwa auf `live_coding`, steht mit seinem SHA in der
+  URL.
+- Der Modus gilt für alle Ansichten gleich und wird mit den übrigen Einstellungen gespeichert.
 
 ## Ansichten
 

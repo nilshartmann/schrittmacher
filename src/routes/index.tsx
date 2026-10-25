@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from '@tanstack/react-router';
 import { useEffect } from 'react';
-import { findCommit } from '../git/repo';
+import { findCommit, reachable } from '../git/repo';
 import { listViews, loadView, resolveView, saveView } from '../server/repo.functions';
 import type { ViewSearch } from '../server/store';
 import { EmptyHeader } from '../viewer/Header';
@@ -70,7 +70,8 @@ function OpenedView({ view, search }: { view: LoadedView; search: ViewSearch }) 
   const navigate = Route.useNavigate();
   const { show, open } = useOpen();
   const { worktree, branch, to, from, file } = search;
-  const title = to === undefined ? undefined : findCommit(view.repo.commits, to)?.title;
+  const { commits, start } = view.repo;
+  const title = to === undefined ? undefined : findCommit(commits, to, reachable(commits, start))?.title;
 
   // Die Ansicht wird gemerkt, sobald die Wahl eine Weile steht.
   useEffect(() => {

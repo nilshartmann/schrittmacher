@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
-import { commitKey, findCommit, followComparison } from '../git/repo';
+import { useRouter } from '@tanstack/react-router';
+import { graphOf } from '../git/graph';
+import { commitKey, findCommit, followComparison, reachable } from '../git/repo';
 import type { Comparison, RepoData } from '../git/repo';
 import type { Commit, DiffFile, Worktree } from '../git/types';
 import { rangesOf, splitRows, unifiedRows } from '../diff/rows';
@@ -38,21 +40,28 @@ export interface LoadedView {
   hidden: string[];
 }
 
-/** Der Vergleich aus den Kennungen der URL; ohne `to` oder mit einer unbekannten gilt `start`. */
-function comparisonOf(commits: Commit[], search: ViewSearch, start: string): Comparison {
-  const to = search.to === undefined ? undefined : findCommit(commits, search.to);
+/**
+ * Der Vergleich aus den Kennungen der URL; ohne `to` oder mit einer unbekannten gilt `start`. Eine
+ * Nummer findet zuerst die Commits des Branches (`line`).
+ */
+function comparisonOf(commits: Commit[], line: ReadonlySet<string>, search: ViewSearch, start: string): Comparison {
+  const to = search.to === undefined ? undefined : findCommit(commits, search.to, line);
   if (to === undefined) {
     return { from: null, to: start };
   }
-  const from = search.from === undefined ? undefined : findCommit(commits, search.from);
+  const from = search.from === undefined ? undefined : findCommit(commits, search.from, line);
   return { from: from === undefined || from.sha === to.sha ? null : from.sha, to: to.sha };
 }
 
 /** Die Kennungen eines Vergleichs für die URL. */
-function keysOf(commits: Commit[], comparison: Comparison): Pick<ViewSearch, 'to' | 'from'> {
+function keysOf(
+  commits: Commit[],
+  line: ReadonlySet<string>,
+  comparison: Comparison,
+): Pick<ViewSearch, 'to' | 'from'> {
   const key = (sha: string | null) => {
     const commit = sha === null ? undefined : commits.find((candidate) => candidate.sha === sha);
-    return commit === undefined ? undefined : commitKey(commit);
+    return commit === undefined ? undefined : commitKey(commit, commits, line);
   };
   return { to: key(comparison.to), from: key(comparison.from) };
 }
@@ -69,7 +78,8 @@ interface ViewerProps {
 
 export function Viewer({ view, search, onSearch, onOpen, onShow }: ViewerProps) {
   const { repo } = view;
-  const [settings, set] = useSettings(view.settings);
+  const router = useRouter();
+  const [settings, set, saveNow] = useSettings(view.settings);
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Die aufgeklappten Trenner je Datei, nach ihrer ersten Zeile; sie gelten nur für einen Vergleich
@@ -79,32 +89,45 @@ export function Viewer({ view, search, onSearch, onOpen, onShow }: ViewerProps) 
     gaps: new Map(),
   });
 
-  const comparison = comparisonOf(repo.commits, search, repo.start);
+  const line = useMemo(() => reachable(repo.commits, repo.start), [repo.commits, repo.start]);
+  const graph = useMemo(
+    () => (repo.all ? graphOf([...repo.commits].reverse(), repo.start) : null),
+    [repo.commits, repo.all, repo.start],
+  );
+  const comparison = comparisonOf(repo.commits, line, search, repo.start);
   const worktree = repo.info.worktreePath;
   const comparisonKey = `${worktree}\n${comparison.from ?? ''}\n${comparison.to}`;
-  const [hidden, toggleHidden] = useHidden(repo.info.repoPath, worktree, view.hidden);
+  const [hidden, toggleHidden] = useHidden(repo.info.repoPath, worktree, view.hidden, () => {
+    if (repo.all) {
+      void router.invalidate();
+    }
+  });
   // Der Branch der Liste behält seinen Badge, auch wenn er ausgeblendet ist.
   const shownRefs = useMemo(
     () => repo.refs.filter((ref) => ref.name === repo.info.branch || !isHidden(hidden, ref)),
     [repo.refs, repo.info.branch, hidden],
   );
   const choose = (next: Comparison) => {
-    onSearch({ ...keysOf(repo.commits, next), file: search.file });
+    onSearch({ ...keysOf(repo.commits, line, next), file: search.file });
   };
 
   useRepoChanges(worktree, repo.state);
   // Nach dem Neuladen bleibt der gewählte Vergleich stehen. Eine Nummer findet ihren Commit auch
   // nach einem Rebase; für einen Commit ohne Nummer sucht `followComparison` nach dem Titel.
-  const shownCommits = useRef(repo.commits);
+  const shown = useRef({ commits: repo.commits, line });
   useEffect(() => {
-    const before = shownCommits.current;
-    shownCommits.current = repo.commits;
-    if (before === repo.commits || search.to === undefined || findCommit(repo.commits, search.to) !== undefined) {
+    const before = shown.current;
+    shown.current = { commits: repo.commits, line };
+    if (
+      before.commits === repo.commits ||
+      search.to === undefined ||
+      findCommit(repo.commits, search.to, line) !== undefined
+    ) {
       return;
     }
-    const old = comparisonOf(before, search, repo.start);
-    const followed = followComparison(old, before, repo.commits, repo.start);
-    onSearch({ ...keysOf(repo.commits, followed), file: search.file }, true);
+    const old = comparisonOf(before.commits, before.line, search, repo.start);
+    const followed = followComparison(old, before.commits, repo.commits, repo.start);
+    onSearch({ ...keysOf(repo.commits, line, followed), file: search.file }, true);
   }, [repo.commits]);
 
   // Bis die Dateien des neuen Vergleichs da sind, bleiben die alten stehen.
@@ -174,6 +197,10 @@ export function Viewer({ view, search, onSearch, onOpen, onShow }: ViewerProps) 
         onToggleHidden={toggleHidden}
         commits={repo.commits}
         comparison={comparison}
+        allBranches={settings.allBranches}
+        onAllBranches={() => {
+          void saveNow({ allBranches: !settings.allBranches }).then(() => router.invalidate());
+        }}
         fontSize={settings.fontSize}
         onFontSize={(change) => {
           set({ fontSize: Math.min(FONT_SIZES.max, Math.max(FONT_SIZES.min, settings.fontSize + change)) });
@@ -188,6 +215,8 @@ export function Viewer({ view, search, onSearch, onOpen, onShow }: ViewerProps) 
       <CommitList
         commits={repo.commits}
         refs={shownRefs}
+        graph={graph}
+        line={line}
         branch={repo.info.branch}
         onBranch={(branch) => {
           void onOpen({ worktree, branch });

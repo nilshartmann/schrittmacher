@@ -145,6 +145,22 @@ const SHOTS = [
       await page.mouse.move(0, 0);
     },
   ],
+  [
+    '20-alle-branches',
+    async (page) => {
+      await page.getByRole('button', { name: 'Alle Branches' }).click();
+      await page.locator('.commit-graph').first().waitFor();
+      // Die Liste wird höher gezogen, damit die Abzweigung von live_coding zu sehen ist.
+      const splitter = await page.locator('.height-splitter').boundingBox();
+      if (splitter !== null) {
+        await page.mouse.move(400, splitter.y + splitter.height / 2);
+        await page.mouse.down();
+        await page.mouse.move(400, 400, { steps: 5 });
+        await page.mouse.up();
+      }
+      await page.mouse.move(0, 0);
+    },
+  ],
 ];
 
 await mkdir('screenshots', { recursive: true });
