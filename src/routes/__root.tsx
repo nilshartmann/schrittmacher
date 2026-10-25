@@ -9,7 +9,12 @@ export const Route = createRootRoute({
       { name: 'viewport', content: 'width=device-width, initial-scale=1' },
       { title: 'Schrittmacher' },
     ],
-    links: [{ rel: 'stylesheet', href: appCss }],
+    links: [
+      { rel: 'stylesheet', href: appCss },
+      { rel: 'icon', href: '/favicon.svg', type: 'image/svg+xml' },
+      // Das Symbol der Web-App im Dock.
+      { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' },
+    ],
   }),
   component: () => (
     <RootDocument>
