@@ -92,7 +92,7 @@ const SHOTS = [
     async (page) => {
       await shrinkCommits(page);
       for (let i = 0; i < 3; i++) {
-        await button(page, 'Schrift größer').click();
+        await page.getByRole('button', { name: 'Schrift größer' }).click();
       }
     },
   ],

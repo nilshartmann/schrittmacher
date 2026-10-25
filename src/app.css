@@ -425,14 +425,6 @@ a.menu-item {
   opacity: 0.5;
 }
 
-.segmented-value {
-  min-width: 3ch;
-  padding: 0 2px;
-  color: var(--quiet);
-  font-size: var(--size-small);
-  text-align: center;
-}
-
 .tool {
   display: inline-flex;
   align-items: center;

@@ -23,8 +23,9 @@ interface HeaderProps {
 
 /**
  * Die schmale Kopfzeile: links die Knöpfe für Dateiliste und alle Branches und die Knöpfe zum
- * Wechseln von Repo, Worktree und Branch; rechts die Schriftgröße. Den gewählten Vergleich zeigt die
- * Commit-Liste, den zweier Commits zusätzlich die Zeile darunter (`ComparisonBar`).
+ * Wechseln von Repo, Worktree und Branch; rechts die Knöpfe für die Schriftgröße, deren Wert der
+ * Tooltip nennt. Den gewählten Vergleich zeigt die Commit-Liste, den zweier Commits zusätzlich die
+ * Zeile darunter (`ComparisonBar`).
  */
 export function Header(props: HeaderProps) {
   const { info } = props;
@@ -61,17 +62,18 @@ export function Header(props: HeaderProps) {
         <div className="segmented" role="group" aria-label="Schriftgröße">
           <button
             type="button"
-            data-tip="Schrift kleiner"
+            aria-label="Schrift kleiner"
+            data-tip={`Schrift kleiner (${String(props.fontSize)})`}
             onClick={() => {
               props.onFontSize(-1);
             }}
           >
             A−
           </button>
-          <span className="segmented-value">{props.fontSize}</span>
           <button
             type="button"
-            data-tip="Schrift größer"
+            aria-label="Schrift größer"
+            data-tip={`Schrift größer (${String(props.fontSize)})`}
             onClick={() => {
               props.onFontSize(1);
             }}

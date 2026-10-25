@@ -4,5 +4,4 @@
 - Später geplant (UX und Umfang werden vorher besprochen): Reset. Rebase und Ähnliches sind kein
   Ziel.
 - Branch-Auswahl im Worktree besprechen, etwa ob der dort ausgecheckte Branch die Vorgabe ist.
-- Tableiste und Kopfzeile aufräumen: Sie zeigen zu viele Angaben, die nicht immer auf einen Blick
-  gebraucht werden.
+- Das Symbol des Knopfs „Alle Branches“ ähnelt dem des Knopfs für den Branch daneben.
