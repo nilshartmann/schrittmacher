@@ -2,8 +2,8 @@ import { createContext } from 'react';
 import type { ReactNode } from 'react';
 import type { Tab, ViewSearch } from '../server/store';
 import { CopyButton, HoverTools } from './HoverTools';
-import { BranchIcon } from './Icons';
-import { Menu, MenuItem } from './Menu';
+import { BranchIcon, CloseIcon } from './Icons';
+import { Menu, MenuItem, MenuWhere } from './Menu';
 
 /** Die offenen Tabs und das Öffnen neuer, für die Einträge der Menüs. */
 export interface TabActions {
@@ -47,6 +47,12 @@ export function whereOf(tab: Tab): ReactNode {
       <BranchIcon /> {tab.branch || 'ohne Branch'}
     </>
   );
+}
+
+/** Worktree und Branch eines Tabs als zweite Zeile im Menü, mit derselben Regel wie `whereOf`. */
+export function whereInMenu(tab: Tab): ReactNode {
+  const folder = tab.worktreeName === tab.branch || tab.worktreeName === tab.repo ? null : tab.worktreeName;
+  return <MenuWhere folder={folder} branch={tab.branch || null} />;
 }
 
 interface TabBarProps {
@@ -113,7 +119,7 @@ export function TabBar({ tabs, current, onChoose, onClose }: TabBarProps) {
                 <div key={`${tab.worktree}\n${tab.branch}`} className="menu-row">
                   <MenuItem
                     main={tab.repo}
-                    sub={whereOf(tab)}
+                    sub={whereInMenu(tab)}
                     tip={tab.worktree}
                     onChoose={() => {
                       close();
@@ -125,7 +131,9 @@ export function TabBar({ tabs, current, onChoose, onClose }: TabBarProps) {
                     onClose={() => {
                       onClose(tab);
                     }}
-                  />
+                  >
+                    <CloseIcon />
+                  </CloseButton>
                 </div>
               ))}
             </div>
@@ -140,14 +148,17 @@ export function CloseButton({
   className,
   label = 'Tab schließen',
   onClose,
+  children = '×',
 }: {
   className: string;
   label?: string;
   onClose: () => void;
+  /** Das Zeichen auf dem Knopf; in den Menüs ein Symbol statt des ×. */
+  children?: ReactNode;
 }) {
   return (
     <button type="button" className={className} aria-label={label} data-tip="Tab schließen" onClick={onClose}>
-      ×
+      {children}
     </button>
   );
 }

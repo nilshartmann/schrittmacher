@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
+import { StopwatchIcon } from './Icons';
 import { Menu, MenuItem, MenuNote } from './Menu';
 
 /** Die Länge des Vortrags in Minuten, die im Feld steht, und die der Schnellwahl. */
@@ -49,7 +50,7 @@ export function Timer({ end, onEnd }: TimerProps) {
       button={<StopwatchIcon />}
       label="Timer"
       tip={end === null ? 'Timer für den Vortrag starten' : `Timer: noch ${remaining(end - now)}`}
-      className={end === null ? 'tool' : 'tool tool-running'}
+      className={end === null ? 'bar-tool' : 'bar-tool bar-tool-active'}
       panelClassName="menu-panel-narrow"
       end
     >
@@ -197,20 +198,4 @@ function remaining(left: number): string {
 
 function pad(value: number): string {
   return String(value).padStart(2, '0');
-}
-
-/** Eine Stoppuhr mit Krone oben und einem Zeiger. */
-function StopwatchIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
-      <circle cx="9" cy="10" r="6.25" fill="none" stroke="currentColor" strokeWidth="1.5" />
-      <path
-        d="M7 1.75h4M9 1.75v2M9 10V6.75M14 4.5l1.25-1.25"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
 }

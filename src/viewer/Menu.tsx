@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router';
 import { useContext, useEffect, useRef, useState } from 'react';
 import type { MouseEvent, ReactNode } from 'react';
 import type { ViewSearch } from '../server/store';
+import { BranchIcon, CheckMarkIcon, HouseIcon, LinkIcon, WindowIcon } from './Icons';
 import { TabsContext } from './Tabs';
 
 interface MenuProps {
@@ -106,7 +107,7 @@ export function MenuItem(props: MenuItemProps) {
   const content = (
     <>
       <span className="menu-check" aria-hidden="true">
-        {props.current === true ? '✓' : ''}
+        {props.current === true && <CheckMarkIcon />}
       </span>
       <span className="menu-text">
         <span className="menu-main">{props.main}</span>
@@ -169,46 +170,41 @@ export function MenuItem(props: MenuItemProps) {
 
 /**
  * Der Knopf rechts in einer Zeile, der ihre Ansicht in einem neuen Tab öffnet und ihn aktiv macht.
- * Ist die Ansicht schon in einem Tab offen, zeigt er ein anderes Symbol und holt diesen Tab nach
- * vorn.
+ * Ist die Ansicht schon in einem Tab offen, zeigt er ein Fenster und holt diesen Tab nach vorn. Er
+ * erscheint wie die übrigen Knöpfe einer Zeile erst beim Überfahren.
  */
 export function NewTabButton({ name, open, onClick }: { name: string; open: boolean; onClick: () => void }) {
   return (
     <button
       type="button"
-      className="menu-new-tab"
+      className="menu-action"
       aria-label={open ? `Tab von ${name} zeigen` : `${name} in neuem Tab öffnen`}
       data-tip={open ? 'Offenen Tab zeigen' : 'In neuem Tab öffnen'}
       onClick={onClick}
     >
-      {open ? <OpenTabIcon /> : <NewTabIcon />}
+      {open ? <WindowIcon /> : <LinkIcon />}
     </button>
   );
 }
 
-/** Ein Rahmen mit einem Pfeil nach außen, wie für einen Link in einem neuen Fenster. */
-function NewTabIcon() {
+/**
+ * Die zweite Zeile eines Repos: der Ordner des Worktrees mit einem Haus und der Branch als Chip.
+ * Ohne `folder` steht nur der Branch da.
+ */
+export function MenuWhere({ folder, branch }: { folder: string | null; branch: string | null }) {
   return (
-    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
-      <path
-        d="M7.5 3.25H4.25c-.6 0-1 .4-1 1v9.5c0 .6.4 1 1 1h9.5c.6 0 1-.4 1-1V10.5M10.5 3.25h4.25V7.5M14.5 3.5 8.5 9.5"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-/** Ein Fenster mit einem gefüllten Tab oben links, für eine Ansicht, die schon in einem Tab offen ist. */
-function OpenTabIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
-      <rect x="2.25" y="3.25" width="13.5" height="11.5" rx="1.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M2.25 4.75c0-.8.7-1.5 1.5-1.5H8.5v3.5H2.25z" fill="currentColor" />
-    </svg>
+    <span className="menu-where">
+      {folder !== null && (
+        <span className="menu-folder">
+          <HouseIcon />
+          <span>{folder}</span>
+        </span>
+      )}
+      <span className="menu-chip">
+        <BranchIcon />
+        {branch ?? 'ohne Branch'}
+      </span>
+    </span>
   );
 }
 
@@ -216,7 +212,7 @@ export function MenuSection({ children }: { children: ReactNode }) {
   return <div className="menu-section">{children}</div>;
 }
 
-/** Eine dünne Linie zwischen zwei Abschnitten, darin der Name des folgenden in kleiner Schrift. */
+/** Die Überschrift eines Abschnitts, etwa „Dieses Repo“ im Menü der Repos. */
 export function MenuDivider({ children }: { children: ReactNode }) {
   return (
     <div className="menu-divider" role="separator">

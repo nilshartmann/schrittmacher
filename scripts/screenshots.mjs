@@ -27,6 +27,8 @@ const viewport =
 
 /** Öffnet das Menü für Worktree und Branch. */
 const whereMenu = (page) => page.getByRole('button', { name: 'Worktree und Branch', exact: true }).click();
+/** Ein Worktree im Menü, gefunden über seinen Branch. */
+const worktreeItem = (page, branch) => page.locator('.menu-worktree .menu-item', { hasText: branch });
 /** Ein Branch im Menü, ohne die Worktrees, deren Zeile den Branch ebenfalls nennt. */
 const branchItem = (page, name) =>
   page.locator('.menu-item').filter({ has: page.locator('.menu-main', { hasText: new RegExp(`^${name}$`) }) });
@@ -48,7 +50,7 @@ async function dragBy(page, selector, dx, dy) {
 /** Wechselt in den Worktree mit live_coding und wählt dort die lokalen Änderungen. */
 async function openLocal(page) {
   await whereMenu(page);
-  await page.getByRole('menuitem', { name: /^⌂.*live_coding/ }).click();
+  await worktreeItem(page, 'live_coding').click();
   await page.locator('.commit-local').click();
   await page.locator('.file', { hasText: 'NOTIZEN.md' }).waitFor();
 }
@@ -132,7 +134,7 @@ const SHOTS = [
     async (page) => {
       await whereMenu(page);
       await branchItem(page, 'live_coding').click();
-      await page.locator('.tool-foreign').waitFor();
+      await page.locator('.bar-tool-foreign').waitFor();
     },
   ],
   [
@@ -141,7 +143,7 @@ const SHOTS = [
       // Eine Ansicht wird erst gemerkt, wenn die Wahl eine Weile steht.
       await page.waitForTimeout(600);
       await whereMenu(page);
-      await page.getByRole('menuitem', { name: /^⌂.*live_coding/ }).click();
+      await worktreeItem(page, 'live_coding').click();
       await page.waitForTimeout(600);
       await page.getByRole('button', { name: 'Repo', exact: true }).click();
       await page.locator('.menu-divider', { hasText: 'Dieses Repo' }).waitFor();
@@ -177,10 +179,13 @@ const SHOTS = [
     '20b-neuer-tab',
     async (page) => {
       await whereMenu(page);
+      // Die Knöpfe einer Zeile erscheinen erst beim Überfahren.
+      await branchItem(page, 'live_coding').first().hover();
       await page.getByRole('button', { name: 'live_coding in neuem Tab öffnen' }).click();
       await page.locator('.tab[aria-selected="true"]', { hasText: 'live_coding' }).waitFor();
       await whereMenu(page);
       await page.locator('.menu-toggle', { hasText: 'backup' }).click();
+      await branchItem(page, 'schritte').first().hover();
       await page.getByRole('button', { name: 'Tab von schritte schließen' }).first().hover();
       await page.waitForTimeout(700);
     },
@@ -227,6 +232,8 @@ const SHOTS = [
     '28-kopieren-nach',
     async (page) => {
       await whereMenu(page);
+      // Die Knöpfe einer Zeile erscheinen erst beim Überfahren.
+      await branchItem(page, 'live_coding').first().hover();
       await page.getByRole('button', { name: 'live_coding in neuem Tab öffnen' }).click();
       await page.locator('.tab[aria-selected="true"]', { hasText: 'live_coding' }).waitFor();
       await page.locator('.tab-label', { hasText: 'schritte' }).click();
@@ -241,6 +248,8 @@ const SHOTS = [
     '29-kopiert',
     async (page) => {
       await whereMenu(page);
+      // Die Knöpfe einer Zeile erscheinen erst beim Überfahren.
+      await branchItem(page, 'live_coding').first().hover();
       await page.getByRole('button', { name: 'live_coding in neuem Tab öffnen' }).click();
       await page.locator('.tab[aria-selected="true"]', { hasText: 'live_coding' }).waitFor();
       await page.locator('.tab-label', { hasText: 'schritte' }).click();

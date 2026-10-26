@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+html, body { margin: 0; background: #e6e6e9; -webkit-font-smoothing: antialiased; }
+* { box-sizing: border-box; }
+a { color: #2f5fd0; } a:hover { color: #1e45a8; }
+input::placeholder { color: inherit; opacity: .5; }
+button { font: inherit; }
+</style>
+</helmet>
+<div style="min-height:100vh; padding:48px 56px 80px; font-family:-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', Helvetica, sans-serif; color:#1c1c1e;">
+<section style="display:flex; flex-direction:column; gap:28px; padding-bottom:64px; margin-bottom:64px; border-bottom:1px solid #d2d2d7;">
+  <div style="display:flex; flex-direction:column; gap:6px; max-width:720px;">
+    <h1 style="margin:0; font-size:22px; font-weight:600; letter-spacing:-.01em;">Branch-Menü &amp; Buttonbar · Runde 2</h1>
+    <p style="margin:0; font-size:14px; line-height:1.5; color:#46464c; text-wrap:pretty;">Beides im Stil von <a href="#1a">1a</a>. Klick auf einen lokalen Branch setzt das Häkchen, Augen und Gruppen sind schaltbar, Zeilenaktionen erscheinen beim Hover.</p>
+  </div>
+  <div style="display:flex; flex-wrap:wrap; gap:56px; align-items:flex-start;">
+
+    <div style="display:flex; flex-direction:column; gap:14px; width:519px;">
+      <div style="display:flex; align-items:center; gap:10px; height:22px;">
+        <span style="font-size:12px; font-weight:600; color:#46464c; padding:4px 7px; border:1px solid #c9c9ce; border-radius:5px; line-height:1;">Vorher</span>
+      </div>
+      <p style="margin:0; font-size:13px; line-height:1.45; color:#46464c; min-height:38px;">Aktueller Stand zum Vergleich.</p>
+      <img src="assets/vorher-branches.png" alt="Aktuelles Branch-Menü" style="display:block; width:519px; height:auto; border-radius:10px; box-shadow:0 18px 50px rgba(20,20,30,.14), 0 2px 8px rgba(20,20,30,.06);">
+    </div>
+
+    <div id="2a" style="display:flex; flex-direction:column; gap:14px; width:340px;">
+      <div style="display:flex; align-items:center; gap:10px; height:22px;">
+        <a href="#2a" style="font:600 12px/1 'Geist Mono', ui-monospace, monospace; color:#fff; background:#1c1c1e; padding:5px 7px; border-radius:5px; text-decoration:none;">2a</a>
+        <span style="font-size:15px; font-weight:600;">Branch-Menü</span>
+      </div>
+      <p style="margin:0; font-size:13px; line-height:1.45; color:#46464c; text-wrap:pretty; min-height:38px;">Augen in einer festen Spalte rechts. Fenster, × und Link nur beim Hover, damit die Liste ruhig bleibt.</p>
+
+      <div style="width:340px; display:flex; flex-direction:column; padding:4px 6px 6px; background:#ffffff; border-radius:12px; border:1px solid rgba(0,0,0,.09); box-shadow:0 18px 50px rgba(20,20,30,.16), 0 2px 8px rgba(20,20,30,.06); font-family:-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', Helvetica, sans-serif; color:#1c1c1e;">
+        <div style="display:grid; grid-template-columns:minmax(0,1fr) 28px; align-items:center; padding:8px 0 4px 10px;">
+          <span style="font-size:11px; font-weight:600; color:#6a6a71; letter-spacing:.01em;">Lokal</span>
+          <button onClick="{{ br.lokal.toggleEye }}" title="{{ br.lokal.eyeTitle }}" style="width:26px; height:26px; display:grid; place-items:center; border:0; border-radius:6px; background:transparent; color:#6a6a71; cursor:pointer;" style-hover="background:rgba(0,0,0,.06); color:#1c1c1e;">
+            <sc-if value="{{ br.lokal.visible }}" hint-placeholder-val="{{ true }}"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1.75 8s2.25-4.5 6.25-4.5S14.25 8 14.25 8 12 12.5 8 12.5 1.75 8 1.75 8z"></path><circle cx="8" cy="8" r="2"></circle></svg></sc-if>
+            <sc-if value="{{ br.lokal.hidden }}"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1.75 8s2.25-4.5 6.25-4.5S14.25 8 14.25 8 12 12.5 8 12.5 1.75 8 1.75 8z"></path><circle cx="8" cy="8" r="2"></circle><line x1="2.5" y1="2.5" x2="13.5" y2="13.5"></line></svg></sc-if>
+          </button>
+        </div>
+        <sc-for list="{{ br.locals }}" as="b" hint-placeholder-count="1">
+          <sc-if value="{{ b.isCurrent }}" hint-placeholder-val="{{ true }}">
+            <div onMouseEnter="{{ b.onEnter }}" onMouseLeave="{{ b.onLeave }}" style="display:grid; grid-template-columns:18px minmax(0,1fr) auto 28px; align-items:center; gap:4px; min-height:44px; padding:5px 0 5px 8px; border-radius:7px; background:oklch(0.955 0.022 258);">
+              <span style="color:oklch(0.55 0.19 258); display:grid; place-items:center;"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3.5 8.5 6.5 11.5 12.5 4.5"></polyline></svg></span>
+              <div style="min-width:0; opacity:{{ b.op }};">
+                <div style="font-size:13px; font-weight:600; line-height:18px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ b.name }}</div>
+                <div style="font-size:11.5px; line-height:16px; color:#55555c;">ausgecheckt</div>
+              </div>
+              <span style="display:flex; gap:2px;">
+                <sc-if value="{{ b.hovered }}">
+                  <button style="width:26px; height:26px; display:grid; place-items:center; border:0; border-radius:6px; background:transparent; color:#55555c; cursor:pointer;" style-hover="background:rgba(0,0,0,.06); color:#1c1c1e;"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><rect x="2" y="3" width="12" height="10" rx="1.5"></rect><line x1="2" y1="6" x2="14" y2="6"></line></svg></button>
+                  <button onClick="{{ b.remove }}" title="Aus dem Menü ausschließen" style="width:26px; height:26px; display:grid; place-items:center; border:0; border-radius:6px; background:transparent; color:#55555c; cursor:pointer;" style-hover="background:rgba(0,0,0,.06); color:#1c1c1e;"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="4" y1="4" x2="12" y2="12"></line><line x1="12" y1="4" x2="4" y2="12"></line></svg></button>
+                </sc-if>
+              </span>
+              <button onClick="{{ b.toggleEye }}" title="{{ b.eyeTitle }}" style="width:26px; height:26px; display:grid; place-items:center; border:0; border-radius:6px; background:transparent; color:#55555c; cursor:pointer;" style-hover="background:rgba(0,0,0,.06); color:#1c1c1e;">
+                <sc-if value="{{ b.visible }}" hint-placeholder-val="{{ true }}"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1.75 8s2.25-4.5 6.25-4.5S14.25 8 14.25 8 12 12.5 8 12.5 1.75 8 1.75 8z"></path><circle cx="8" cy="8" r="2"></circle></svg></sc-if>
+                <sc-if value="{{ b.hidden }}"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1.75 8s2.25-4.5 6.25-4.5S14.25 8 14.25 8 12 12.5 8 12.5 1.75 8 1.75 8z"></path><circle cx="8" cy="8" r="2"></circle><line x1="2.5" y1="2.5" x2="13.5" y2="13.5"></line></svg></sc-if>
+              </button>
+            </div>
+          </sc-if>
+          <sc-if value="{{ b.notCurrent }}">
+            <div onClick="{{ b.checkout }}" onMouseEnter="{{ b.onEnter }}" onMouseLeave="{{ b.onLeave }}" style="display:grid; grid-template-columns:18px minmax(0,1fr) auto 28px; align-items:center; gap:4px; min-height:34px; padding:3px 0 3px 8px; border-radius:7px; cursor:default;" style-hover="background:#f3f3f6;">
+              <span></span>
+              <div style="min-width:0; font-size:13px; font-weight:500; line-height:18px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; opacity:{{ b.op }};">{{ b.name }}</div>
+              <span style="display:flex; gap:2px;">
+                <sc-if value="{{ b.hovered }}">
+                  <button style="width:26px; height:26px; display:grid; place-items:center; border:0; border-radius:6px; background:transparent; color:#55555c; cursor:pointer;" style-hover="background:rgba(0,0,0,.06); color:#1c1c1e;"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><rect x="2" y="3" width="12" height="10" rx="1.5"></rect><line x1="2" y1="6" x2="14" y2="6"></line></svg></button>
+                  <button onClick="{{ b.remove }}" title="Aus dem Menü ausschließen" style="width:26px; height:26px; display:grid; place-items:center; border:0; border-radius:6px; background:transparent; color:#55555c; cursor:pointer;" style-hover="background:rgba(0,0,0,.06); color:#1c1c1e;"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="4" y1="4" x2="12" y2="12"></line><line x1="12" y1="4" x2="4" y2="12"></line></svg></button>
+                </sc-if>
+              </span>
+              <button onClick="{{ b.toggleEye }}" title="{{ b.eyeTitle }}" style="width:26px; height:26px; display:grid; place-items:center; border:0; border-radius:6px; background:transparent; color:#55555c; cursor:pointer;" style-hover="background:rgba(0,0,0,.06); color:#1c1c1e;">
+                <sc-if value="{{ b.visible }}"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1.75 8s2.25-4.5 6.25-4.5S14.25 8 14.25 8 12 12.5 8 12.5 1.75 8 1.75 8z"></path><circle cx="8" cy="8" r="2"></circle></svg></sc-if>
+                <sc-if value="{{ b.hidden }}"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1.75 8s2.25-4.5 6.25-4.5S14.25 8 14.25 8 12 12.5 8 12.5 1.75 8 1.75 8z"></path><circle cx="8" cy="8" r="2"></circle><line x1="2.5" y1="2.5" x2="13.5" y2="13.5"></line></svg></sc-if>
+              </button>
+            </div>
+          </sc-if>
+        </sc-for>
+
+        <div style="height:1px; background:#ececf0; margin:6px 4px;"></div>
+
+        <div onClick="{{ br.toggleRemotes }}" style="display:grid; grid-template-columns:18px minmax(0,1fr) auto 28px; align-items:center; gap:4px; min-height:34px; padding:3px 0 3px 8px; border-radius:7px; cursor:default;" style-hover="background:#f3f3f6;">
+          <span style="color:#6a6a71; display:grid; place-items:center;">
+            <sc-if value="{{ br.remotesOpen }}" hint-placeholder-val="{{ true }}"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 6 8 10 12 6"></polyline></svg></sc-if>
+            <sc-if value="{{ br.remotesClosed }}"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 4 10 8 6 12"></polyline></svg></sc-if>
+          </span>
+          <span style="font-size:13px; font-weight:600; line-height:18px; opacity:{{ br.remotesEye.op }};">Remotes</span>
+          <span style="font-size:11px; font-weight:600; color:#4a4a50; background:#efeff2; border-radius:10px; padding:1px 7px; line-height:16px;">{{ br.remoteCount }}</span>
+          <button onClick="{{ br.remotesEye.toggleEye }}" title="{{ br.remotesEye.eyeTitle }}" style="width:26px; height:26px; display:grid; place-items:center; border:0; border-radius:6px; background:transparent; color:#55555c; cursor:pointer;" style-hover="background:rgba(0,0,0,.06); color:#1c1c1e;">
+            <sc-if value="{{ br.remotesEye.visible }}" hint-placeholder-val="{{ true }}"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1.75 8s2.25-4.5 6.25-4.5S14.25 8 14.25 8 12 12.5 8 12.5 1.75 8 1.75 8z"></path><circle cx="8" cy="8" r="2"></circle></svg></sc-if>
+            <sc-if value="{{ br.remotesEye.hidden }}"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1.75 8s2.25-4.5 6.25-4.5S14.25 8 14.25 8 12 12.5 8 12.5 1.75 8 1.75 8z"></path><circle cx="8" cy="8" r="2"></circle><line x1="2.5" y1="2.5" x2="13.5" y2="13.5"></line></svg></sc-if>
+          </button>
+        </div>
+        <sc-if value="{{ br.remotesOpen }}" hint-placeholder-val="{{ true }}">
+          <div style="margin:0 0 2px 16px; padding-left:6px; border-left:1px solid #e3e3e8;">
+            <sc-for list="{{ br.remotes }}" as="r" hint-placeholder-count="1">
+              <div style="display:grid; grid-template-columns:18px minmax(0,1fr) 28px; align-items:center; gap:4px; min-height:32px; padding:3px 0 3px 4px;">
+                <span style="color:#55555c; display:grid; place-items:center;"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M4.75 12.5h6.5a3 3 0 0 0 .3-5.98 3.75 3.75 0 0 0-7.2 1.05A2.5 2.5 0 0 0 4.75 12.5z"></path></svg></span>
+                <span style="font-size:13px; font-weight:600; line-height:18px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; opacity:{{ r.op }};">{{ r.name }}</span>
+                <button onClick="{{ r.toggleEye }}" title="{{ r.eyeTitle }}" style="width:26px; height:26px; display:grid; place-items:center; border:0; border-radius:6px; background:transparent; color:#55555c; cursor:pointer;" style-hover="background:rgba(0,0,0,.06); color:#1c1c1e;">
+                  <sc-if value="{{ r.visible }}" hint-placeholder-val="{{ true }}"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1.75 8s2.25-4.5 6.25-4.5S14.25 8 14.25 8 12 12.5 8 12.5 1.75 8 1.75 8z"></path><circle cx="8" cy="8" r="2"></circle></svg></sc-if>
+                  <sc-if value="{{ r.hidden }}"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1.75 8s2.25-4.5 6.25-4.5S14.25 8 14.25 8 12 12.5 8 12.5 1.75 8 1.75 8z"></path><circle cx="8" cy="8" r="2"></circle><line x1="2.5" y1="2.5" x2="13.5" y2="13.5"></line></svg></sc-if>
+                </button>
+              </div>
+              <div style="margin:0 0 2px 13px; padding-left:6px; border-left:1px solid #e3e3e8;">
+                <sc-for list="{{ r.branches }}" as="rb" hint-placeholder-count="1">
+                  <div onMouseEnter="{{ rb.onEnter }}" onMouseLeave="{{ rb.onLeave }}" style="display:grid; grid-template-columns:minmax(0,1fr) auto 28px; align-items:center; gap:4px; min-height:32px; padding:3px 0 3px 8px; border-radius:7px; cursor:default;" style-hover="background:#f3f3f6;">
+                    <span style="font-size:13px; font-weight:500; line-height:18px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; opacity:{{ rb.op }};">{{ rb.name }}</span>
+                    <span style="display:flex;">
+                      <sc-if value="{{ rb.hovered }}">
+                        <button title="Im Browser öffnen" style="width:26px; height:26px; display:grid; place-items:center; border:0; border-radius:6px; background:transparent; color:#55555c; cursor:pointer;" style-hover="background:rgba(0,0,0,.06); color:#1c1c1e;"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2.5h4v4M13.5 2.5 8 8M12 9.5v2.5a1.5 1.5 0 0 1-1.5 1.5h-6A1.5 1.5 0 0 1 3 12V6a1.5 1.5 0 0 1 1.5-1.5H7"></path></svg></button>
+                      </sc-if>
+                    </span>
+                    <button onClick="{{ rb.toggleEye }}" title="{{ rb.eyeTitle }}" style="width:26px; height:26px; display:grid; place-items:center; border:0; border-radius:6px; background:transparent; color:#55555c; cursor:pointer;" style-hover="background:rgba(0,0,0,.06); color:#1c1c1e;">
+                      <sc-if value="{{ rb.visible }}" hint-placeholder-val="{{ true }}"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1.75 8s2.25-4.5 6.25-4.5S14.25 8 14.25 8 12 12.5 8 12.5 1.75 8 1.75 8z"></path><circle cx="8" cy="8" r="2"></circle></svg></sc-if>
+                      <sc-if value="{{ rb.hidden }}"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1.75 8s2.25-4.5 6.25-4.5S14.25 8 14.25 8 12 12.5 8 12.5 1.75 8 1.75 8z"></path><circle cx="8" cy="8" r="2"></circle><line x1="2.5" y1="2.5" x2="13.5" y2="13.5"></line></svg></sc-if>
+                    </button>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+  </div>
+
+  <div id="2b" style="display:flex; flex-direction:column; gap:14px; width:1242px;">
+    <div style="display:flex; align-items:center; gap:10px; height:22px;">
+      <a href="#2b" style="font:600 12px/1 'Geist Mono', ui-monospace, monospace; color:#fff; background:#1c1c1e; padding:5px 7px; border-radius:5px; text-decoration:none;">2b</a>
+      <span style="font-size:15px; font-weight:600;">Buttonbar kompakt</span>
+    </div>
+    <p style="margin:0; font-size:13px; line-height:1.45; color:#46464c; text-wrap:pretty; max-width:640px;">Leiste 32 px statt rund 48 px hoch. Icons 15 px in 24-px-Buttons ohne Rahmen, Gruppen durch feine Trennlinien. Repos und Branches tragen einen kleinen Pfeil, weil sie Menüs öffnen. Die Tabs sind unverändert und dienen nur als Kontext.</p>
+    <div style="display:flex; flex-direction:column; gap:8px;">
+      <span style="font-size:11px; font-weight:600; color:#6a6a71;">Vorher</span>
+      <img src="assets/vorher-toolbar.png" alt="Aktuelle Buttonbar" style="display:block; width:1242px; height:auto; border-radius:8px; box-shadow:0 8px 24px rgba(20,20,30,.1), 0 1px 3px rgba(20,20,30,.06);">
+    </div>
+    <div style="display:flex; flex-direction:column; gap:8px;">
+      <span style="font-size:11px; font-weight:600; color:#6a6a71;">Nachher</span>
+      <div style="width:1242px; background:#ffffff; border-radius:8px; overflow:hidden; box-shadow:0 8px 24px rgba(20,20,30,.1), 0 1px 3px rgba(20,20,30,.06); font-family:-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', Helvetica, sans-serif; color:#1c1c1e;">
+        <div style="display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); height:29px; background:#ececef; font-size:13px;">
+          <div style="display:flex; align-items:center; gap:6px; padding:0 10px 0 14px; background:#ffffff; border-right:1px solid #dcdce0; min-width:0;">
+            <span style="font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">2026-10-14-sas-spring-modulith</span>
+            <span style="display:inline-flex; align-items:center; gap:3px; color:#3a3a40; flex-shrink:0;"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="4.5" cy="3.5" r="1.75"></circle><circle cx="4.5" cy="12.5" r="1.75"></circle><circle cx="11.5" cy="4.5" r="1.75"></circle><path d="M4.5 5.25v5.5M11.5 6.25c0 3-7 2.5-7 4.5"></path></svg>main</span>
+            <span style="flex:1;"></span>
+            <span style="color:#6a6a71; display:grid; place-items:center;"><svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="4" x2="12" y2="12"></line><line x1="12" y1="4" x2="4" y2="12"></line></svg></span>
+          </div>
+          <div style="display:flex; align-items:center; justify-content:center; gap:6px; padding:0 10px; border-right:1px solid #dcdce0; border-bottom:1px solid #dcdce0; color:#3a3a40; min-width:0;">
+            <span style="font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">spring-schule-urls</span>
+            <span style="display:inline-flex; align-items:center; gap:3px; color:#55555c; flex-shrink:0;"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="4.5" cy="3.5" r="1.75"></circle><circle cx="4.5" cy="12.5" r="1.75"></circle><circle cx="11.5" cy="4.5" r="1.75"></circle><path d="M4.5 5.25v5.5M11.5 6.25c0 3-7 2.5-7 4.5"></path></svg>main</span>
+          </div>
+          <div style="display:flex; align-items:center; justify-content:center; gap:6px; padding:0 10px; border-right:1px solid #dcdce0; border-bottom:1px solid #dcdce0; color:#3a3a40; min-width:0;">
+            <span style="font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">2026-10-14-sas-spring-modulith-prepare</span>
+            <span style="display:inline-flex; align-items:center; gap:3px; color:#55555c; flex-shrink:0;"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="4.5" cy="3.5" r="1.75"></circle><circle cx="4.5" cy="12.5" r="1.75"></circle><circle cx="11.5" cy="4.5" r="1.75"></circle><path d="M4.5 5.25v5.5M11.5 6.25c0 3-7 2.5-7 4.5"></path></svg>live_coding</span>
+          </div>
+          <div style="display:flex; align-items:center; justify-content:center; gap:6px; padding:0 10px; border-bottom:1px solid #dcdce0; color:#3a3a40; min-width:0;">
+            <span style="font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">e2n-workshop</span>
+            <span style="display:inline-flex; align-items:center; gap:3px; color:#55555c; flex-shrink:0;"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="4.5" cy="3.5" r="1.75"></circle><circle cx="4.5" cy="12.5" r="1.75"></circle><circle cx="11.5" cy="4.5" r="1.75"></circle><path d="M4.5 5.25v5.5M11.5 6.25c0 3-7 2.5-7 4.5"></path></svg>main</span>
+          </div>
+        </div>
+        <div style="display:flex; align-items:center; gap:2px; height:32px; padding:0 6px; border-bottom:1px solid #ececf0;">
+          <sc-if value="{{ tb.sidebarOn }}" hint-placeholder-val="{{ true }}">
+            <button onClick="{{ tb.toggleSidebar }}" title="Seitenleiste" style="width:24px; height:24px; display:grid; place-items:center; border:0; border-radius:6px; background:oklch(0.94 0.03 258); color:oklch(0.5 0.19 258); cursor:pointer;"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><rect x="1.75" y="2.75" width="12.5" height="10.5" rx="2"></rect><line x1="6" y1="2.75" x2="6" y2="13.25"></line></svg></button>
+          </sc-if>
+          <sc-if value="{{ tb.sidebarOff }}">
+            <button onClick="{{ tb.toggleSidebar }}" title="Seitenleiste" style="width:24px; height:24px; display:grid; place-items:center; border:0; border-radius:6px; background:transparent; color:#3a3a40; cursor:pointer;" style-hover="background:#f1f1f4; color:#1c1c1e;"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><rect x="1.75" y="2.75" width="12.5" height="10.5" rx="2"></rect><line x1="6" y1="2.75" x2="6" y2="13.25"></line></svg></button>
+          </sc-if>
+          <span style="width:1px; height:16px; background:#e3e3e8; margin:0 5px;"></span>
+          <button style="width:24px; height:24px; display:grid; place-items:center; border:0; border-radius:6px; background:transparent; color:#3a3a40; cursor:pointer;" style-hover="background:#f1f1f4; color:#1c1c1e;"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M5 2.5v11M5 10c0-3.5 3-5 6.5-5.5"></path><circle cx="11.75" cy="4.5" r="1.5"></circle></svg></button>
+          <button title="Repos" style="height:24px; display:flex; align-items:center; gap:2px; padding:0 4px 0 5px; border:0; border-radius:6px; background:transparent; color:#3a3a40; cursor:pointer;" style-hover="background:#f1f1f4; color:#1c1c1e;"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M2 4.5C2 3.7 2.6 3 3.5 3h3l1.5 1.5h4.5c.8 0 1.5.7 1.5 1.5v6c0 .8-.7 1.5-1.5 1.5h-9C2.6 13.5 2 12.8 2 12z"></path></svg><svg width="8" height="8" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 6 8 10 12 6"></polyline></svg></button>
+          <button title="Branches" style="height:24px; display:flex; align-items:center; gap:2px; padding:0 4px 0 5px; border:0; border-radius:6px; background:transparent; color:#3a3a40; cursor:pointer;" style-hover="background:#f1f1f4; color:#1c1c1e;"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="4.5" cy="3.5" r="1.75"></circle><circle cx="4.5" cy="12.5" r="1.75"></circle><circle cx="11.5" cy="4.5" r="1.75"></circle><path d="M4.5 5.25v5.5M11.5 6.25c0 3-7 2.5-7 4.5"></path></svg><svg width="8" height="8" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 6 8 10 12 6"></polyline></svg></button>
+          <span style="flex:1;"></span>
+          <button title="Timer" style="width:24px; height:24px; display:grid; place-items:center; border:0; border-radius:6px; background:transparent; color:#3a3a40; cursor:pointer;" style-hover="background:#f1f1f4; color:#1c1c1e;"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="9" r="5"></circle><line x1="8" y1="9" x2="8" y2="6.5"></line><line x1="6.5" y1="2" x2="9.5" y2="2"></line></svg></button>
+          <span style="width:1px; height:16px; background:#e3e3e8; margin:0 5px;"></span>
+          <div style="display:flex; gap:1px; height:24px; padding:2px; background:#f1f1f4; border-radius:6px;">
+            <button title="Schrift kleiner" style="width:26px; border:0; border-radius:4px; background:transparent; color:#3a3a40; font-size:11.5px; font-weight:600; cursor:pointer;" style-hover="background:#ffffff; color:#1c1c1e;">A−</button>
+            <button title="Schrift größer" style="width:26px; border:0; border-radius:4px; background:transparent; color:#3a3a40; font-size:11.5px; font-weight:600; cursor:pointer;" style-hover="background:#ffffff; color:#1c1c1e;">A+</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<section style="display:flex; flex-direction:column; gap:28px;">
+  <div style="display:flex; flex-direction:column; gap:6px; max-width:720px;">
+    <h1 style="margin:0; font-size:22px; font-weight:600; letter-spacing:-.01em;">Repo-Menü · Runde 1</h1>
+    <p style="margin:0; font-size:14px; line-height:1.5; color:#46464c; text-wrap:pretty;">Drei Richtungen für Schrift, Farbe und Hierarchie. Struktur und Inhalte bleiben wie im Original. Filter, Gruppen, Umschalter, Ausschließen (×) und Pfadfeld sind klickbar.</p>
+  </div>
+  <div style="display:flex; flex-wrap:wrap; gap:56px; align-items:flex-start;">
+
+    <!-- Vorher -->
+    <div style="display:flex; flex-direction:column; gap:14px; width:367px;">
+      <div style="display:flex; align-items:center; gap:10px; height:22px;">
+        <span style="font-size:12px; font-weight:600; color:#46464c; padding:4px 7px; border:1px solid #c9c9ce; border-radius:5px; line-height:1;">Vorher</span>
+      </div>
+      <p style="margin:0; font-size:13px; line-height:1.45; color:#46464c; min-height:57px;">Aktueller Stand zum Vergleich.</p>
+      <img src="assets/vorher.png" alt="Aktuelles Repo-Menü" style="display:block; width:367px; height:auto; border-radius:10px; box-shadow:0 18px 50px rgba(20,20,30,.14), 0 2px 8px rgba(20,20,30,.06);">
+    </div>
+
+    <!-- 1a -->
+    <div id="1a" style="display:flex; flex-direction:column; gap:14px; width:380px;">
+      <div style="display:flex; align-items:center; gap:10px; height:22px;">
+        <a href="#1a" style="font:600 12px/1 'Geist Mono', ui-monospace, monospace; color:#fff; background:#1c1c1e; padding:5px 7px; border-radius:5px; text-decoration:none;">1a</a>
+        <span style="font-size:15px; font-weight:600;">Nativ &amp; klar</span>
+      </div>
+      <p style="margin:0; font-size:13px; line-height:1.45; color:#46464c; text-wrap:pretty; min-height:57px;">Systemschrift (SF Pro). Namen fast schwarz in Medium, Metadaten in einer eigenen Zeile, Branch als Chip. Blau nur für Auswahl und Aktion.</p>
+
+      <div style="width:380px; height:680px; display:flex; flex-direction:column; background:#ffffff; border-radius:12px; border:1px solid rgba(0,0,0,.09); box-shadow:0 18px 50px rgba(20,20,30,.16), 0 2px 8px rgba(20,20,30,.06); overflow:hidden; font-family:-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', Helvetica, sans-serif; color:#1c1c1e;">
+        <div style="padding:10px 10px 4px;">
+          <label style="display:flex; align-items:center; gap:8px; height:34px; padding:0 10px; background:#f1f1f4; border-radius:8px; color:#6e6e75;">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="7" cy="7" r="4.75"></circle><line x1="10.5" y1="10.5" x2="14" y2="14"></line></svg>
+            <input value="{{ a.filter }}" onChange="{{ a.setFilter }}" placeholder="Filtern" style="flex:1; min-width:0; border:0; outline:none; background:transparent; font-family:inherit; font-size:13px; color:#1c1c1e;">
+          </label>
+        </div>
+        <div style="flex:1; min-height:0; overflow-y:auto; padding:0 6px 10px;">
+          <sc-if value="{{ a.showThis }}" hint-placeholder-val="{{ true }}">
+            <div style="padding:12px 10px 5px; font-size:11px; font-weight:600; color:#6a6a71; letter-spacing:.01em;">Dieses Repo</div>
+            <div style="display:grid; grid-template-columns:18px minmax(0,1fr); gap:4px; padding:7px 10px 8px 8px; border-radius:7px; background:oklch(0.955 0.022 258);">
+              <span style="color:oklch(0.55 0.19 258); padding-top:2px;"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3.5 8.5 6.5 11.5 12.5 4.5"></polyline></svg></span>
+              <div style="min-width:0;">
+                <div style="font-size:13px; font-weight:600; line-height:18px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">e2n-workshop</div>
+                <div style="display:flex; align-items:center; gap:8px; margin-top:3px; font-size:11.5px; line-height:16px; color:#55555c; min-width:0;">
+                  <sc-if value="{{ showFolder }}" hint-placeholder-val="{{ true }}">
+                    <span style="display:inline-flex; align-items:center; gap:4px; min-width:0;"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M2.5 7.5 8 2.75l5.5 4.75V13.5h-11z"></path></svg><span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">e2n-workshop</span></span>
+                  </sc-if>
+                  <span style="display:inline-flex; align-items:center; gap:4px; padding:1px 6px; border-radius:4px; background:#ffffff; color:#2a2a30; font-weight:500; flex-shrink:0;"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="4.5" cy="3.5" r="1.75"></circle><circle cx="4.5" cy="12.5" r="1.75"></circle><circle cx="11.5" cy="4.5" r="1.75"></circle><path d="M4.5 5.25v5.5M11.5 6.25c0 3-7 2.5-7 4.5"></path></svg>main</span>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ a.hasOthers }}" hint-placeholder-val="{{ true }}">
+            <div style="padding:14px 10px 5px; font-size:11px; font-weight:600; color:#6a6a71; letter-spacing:.01em;">Andere Repos</div>
+            <sc-for list="{{ a.others }}" as="o" hint-placeholder-count="5">
+              <div onMouseEnter="{{ o.onEnter }}" onMouseLeave="{{ o.onLeave }}" style="position:relative; display:grid; grid-template-columns:18px minmax(0,1fr); gap:4px; padding:7px 36px 8px 8px; border-radius:7px; cursor:default;" style-hover="background:#f3f3f6;">
+                <span></span>
+                <div style="min-width:0;">
+                  <div style="font-size:13px; font-weight:500; line-height:18px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ o.name }}</div>
+                  <div style="display:flex; align-items:center; gap:8px; margin-top:3px; font-size:11.5px; line-height:16px; color:#55555c; min-width:0;">
+                    <sc-if value="{{ o.hasFolder }}">
+                      <span style="display:inline-flex; align-items:center; gap:4px; min-width:0;"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" style="flex-shrink:0;"><path d="M2.5 7.5 8 2.75l5.5 4.75V13.5h-11z"></path></svg><span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ o.folder }}</span></span>
+                    </sc-if>
+                    <span style="display:inline-flex; align-items:center; gap:4px; padding:1px 6px; border-radius:4px; background:#efeff2; color:#2a2a30; font-weight:500; flex-shrink:0;"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="4.5" cy="3.5" r="1.75"></circle><circle cx="4.5" cy="12.5" r="1.75"></circle><circle cx="11.5" cy="4.5" r="1.75"></circle><path d="M4.5 5.25v5.5M11.5 6.25c0 3-7 2.5-7 4.5"></path></svg>{{ o.branch }}</span>
+                  </div>
+                </div>
+                <sc-if value="{{ o.hovered }}">
+                  <button onClick="{{ o.remove }}" title="Aus dem Menü ausschließen" style="position:absolute; right:6px; top:50%; transform:translateY(-50%); width:24px; height:24px; display:grid; place-items:center; border:0; border-radius:6px; background:transparent; color:#6a6a71; cursor:pointer;" style-hover="background:#e5e5ea; color:#1c1c1e;"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="4" y1="4" x2="12" y2="12"></line><line x1="12" y1="4" x2="4" y2="12"></line></svg></button>
+                </sc-if>
+              </div>
+            </sc-for>
+          </sc-if>
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:16px 4px 6px 10px;">
+            <span style="font-size:11px; font-weight:600; color:#6a6a71; letter-spacing:.01em;">Zuletzt geändert</span>
+            <div style="display:flex; gap:2px; padding:2px; background:#ececf0; border-radius:7px;">
+              <sc-for list="{{ a.scopes }}" as="s" hint-placeholder-count="3">
+                <sc-if value="{{ s.active }}"><button onClick="{{ s.pick }}" style="border:0; padding:3px 10px; border-radius:5px; background:#ffffff; box-shadow:0 1px 2px rgba(0,0,0,.14), 0 0 0 .5px rgba(0,0,0,.06); color:#1c1c1e; font-size:11.5px; font-weight:600; cursor:pointer;">{{ s.label }}</button></sc-if>
+                <sc-if value="{{ s.inactive }}"><button onClick="{{ s.pick }}" style="border:0; padding:3px 10px; border-radius:5px; background:transparent; color:#4a4a50; font-size:11.5px; font-weight:500; cursor:pointer;" style-hover="color:#1c1c1e;">{{ s.label }}</button></sc-if>
+              </sc-for>
+            </div>
+          </div>
+          <sc-for list="{{ a.recent }}" as="g" hint-placeholder-count="6">
+            <sc-if value="{{ g.isGroup }}">
+              <div onClick="{{ g.toggle }}" style="display:grid; grid-template-columns:18px minmax(0,1fr) auto; align-items:center; gap:4px; padding:7px 10px 7px 8px; border-radius:7px; cursor:default;" style-hover="background:#f3f3f6;">
+                <span style="color:#6a6a71; display:grid; place-items:center;">
+                  <sc-if value="{{ g.open }}"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 6 8 10 12 6"></polyline></svg></sc-if>
+                  <sc-if value="{{ g.closed }}"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 4 10 8 6 12"></polyline></svg></sc-if>
+                </span>
+                <span style="font-size:13px; font-weight:600; line-height:18px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ g.name }}</span>
+                <span style="font-size:11px; font-weight:600; color:#4a4a50; background:#efeff2; border-radius:10px; padding:1px 7px; line-height:16px;">{{ g.count }}</span>
+              </div>
+              <sc-if value="{{ g.open }}">
+                <div style="margin:0 0 4px 16px; padding-left:6px; border-left:1px solid #e3e3e8;">
+                  <sc-for list="{{ g.children }}" as="c">
+                    <div onMouseEnter="{{ c.onEnter }}" onMouseLeave="{{ c.onLeave }}" style="position:relative; padding:6px 36px 7px 8px; border-radius:7px; cursor:default;" style-hover="background:#f3f3f6;">
+                      <div style="font-size:13px; font-weight:500; line-height:18px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ c.name }}</div>
+                      <sc-if value="{{ showPaths }}"><div style="margin-top:1px; font-size:11.5px; line-height:16px; color:#62626a; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ c.path }}</div></sc-if>
+                      <sc-if value="{{ c.hovered }}">
+                        <button onClick="{{ c.remove }}" title="Aus dem Menü ausschließen" style="position:absolute; right:6px; top:50%; transform:translateY(-50%); width:24px; height:24px; display:grid; place-items:center; border:0; border-radius:6px; background:transparent; color:#6a6a71; cursor:pointer;" style-hover="background:#e5e5ea; color:#1c1c1e;"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="4" y1="4" x2="12" y2="12"></line><line x1="12" y1="4" x2="4" y2="12"></line></svg></button>
+                      </sc-if>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
+            </sc-if>
+            <sc-if value="{{ g.isSingle }}">
+              <div onMouseEnter="{{ g.onEnter }}" onMouseLeave="{{ g.onLeave }}" style="position:relative; display:grid; grid-template-columns:18px minmax(0,1fr); gap:4px; padding:7px 36px 8px 8px; border-radius:7px; cursor:default;" style-hover="background:#f3f3f6;">
+                <span></span>
+                <div style="min-width:0;">
+                  <div style="font-size:13px; font-weight:500; line-height:18px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ g.name }}</div>
+                  <sc-if value="{{ showPaths }}"><div style="margin-top:1px; font-size:11.5px; line-height:16px; color:#62626a; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ g.path }}</div></sc-if>
+                </div>
+                <sc-if value="{{ g.hovered }}">
+                  <button onClick="{{ g.remove }}" title="Aus dem Menü ausschließen" style="position:absolute; right:6px; top:50%; transform:translateY(-50%); width:24px; height:24px; display:grid; place-items:center; border:0; border-radius:6px; background:transparent; color:#6a6a71; cursor:pointer;" style-hover="background:#e5e5ea; color:#1c1c1e;"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="4" y1="4" x2="12" y2="12"></line><line x1="12" y1="4" x2="4" y2="12"></line></svg></button>
+                </sc-if>
+              </div>
+            </sc-if>
+          </sc-for>
+          <sc-if value="{{ a.noRecent }}"><div style="padding:10px 10px 4px 30px; font-size:12.5px; color:#55555c;">Keine Treffer</div></sc-if>
+        </div>
+        <div style="display:flex; gap:8px; padding:10px; border-top:1px solid #ececf0; background:#fafafb;">
+          <input value="{{ a.path }}" onChange="{{ a.setPath }}" placeholder="Pfad einfügen, etwa ~/develop/..." style="flex:1; min-width:0; height:32px; padding:0 10px; border:1px solid #d9d9de; border-radius:7px; background:#ffffff; font-family:inherit; font-size:12.5px; color:#1c1c1e; outline:none;" style-focus="border-color:oklch(0.6 0.17 258); box-shadow:0 0 0 3px oklch(0.6 0.17 258 / .18);">
+          <sc-if value="{{ a.canOpen }}"><button onClick="{{ a.openPath }}" style="height:32px; padding:0 14px; border:0; border-radius:7px; background:oklch(0.55 0.19 258); color:#ffffff; font-size:12.5px; font-weight:600; cursor:pointer;" style-hover="background:oklch(0.5 0.19 258);">Öffnen</button></sc-if>
+          <sc-if value="{{ a.cannotOpen }}" hint-placeholder-val="{{ true }}"><button disabled="" style="height:32px; padding:0 14px; border:0; border-radius:7px; background:#ececf0; color:#9a9aa1; font-size:12.5px; font-weight:600;">Öffnen</button></sc-if>
+        </div>
+      </div>
+    </div>
+
+    <!-- 1b -->
+    <div id="1b" style="display:flex; flex-direction:column; gap:14px; width:380px;">
+      <div style="display:flex; align-items:center; gap:10px; height:22px;">
+        <a href="#1b" style="font:600 12px/1 'Geist Mono', ui-monospace, monospace; color:#fff; background:#1c1c1e; padding:5px 7px; border-radius:5px; text-decoration:none;">1b</a>
+        <span style="font-size:15px; font-weight:600;">Werkzeug &amp; Mono</span>
+      </div>
+      <p style="margin:0; font-size:13px; line-height:1.45; color:#46464c; text-wrap:pretty; min-height:57px;">Geist für Namen, Geist Mono für alles Technische. Branch rechtsbündig als farbiger Tag: main in Bernstein wie im Commit-Log, andere Branches violett.</p>
+
+      <div style="width:380px; height:680px; display:flex; flex-direction:column; background:#fdfdfc; border-radius:10px; border:1px solid #e2e0dc; box-shadow:0 18px 48px rgba(28,25,23,.15), 0 2px 6px rgba(28,25,23,.05); overflow:hidden; font-family:'Geist', -apple-system, sans-serif; color:#1c1917;">
+        <label style="display:flex; align-items:center; gap:10px; height:46px; padding:0 16px; border-bottom:1px solid #ebe9e6; color:#78716c;">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.75"></circle><line x1="10.5" y1="10.5" x2="14" y2="14"></line></svg>
+          <input value="{{ b.filter }}" onChange="{{ b.setFilter }}" placeholder="Filtern" style="flex:1; min-width:0; border:0; outline:none; background:transparent; font-family:inherit; font-size:14px; color:#1c1917;">
+        </label>
+        <div style="flex:1; min-height:0; overflow-y:auto; padding:2px 6px 10px;">
+          <sc-if value="{{ b.showThis }}" hint-placeholder-val="{{ true }}">
+            <div style="padding:14px 10px 6px; font:500 10.5px/1 'Geist Mono', monospace; text-transform:uppercase; letter-spacing:.08em; color:#57534e;">Dieses Repo</div>
+            <div style="display:grid; grid-template-columns:16px minmax(0,1fr) auto; align-items:center; gap:6px; padding:8px 10px; border-radius:6px; background:#f3f2ef;">
+              <span style="color:#1c1917; display:grid; place-items:center;"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3.5 8.5 6.5 11.5 12.5 4.5"></polyline></svg></span>
+              <div style="min-width:0;">
+                <div style="font-size:13.5px; font-weight:600; line-height:18px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">e2n-workshop</div>
+                <sc-if value="{{ showFolder }}" hint-placeholder-val="{{ true }}"><div style="margin-top:2px; font:400 11px/15px 'Geist Mono', monospace; color:#6b645e; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">⌂ e2n-workshop</div></sc-if>
+              </div>
+              <span style="font:500 11px/1 'Geist Mono', monospace; padding:4px 7px; border-radius:5px; background:oklch(0.95 0.06 85); color:oklch(0.43 0.1 65); box-shadow:inset 0 0 0 1px oklch(0.86 0.09 85);">main</span>
+            </div>
+          </sc-if>
+          <sc-if value="{{ b.hasOthers }}" hint-placeholder-val="{{ true }}">
+            <div style="padding:16px 10px 6px; font:500 10.5px/1 'Geist Mono', monospace; text-transform:uppercase; letter-spacing:.08em; color:#57534e;">Andere Repos</div>
+            <sc-for list="{{ b.others }}" as="o" hint-placeholder-count="5">
+              <div onMouseEnter="{{ o.onEnter }}" onMouseLeave="{{ o.onLeave }}" style="position:relative; display:grid; grid-template-columns:16px minmax(0,1fr) auto; align-items:center; gap:6px; padding:8px 10px; border-radius:6px; cursor:default;" style-hover="background:#f3f2ef;">
+                <span></span>
+                <div style="min-width:0;">
+                  <div style="font-size:13.5px; font-weight:500; line-height:18px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ o.name }}</div>
+                  <sc-if value="{{ o.hasFolder }}"><div style="margin-top:2px; font:400 11px/15px 'Geist Mono', monospace; color:#6b645e; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">⌂ {{ o.folder }}</div></sc-if>
+                </div>
+                <span style="min-width:24px; display:flex; justify-content:flex-end;">
+                  <sc-if value="{{ o.idle }}">
+                    <sc-if value="{{ o.isMain }}"><span style="font:500 11px/1 'Geist Mono', monospace; padding:4px 7px; border-radius:5px; background:oklch(0.95 0.06 85); color:oklch(0.43 0.1 65); box-shadow:inset 0 0 0 1px oklch(0.86 0.09 85);">{{ o.branch }}</span></sc-if>
+                    <sc-if value="{{ o.isOther }}"><span style="font:500 11px/1 'Geist Mono', monospace; padding:4px 7px; border-radius:5px; background:oklch(0.95 0.035 300); color:oklch(0.45 0.15 300); box-shadow:inset 0 0 0 1px oklch(0.86 0.06 300);">{{ o.branch }}</span></sc-if>
+                  </sc-if>
+                  <sc-if value="{{ o.hovered }}">
+                    <button onClick="{{ o.remove }}" title="Aus dem Menü ausschließen" style="width:24px; height:24px; display:grid; place-items:center; border:0; border-radius:5px; background:transparent; color:#57534e; cursor:pointer;" style-hover="background:#e7e5e1; color:#1c1917;"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="4" y1="4" x2="12" y2="12"></line><line x1="12" y1="4" x2="4" y2="12"></line></svg></button>
+                  </sc-if>
+                </span>
+              </div>
+            </sc-for>
+          </sc-if>
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:18px 10px 6px;">
+            <span style="font:500 10.5px/1 'Geist Mono', monospace; text-transform:uppercase; letter-spacing:.08em; color:#57534e;">Zuletzt geändert</span>
+            <div style="display:flex; gap:14px;">
+              <sc-for list="{{ b.scopes }}" as="s" hint-placeholder-count="3">
+                <sc-if value="{{ s.active }}"><button onClick="{{ s.pick }}" style="border:0; border-bottom:1.5px solid #1c1917; padding:2px 0 3px; background:transparent; font:500 11.5px/1 'Geist Mono', monospace; color:#1c1917; cursor:pointer;">{{ s.label }}</button></sc-if>
+                <sc-if value="{{ s.inactive }}"><button onClick="{{ s.pick }}" style="border:0; border-bottom:1.5px solid transparent; padding:2px 0 3px; background:transparent; font:400 11.5px/1 'Geist Mono', monospace; color:#6b645e; cursor:pointer;" style-hover="color:#1c1917;">{{ s.label }}</button></sc-if>
+              </sc-for>
+            </div>
+          </div>
+          <sc-for list="{{ b.recent }}" as="g" hint-placeholder-count="6">
+            <sc-if value="{{ g.isGroup }}">
+              <div onClick="{{ g.toggle }}" style="display:grid; grid-template-columns:16px minmax(0,1fr) auto; align-items:center; gap:6px; padding:8px 10px; border-radius:6px; cursor:default;" style-hover="background:#f3f2ef;">
+                <span style="color:#57534e; display:grid; place-items:center;">
+                  <sc-if value="{{ g.open }}"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 6 8 10 12 6"></polyline></svg></sc-if>
+                  <sc-if value="{{ g.closed }}"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 4 10 8 6 12"></polyline></svg></sc-if>
+                </span>
+                <span style="font-size:13.5px; font-weight:600; line-height:18px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ g.name }}</span>
+                <span style="font:500 11px/1 'Geist Mono', monospace; color:#57534e;">{{ g.count }}</span>
+              </div>
+              <sc-if value="{{ g.open }}">
+                <div style="margin:0 0 6px 17px; padding-left:9px; border-left:1px solid #e7e5e1;">
+                  <sc-for list="{{ g.children }}" as="c">
+                    <div onMouseEnter="{{ c.onEnter }}" onMouseLeave="{{ c.onLeave }}" style="position:relative; padding:6px 36px 7px 8px; border-radius:6px; cursor:default;" style-hover="background:#f3f2ef;">
+                      <div style="font-size:13.5px; font-weight:500; line-height:18px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ c.name }}</div>
+                      <sc-if value="{{ showPaths }}"><div style="display:flex; margin-top:2px; font:400 11px/15px 'Geist Mono', monospace; white-space:nowrap; min-width:0;"><span style="color:#78716c; overflow:hidden; text-overflow:ellipsis; min-width:0;">{{ c.head }}</span><span style="color:#3a3532; flex-shrink:0;">{{ c.tail }}</span></div></sc-if>
+                      <sc-if value="{{ c.hovered }}">
+                        <button onClick="{{ c.remove }}" title="Aus dem Menü ausschließen" style="position:absolute; right:6px; top:50%; transform:translateY(-50%); width:24px; height:24px; display:grid; place-items:center; border:0; border-radius:5px; background:transparent; color:#57534e; cursor:pointer;" style-hover="background:#e7e5e1; color:#1c1917;"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="4" y1="4" x2="12" y2="12"></line><line x1="12" y1="4" x2="4" y2="12"></line></svg></button>
+                      </sc-if>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
+            </sc-if>
+            <sc-if value="{{ g.isSingle }}">
+              <div onMouseEnter="{{ g.onEnter }}" onMouseLeave="{{ g.onLeave }}" style="position:relative; display:grid; grid-template-columns:16px minmax(0,1fr); gap:6px; padding:8px 36px 8px 10px; border-radius:6px; cursor:default;" style-hover="background:#f3f2ef;">
+                <span></span>
+                <div style="min-width:0;">
+                  <div style="font-size:13.5px; font-weight:500; line-height:18px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ g.name }}</div>
+                  <sc-if value="{{ showPaths }}"><div style="display:flex; margin-top:2px; font:400 11px/15px 'Geist Mono', monospace; white-space:nowrap; min-width:0;"><span style="color:#78716c; overflow:hidden; text-overflow:ellipsis; min-width:0;">{{ g.head }}</span><span style="color:#3a3532; flex-shrink:0;">{{ g.tail }}</span></div></sc-if>
+                </div>
+                <sc-if value="{{ g.hovered }}">
+                  <button onClick="{{ g.remove }}" title="Aus dem Menü ausschließen" style="position:absolute; right:6px; top:50%; transform:translateY(-50%); width:24px; height:24px; display:grid; place-items:center; border:0; border-radius:5px; background:transparent; color:#57534e; cursor:pointer;" style-hover="background:#e7e5e1; color:#1c1917;"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="4" y1="4" x2="12" y2="12"></line><line x1="12" y1="4" x2="4" y2="12"></line></svg></button>
+                </sc-if>
+              </div>
+            </sc-if>
+          </sc-for>
+          <sc-if value="{{ b.noRecent }}"><div style="padding:10px 10px 4px 32px; font:400 12px/1.4 'Geist Mono', monospace; color:#57534e;">Keine Treffer</div></sc-if>
+        </div>
+        <div style="display:flex; gap:8px; padding:10px 12px; border-top:1px solid #ebe9e6;">
+          <input value="{{ b.path }}" onChange="{{ b.setPath }}" placeholder="Pfad einfügen, etwa ~/develop/..." style="flex:1; min-width:0; height:32px; padding:0 10px; border:1px solid #dedbd6; border-radius:6px; background:#ffffff; font-family:'Geist Mono', monospace; font-size:12px; color:#1c1917; outline:none;" style-focus="border-color:#1c1917;">
+          <sc-if value="{{ b.canOpen }}"><button onClick="{{ b.openPath }}" style="height:32px; padding:0 14px; border:0; border-radius:6px; background:#1c1917; color:#ffffff; font-size:12.5px; font-weight:500; cursor:pointer;" style-hover="background:#3a3532;">Öffnen</button></sc-if>
+          <sc-if value="{{ b.cannotOpen }}" hint-placeholder-val="{{ true }}"><button disabled="" style="height:32px; padding:0 14px; border:0; border-radius:6px; background:#efedea; color:#a29b94; font-size:12.5px; font-weight:500;">Öffnen</button></sc-if>
+        </div>
+      </div>
+    </div>
+
+    <!-- 1c -->
+    <div id="1c" style="display:flex; flex-direction:column; gap:14px; width:380px;">
+      <div style="display:flex; align-items:center; gap:10px; height:22px;">
+        <a href="#1c" style="font:600 12px/1 'Geist Mono', ui-monospace, monospace; color:#fff; background:#1c1c1e; padding:5px 7px; border-radius:5px; text-decoration:none;">1c</a>
+        <span style="font-size:15px; font-weight:600;">Dunkles Panel</span>
+      </div>
+      <p style="margin:0; font-size:13px; line-height:1.45; color:#46464c; text-wrap:pretty; min-height:57px;">IBM Plex Sans mit JetBrains Mono, helle Schrift auf Anthrazit. Hebt sich als schwebendes Panel klar von der hellen App ab, ähnlich einer Befehlspalette.</p>
+
+      <div style="width:380px; height:680px; display:flex; flex-direction:column; background:#1c1e25; border-radius:12px; border:1px solid #2f323c; box-shadow:0 24px 60px rgba(10,12,20,.35), 0 2px 8px rgba(10,12,20,.2); overflow:hidden; font-family:'IBM Plex Sans', -apple-system, sans-serif; color:#f1f2f5;">
+        <div style="padding:10px 10px 4px;">
+          <label style="display:flex; align-items:center; gap:8px; height:34px; padding:0 10px; background:#262932; border-radius:8px; color:#9aa0ae; box-shadow:inset 0 0 0 1px #30343f;">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="7" cy="7" r="4.75"></circle><line x1="10.5" y1="10.5" x2="14" y2="14"></line></svg>
+            <input value="{{ c.filter }}" onChange="{{ c.setFilter }}" placeholder="Filtern" style="flex:1; min-width:0; border:0; outline:none; background:transparent; font-family:inherit; font-size:13px; color:#f1f2f5;">
+          </label>
+        </div>
+        <div style="flex:1; min-height:0; overflow-y:auto; padding:0 6px 10px;">
+          <sc-if value="{{ c.showThis }}" hint-placeholder-val="{{ true }}">
+            <div style="padding:12px 10px 6px; font-size:11px; font-weight:600; color:#9aa0ae; letter-spacing:.03em;">Dieses Repo</div>
+            <div style="display:grid; grid-template-columns:18px minmax(0,1fr); gap:4px; padding:7px 10px 8px 8px; border-radius:7px; background:#283152;">
+              <span style="color:#8fb4f0; padding-top:2px;"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3.5 8.5 6.5 11.5 12.5 4.5"></polyline></svg></span>
+              <div style="min-width:0;">
+                <div style="font-size:13px; font-weight:600; line-height:18px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">e2n-workshop</div>
+                <div style="display:flex; align-items:center; gap:10px; margin-top:3px; font:400 11px/15px 'JetBrains Mono', monospace; min-width:0;">
+                  <sc-if value="{{ showFolder }}" hint-placeholder-val="{{ true }}"><span style="color:#b3b8c4; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0;">⌂ e2n-workshop</span></sc-if>
+                  <span style="color:oklch(0.84 0.12 80); flex-shrink:0;">⑂ main</span>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ c.hasOthers }}" hint-placeholder-val="{{ true }}">
+            <div style="padding:14px 10px 6px; font-size:11px; font-weight:600; color:#9aa0ae; letter-spacing:.03em;">Andere Repos</div>
+            <sc-for list="{{ c.others }}" as="o" hint-placeholder-count="5">
+              <div onMouseEnter="{{ o.onEnter }}" onMouseLeave="{{ o.onLeave }}" style="position:relative; display:grid; grid-template-columns:18px minmax(0,1fr); gap:4px; padding:7px 36px 8px 8px; border-radius:7px; cursor:default;" style-hover="background:#272a33;">
+                <span></span>
+                <div style="min-width:0;">
+                  <div style="font-size:13px; font-weight:500; line-height:18px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ o.name }}</div>
+                  <div style="display:flex; align-items:center; gap:10px; margin-top:3px; font:400 11px/15px 'JetBrains Mono', monospace; min-width:0;">
+                    <sc-if value="{{ o.hasFolder }}"><span style="color:#b3b8c4; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0;">⌂ {{ o.folder }}</span></sc-if>
+                    <sc-if value="{{ o.isMain }}"><span style="color:oklch(0.84 0.12 80); flex-shrink:0;">⑂ {{ o.branch }}</span></sc-if>
+                    <sc-if value="{{ o.isOther }}"><span style="color:oklch(0.8 0.11 250); flex-shrink:0;">⑂ {{ o.branch }}</span></sc-if>
+                  </div>
+                </div>
+                <sc-if value="{{ o.hovered }}">
+                  <button onClick="{{ o.remove }}" title="Aus dem Menü ausschließen" style="position:absolute; right:6px; top:50%; transform:translateY(-50%); width:24px; height:24px; display:grid; place-items:center; border:0; border-radius:6px; background:transparent; color:#9aa0ae; cursor:pointer;" style-hover="background:#353945; color:#ffffff;"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="4" y1="4" x2="12" y2="12"></line><line x1="12" y1="4" x2="4" y2="12"></line></svg></button>
+                </sc-if>
+              </div>
+            </sc-for>
+          </sc-if>
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:16px 4px 6px 10px;">
+            <span style="font-size:11px; font-weight:600; color:#9aa0ae; letter-spacing:.03em;">Zuletzt geändert</span>
+            <div style="display:flex; gap:2px; padding:2px; background:#262932; border-radius:7px; box-shadow:inset 0 0 0 1px #30343f;">
+              <sc-for list="{{ c.scopes }}" as="s" hint-placeholder-count="3">
+                <sc-if value="{{ s.active }}"><button onClick="{{ s.pick }}" style="border:0; padding:3px 10px; border-radius:5px; background:oklch(0.56 0.16 262); color:#ffffff; font-size:11.5px; font-weight:600; cursor:pointer;">{{ s.label }}</button></sc-if>
+                <sc-if value="{{ s.inactive }}"><button onClick="{{ s.pick }}" style="border:0; padding:3px 10px; border-radius:5px; background:transparent; color:#c3c7d1; font-size:11.5px; font-weight:500; cursor:pointer;" style-hover="color:#ffffff;">{{ s.label }}</button></sc-if>
+              </sc-for>
+            </div>
+          </div>
+          <sc-for list="{{ c.recent }}" as="g" hint-placeholder-count="6">
+            <sc-if value="{{ g.isGroup }}">
+              <div onClick="{{ g.toggle }}" style="display:grid; grid-template-columns:18px minmax(0,1fr) auto; align-items:center; gap:4px; padding:7px 10px 7px 8px; border-radius:7px; cursor:default;" style-hover="background:#272a33;">
+                <span style="color:#9aa0ae; display:grid; place-items:center;">
+                  <sc-if value="{{ g.open }}"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 6 8 10 12 6"></polyline></svg></sc-if>
+                  <sc-if value="{{ g.closed }}"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 4 10 8 6 12"></polyline></svg></sc-if>
+                </span>
+                <span style="font-size:13px; font-weight:600; line-height:18px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ g.name }}</span>
+                <span style="font:500 11px/16px 'JetBrains Mono', monospace; color:#c3c7d1; background:#2a2d37; border-radius:4px; padding:0 6px;">{{ g.count }}</span>
+              </div>
+              <sc-if value="{{ g.open }}">
+                <div style="margin:0 0 4px 16px; padding-left:6px; border-left:1px solid #30343f;">
+                  <sc-for list="{{ g.children }}" as="k">
+                    <div onMouseEnter="{{ k.onEnter }}" onMouseLeave="{{ k.onLeave }}" style="position:relative; padding:6px 36px 7px 8px; border-radius:7px; cursor:default;" style-hover="background:#272a33;">
+                      <div style="font-size:13px; font-weight:500; line-height:18px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ k.name }}</div>
+                      <sc-if value="{{ showPaths }}"><div style="display:flex; margin-top:2px; font:400 11px/15px 'JetBrains Mono', monospace; white-space:nowrap; min-width:0;"><span style="color:#8d93a3; overflow:hidden; text-overflow:ellipsis; min-width:0;">{{ k.head }}</span><span style="color:#d3d6de; flex-shrink:0;">{{ k.tail }}</span></div></sc-if>
+                      <sc-if value="{{ k.hovered }}">
+                        <button onClick="{{ k.remove }}" title="Aus dem Menü ausschließen" style="position:absolute; right:6px; top:50%; transform:translateY(-50%); width:24px; height:24px; display:grid; place-items:center; border:0; border-radius:6px; background:transparent; color:#9aa0ae; cursor:pointer;" style-hover="background:#353945; color:#ffffff;"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="4" y1="4" x2="12" y2="12"></line><line x1="12" y1="4" x2="4" y2="12"></line></svg></button>
+                      </sc-if>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
+            </sc-if>
+            <sc-if value="{{ g.isSingle }}">
+              <div onMouseEnter="{{ g.onEnter }}" onMouseLeave="{{ g.onLeave }}" style="position:relative; display:grid; grid-template-columns:18px minmax(0,1fr); gap:4px; padding:7px 36px 8px 8px; border-radius:7px; cursor:default;" style-hover="background:#272a33;">
+                <span></span>
+                <div style="min-width:0;">
+                  <div style="font-size:13px; font-weight:500; line-height:18px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ g.name }}</div>
+                  <sc-if value="{{ showPaths }}"><div style="display:flex; margin-top:2px; font:400 11px/15px 'JetBrains Mono', monospace; white-space:nowrap; min-width:0;"><span style="color:#8d93a3; overflow:hidden; text-overflow:ellipsis; min-width:0;">{{ g.head }}</span><span style="color:#d3d6de; flex-shrink:0;">{{ g.tail }}</span></div></sc-if>
+                </div>
+                <sc-if value="{{ g.hovered }}">
+                  <button onClick="{{ g.remove }}" title="Aus dem Menü ausschließen" style="position:absolute; right:6px; top:50%; transform:translateY(-50%); width:24px; height:24px; display:grid; place-items:center; border:0; border-radius:6px; background:transparent; color:#9aa0ae; cursor:pointer;" style-hover="background:#353945; color:#ffffff;"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="4" y1="4" x2="12" y2="12"></line><line x1="12" y1="4" x2="4" y2="12"></line></svg></button>
+                </sc-if>
+              </div>
+            </sc-if>
+          </sc-for>
+          <sc-if value="{{ c.noRecent }}"><div style="padding:10px 10px 4px 30px; font-size:12.5px; color:#b3b8c4;">Keine Treffer</div></sc-if>
+        </div>
+        <div style="display:flex; gap:8px; padding:10px; border-top:1px solid #2c2f39; background:#191b21;">
+          <input value="{{ c.path }}" onChange="{{ c.setPath }}" placeholder="Pfad einfügen, etwa ~/develop/..." style="flex:1; min-width:0; height:32px; padding:0 10px; border:1px solid #343844; border-radius:7px; background:#23262e; font-family:'JetBrains Mono', monospace; font-size:11.5px; color:#f1f2f5; outline:none;" style-focus="border-color:oklch(0.65 0.14 262); box-shadow:0 0 0 3px oklch(0.65 0.14 262 / .25);">
+          <sc-if value="{{ c.canOpen }}"><button onClick="{{ c.openPath }}" style="height:32px; padding:0 14px; border:0; border-radius:7px; background:oklch(0.56 0.16 262); color:#ffffff; font-size:12.5px; font-weight:600; cursor:pointer;" style-hover="background:oklch(0.62 0.16 262);">Öffnen</button></sc-if>
+          <sc-if value="{{ c.cannotOpen }}" hint-placeholder-val="{{ true }}"><button disabled="" style="height:32px; padding:0 14px; border:0; border-radius:7px; background:#262932; color:#737989; font-size:12.5px; font-weight:600;">Öffnen</button></sc-if>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;showPaths&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;label&quot;:&quot;Pfade unter Einträgen&quot;},&quot;showFolder&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;label&quot;:&quot;Ordner (⌂) anzeigen&quot;},&quot;moreBranches&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;label&quot;:&quot;Branch-Menü mit mehr Branches&quot;}}">
+const THIS_REPO = { name: 'e2n-workshop', folder: 'e2n-workshop', branch: 'main' };
+const OTHERS = [
+  { id: 'o1', name: '2026-10-14-sas-spring-modulith-prepare', folder: '2026-10-14-sas-spring-modulith-prepare', branch: 'main' },
+  { id: 'o2', name: '2026-10-14-sas-spring-modulith-prepare', folder: '', branch: 'live_coding' },
+  { id: 'o3', name: '2026-10-14-sas-spring-modulith', folder: '2026-10-14-sas-spring-modulith', branch: 'main' },
+  { id: 'o4', name: 'schrittmacher', folder: 'schrittmacher', branch: 'main' },
+  { id: 'o5', name: 'spring-schule-urls', folder: 'spring-schule-urls', branch: 'main' },
+];
+const RECENT = {
+  develop: [
+    { root: '~/develop', name: 'claude-code-workshop', children: ['agenda', 'beispiele', 'loesungen', 'slides', 'uebungen'] },
+    { root: '~/develop', name: 'enterjs-agentic-coding' },
+    { root: '~/develop', name: 'entwicklerde-spring-modulith-tutorial', children: ['intro/plantify-frontend', 'plantify-video-tutorial', 'slides'] },
+    { root: '~/develop', name: 'figma-mcp-test' },
+    { root: '~/develop', name: 'heise-spring-modulith', children: ['artikel/heise-spring-modulith', 'hierograph', 'plantify', 'plantify-frontend', 'spring-modulith-talk'] },
+    { root: '~/develop', name: 'jsdays2026-claude-code', children: ['demo', 'slides'] },
+  ],
+  javascript: [
+    { root: '~/javascript', name: 'react-workshop', children: ['starter', 'loesung'] },
+    { root: '~/javascript', name: 'tanstack-router-demo' },
+    { root: '~/javascript', name: 'vite-plugin-playground' },
+  ],
+};
+const SCOPES = ['develop', 'javascript', 'Beide'];
+const BR_BASE = { locals: ['main'], remotes: { origin: ['main'] } };
+const BR_MORE = { locals: ['main', 'live_coding', 'schritte-kurz', 'feature/formular-lang'], remotes: { origin: ['main', 'live_coding', 'schritte-kurz'] } };
+const OPEN = { 'entwicklerde-spring-modulith-tutorial': true, 'heise-spring-modulith': true, 'jsdays2026-claude-code': true };
+
+class Component extends DCLogic {
+  state = {
+    filter: { a: '', b: '', c: '' },
+    path: { a: '', b: '', c: '' },
+    scope: { a: 'develop', b: 'develop', c: 'develop' },
+    open: { a: { ...OPEN }, b: { ...OPEN }, c: { ...OPEN } },
+    hover: null,
+    excluded: {},
+    brCurrent: 'main',
+    brHidden: {},
+    brRemotesOpen: true,
+    tbSidebar: true,
+  };
+  setIn(field, v, val) { this.setState(s => ({ [field]: { ...s[field], [v]: val } })); }
+  hoverProps(v, key) {
+    const id = v + ':' + key;
+    const hovered = this.state.hover === id;
+    return {
+      hovered, idle: !hovered,
+      onEnter: () => this.setState({ hover: id }),
+      onLeave: () => this.setState(s => (s.hover === id ? { hover: null } : null)),
+      remove: e => { e.stopPropagation(); this.setState(s => ({ excluded: { ...s.excluded, [key]: true }, hover: null })); },
+    };
+  }
+  build(v, showFolder) {
+    const s = this.state;
+    const q = s.filter[v].trim().toLowerCase();
+    const hit = (...xs) => !q || xs.some(x => x && x.toLowerCase().includes(q));
+    const others = OTHERS.filter(o => !s.excluded[o.id] && hit(o.name, o.folder, o.branch)).map(o => ({
+      ...o, hasFolder: showFolder && !!o.folder, isMain: o.branch === 'main', isOther: o.branch !== 'main', ...this.hoverProps(v, o.id),
+    }));
+    const scope = s.scope[v];
+    const src = scope === 'Beide' ? [...RECENT.develop, ...RECENT.javascript].sort((x, y) => x.name.localeCompare(y.name)) : RECENT[scope];
+    const recent = [];
+    for (const g of src) {
+      const base = g.root + '/' + g.name;
+      if (g.children) {
+        const gHit = hit(g.name);
+        const kids = g.children
+          .filter(c => !s.excluded[base + '/' + c] && (gHit || hit(c)))
+          .map(c => ({ name: c, path: base + '/' + c, head: base + '/', tail: c, ...this.hoverProps(v, base + '/' + c) }));
+        if (!kids.length) continue;
+        const open = !!q || !!s.open[v][g.name];
+        recent.push({
+          name: g.name, isGroup: true, isSingle: false, count: kids.length, open, closed: !open, children: kids,
+          toggle: () => this.setState(st => ({ open: { ...st.open, [v]: { ...st.open[v], [g.name]: !st.open[v][g.name] } } })),
+        });
+      } else {
+        if (s.excluded[base] || !hit(g.name)) continue;
+        recent.push({ name: g.name, isGroup: false, isSingle: true, path: base, head: g.root + '/', tail: g.name, ...this.hoverProps(v, base) });
+      }
+    }
+    const p = s.path[v];
+    return {
+      filter: s.filter[v],
+      setFilter: e => this.setIn('filter', v, e.target.value),
+      showThis: hit(THIS_REPO.name, THIS_REPO.folder, THIS_REPO.branch),
+      others, hasOthers: others.length > 0,
+      scopes: SCOPES.map(l => ({ label: l, active: l === scope, inactive: l !== scope, pick: () => this.setIn('scope', v, l) })),
+      recent, noRecent: recent.length === 0,
+      path: p,
+      setPath: e => this.setIn('path', v, e.target.value),
+      canOpen: !!p.trim(), cannotOpen: !p.trim(),
+      openPath: () => this.setIn('path', v, ''),
+    };
+  }
+  eye(key, parentHidden) {
+    const hidden = !!this.state.brHidden[key] || !!parentHidden;
+    return {
+      visible: !hidden, hidden, op: hidden ? 0.4 : 1,
+      eyeTitle: hidden ? 'Im Log einblenden' : 'Im Log ausblenden',
+      toggleEye: e => { e.stopPropagation(); this.setState(s => ({ brHidden: { ...s.brHidden, [key]: !s.brHidden[key] } })); },
+    };
+  }
+  buildBranches() {
+    const d = (this.props.moreBranches ?? false) ? BR_MORE : BR_BASE;
+    const H = this.state.brHidden, X = this.state.excluded, cur = this.state.brCurrent;
+    const locals = d.locals.filter(n => !X['l:' + n]).map(n => ({
+      name: n, isCurrent: n === cur, notCurrent: n !== cur,
+      checkout: () => this.setState({ brCurrent: n }),
+      ...this.hoverProps('br', 'l:' + n), ...this.eye('l:' + n, H['@lokal']),
+    }));
+    const remotes = Object.entries(d.remotes).map(([r, bs]) => ({
+      name: r, ...this.eye('r:' + r, H['@remotes']),
+      branches: bs.map(b => ({ name: b, ...this.hoverProps('br', 'rb:' + r + '/' + b), ...this.eye('rb:' + r + '/' + b, H['@remotes'] || H['r:' + r]) })),
+    }));
+    const open = this.state.brRemotesOpen;
+    return {
+      lokal: this.eye('@lokal'), locals,
+      remotesEye: this.eye('@remotes'), remotes, remoteCount: remotes.length,
+      remotesOpen: open, remotesClosed: !open,
+      toggleRemotes: () => this.setState(s => ({ brRemotesOpen: !s.brRemotesOpen })),
+    };
+  }
+  renderVals() {
+    const showPaths = this.props.showPaths ?? true;
+    const showFolder = this.props.showFolder ?? true;
+    const on = this.state.tbSidebar;
+    return {
+      showPaths, showFolder,
+      a: this.build('a', showFolder), b: this.build('b', showFolder), c: this.build('c', showFolder),
+      br: this.buildBranches(),
+      tb: { sidebarOn: on, sidebarOff: !on, toggleSidebar: () => this.setState(s => ({ tbSidebar: !s.tbSidebar })) },
+    };
+  }
+}
+</script>
+</body>
+</html>

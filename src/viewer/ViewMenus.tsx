@@ -6,8 +6,8 @@ import type { Ref, RepoInfo, Worktree } from '../git/types';
 import { listRepos, listViews, openRepo, saveExcluded } from '../server/repo.functions';
 import type { ProjectChoice, RepoChoice } from '../server/repo.functions';
 import type { SavedView, Tab, ViewSearch } from '../server/store';
-import { BranchIcon, RepoIcon } from './Icons';
-import { Menu, MenuDivider, MenuItem, MenuNote, MenuSection, NewTabButton } from './Menu';
+import { BranchIcon, ChevronIcon, CloseIcon, CloudIcon, EyeIcon, FolderIcon, SearchIcon } from './Icons';
+import { Menu, MenuDivider, MenuItem, MenuNote, MenuSection, MenuWhere, NewTabButton } from './Menu';
 import { CloseButton, sameTab, TabsContext } from './Tabs';
 
 /** Wechselt zu einer Ansicht; fehlende Teile ergänzt der Server. */
@@ -117,10 +117,20 @@ export function RepoMenu({
   const onRoot = chosen.onRoot ?? setOwnRoot;
   return (
     <Menu
-      button={info === null ? <span className="crumb-repo">Repo wählen</span> : <RepoIcon />}
+      button={
+        info === null ? (
+          <span className="crumb-repo">Repo wählen</span>
+        ) : (
+          <>
+            <FolderIcon />
+            <ChevronIcon open size={8} />
+          </>
+        )
+      }
       label="Repo"
       tip={info === null ? 'Repo wählen' : `Repo wechseln: ${info.repo}`}
-      className={info === null ? 'crumb' : 'tool'}
+      className={info === null ? 'crumb' : 'bar-tool bar-menu'}
+      panelClassName="menu-panel-repos"
       initiallyOpen={initiallyOpen}
     >
       {(close) => <RepoList info={info} close={close} onShow={onShow} root={root} onRoot={onRoot} />}
@@ -291,7 +301,7 @@ function RepoList({
         setExcluded([...excluded, path]);
       }}
     >
-      ×
+      <CloseIcon />
     </button>
   );
   const item = (entry: RepoChoice, main: string, home: string, row: RowOptions = {}): ReactNode => (
@@ -332,17 +342,21 @@ function RepoList({
   };
   return (
     <>
-      <input
-        className="menu-input"
-        type="search"
-        placeholder="Filtern"
-        aria-label="Repos filtern"
-        value={filter}
-        autoFocus
-        onChange={(event) => {
-          setFilter(event.target.value);
-        }}
-      />
+      <div className="menu-filter">
+        <label className="menu-search">
+          <SearchIcon />
+          <input
+            type="search"
+            placeholder="Filtern"
+            aria-label="Repos filtern"
+            value={filter}
+            autoFocus
+            onChange={(event) => {
+              setFilter(event.target.value);
+            }}
+          />
+        </label>
+      </div>
       {views.error !== null && <MenuNote error>{views.error}</MenuNote>}
       {error !== null && <MenuNote error>{error}</MenuNote>}
       {data === null && error === null && <MenuNote>Sucht Repos …</MenuNote>}
@@ -352,22 +366,22 @@ function RepoList({
             <Fragment key={section.title}>
               <MenuDivider>{section.title}</MenuDivider>
               {section.views.map((view) => (
-                <MenuItem
-                  key={`${view.worktree}\n${view.branch}`}
-                  main={
-                    <>
-                      {view.repo}
-                      <span className="menu-where">
-                        {view.worktreeName === view.branch ? '' : ` · ⌂ ${view.worktreeName}`} · <BranchIcon />{' '}
-                        {view.branch || 'ohne Branch'}
-                      </span>
-                    </>
-                  }
-                  tip={view.worktree}
-                  current={isCurrentView(view, info)}
-                  link={view.search}
-                  onChoose={close}
-                />
+                <div key={`${view.worktree}\n${view.branch}`} className="menu-row menu-excludable">
+                  <MenuItem
+                    main={view.repo}
+                    sub={
+                      <MenuWhere
+                        folder={view.worktreeName === view.branch ? null : view.worktreeName}
+                        branch={view.branch || null}
+                      />
+                    }
+                    tip={view.worktree}
+                    current={isCurrentView(view, info)}
+                    link={view.search}
+                    onChoose={close}
+                  />
+                  {!isCurrentView(view, info) && excludeButton(view.repoPath, view.repo)}
+                </div>
               ))}
             </Fragment>
           ))}
@@ -381,14 +395,16 @@ function RepoList({
             const where = (root === null ? data.roots : [root]).map((path) => short(path, data.home)).join(', ');
             return (
               <>
-                <div className="menu-row">
+                <div className="menu-row menu-heading-row">
                   <MenuDivider>Zuletzt geändert</MenuDivider>
                   {data.roots.length > 1 && <RootSwitch roots={data.roots} root={root} onRoot={onRoot} />}
                 </div>
                 {projects(recent, data.home, true)}
                 {rest.length > 0 && <MenuDivider>Weitere in {where}</MenuDivider>}
                 {projects(rest, data.home, false)}
-                {recent.length === 0 && <MenuNote>Keine Repos in {where} gefunden.</MenuNote>}
+                {recent.length === 0 && (
+                  <MenuNote>{filter.trim() === '' ? `Keine Repos in ${where} gefunden.` : 'Keine Treffer'}</MenuNote>
+                )}
               </>
             );
           })()}
@@ -406,7 +422,7 @@ function RepoList({
           )}
         </div>
       )}
-      <form className="menu-form" onSubmit={onSubmit}>
+      <form className="menu-form menu-footer" onSubmit={onSubmit}>
         <input
           className="menu-input"
           type="text"
@@ -417,7 +433,7 @@ function RepoList({
             setPath(event.target.value);
           }}
         />
-        <button type="submit" className="tool" disabled={path.trim() === ''}>
+        <button type="submit" className="tool tool-primary" disabled={path.trim() === ''}>
           Öffnen
         </button>
       </form>
@@ -482,12 +498,12 @@ function ProjectItems({
               data-tip={open ? 'Repos darunter einklappen' : 'Repos darunter aufklappen'}
               onClick={toggle}
             >
-              {open ? '▾' : '▸'}
+              <ChevronIcon open={open} />
             </button>
           ),
         })
       )}
-      {open && project.children.map((child) => item(child, child.name, { className: 'menu-row-nested' }))}
+      {open && <div className="menu-children">{project.children.map((child) => item(child, child.name))}</div>}
     </>
   );
 }
@@ -519,29 +535,32 @@ function ExcludedList({
           setOpen((before) => !before);
         }}
       />
-      {open &&
-        excluded.toSorted((a, b) => a.localeCompare(b)).map((path) => (
-          <div key={path} className="menu-row menu-row-nested">
-            <MenuItem
-              main={path.slice(path.lastIndexOf('/') + 1)}
-              sub={short(path, home)}
-              onChoose={() => {
-                onOpen(path);
-              }}
-            />
-            <button
-              type="button"
-              className="menu-close"
-              aria-label={`Ausschluss von ${short(path, home)} zurücknehmen`}
-              data-tip="Wieder im Menü zeigen"
-              onClick={() => {
-                onRestore(path);
-              }}
-            >
-              ↩
-            </button>
-          </div>
-        ))}
+      {open && (
+        <div className="menu-children">
+          {excluded.toSorted((a, b) => a.localeCompare(b)).map((path) => (
+            <div key={path} className="menu-row menu-excludable">
+              <MenuItem
+                main={path.slice(path.lastIndexOf('/') + 1)}
+                sub={short(path, home)}
+                onChoose={() => {
+                  onOpen(path);
+                }}
+              />
+              <button
+                type="button"
+                className="menu-close menu-exclude"
+                aria-label={`Ausschluss von ${short(path, home)} zurücknehmen`}
+                data-tip="Wieder im Menü zeigen"
+                onClick={() => {
+                  onRestore(path);
+                }}
+              >
+                ↩
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </>
   );
 }
@@ -567,14 +586,20 @@ export function WhereMenu({
   const where = `⌂ ${info.worktree} · ${info.branch ?? 'ohne Branch'}`;
   return (
     <Menu
-      button={<BranchIcon />}
+      button={
+        <>
+          <BranchIcon />
+          <ChevronIcon open size={8} />
+        </>
+      }
       label="Worktree und Branch"
       tip={
         foreign
           ? `Worktree und Branch wechseln: ${where}, nicht ausgecheckt; ausgecheckt ist ${info.checkedOut ?? 'kein Branch'}`
           : `Worktree und Branch wechseln: ${where}`
       }
-      className={foreign ? 'tool tool-foreign' : 'tool'}
+      className={foreign ? 'bar-tool bar-menu bar-tool-foreign' : 'bar-tool bar-menu'}
+      panelClassName="menu-panel-branches"
     >
       {(close) => <WhereList info={info} worktrees={worktrees} refs={refs} close={close} onOpen={onOpen} {...hidden} />}
     </Menu>
@@ -623,7 +648,7 @@ function WhereList({
       return null;
     }
     return (
-      <>
+      <span className="menu-actions">
         <NewTabButton
           name={name}
           open={open !== undefined}
@@ -633,16 +658,18 @@ function WhereList({
         />
         {open !== undefined && tabs.tabs.length > 1 ? (
           <CloseButton
-            className="menu-close"
+            className="menu-action"
             label={`Tab von ${name} schließen`}
             onClose={() => {
               tabs.close(open);
             }}
-          />
+          >
+            <CloseIcon />
+          </CloseButton>
         ) : (
           <span className="menu-spacer" />
         )}
-      </>
+      </span>
     );
   };
   const eye = (path: string, name: string) => (
@@ -663,7 +690,7 @@ function WhereList({
     return (
       <div
         key={name}
-        className={`menu-row${ref !== null && (ref.kind === 'remote' || ref.name.includes('/')) ? ' menu-row-nested' : ''}${
+        className={`menu-row${ref?.kind === 'remote' ? ' menu-leaf' : ''}${
           path !== null && hiddenBy(hidden, path) !== null ? ' menu-row-hidden' : ''
         }`}
       >
@@ -677,7 +704,7 @@ function WhereList({
           }}
         />
         {tabButton(inTab, main, open)}
-        {path !== null ? eye(path, name) : <span className="menu-spacer" />}
+        {path !== null ? eye(path, name) : <span className="menu-eye-spacer" />}
       </div>
     );
   };
@@ -689,18 +716,10 @@ function WhereList({
           {worktrees.map((worktree) => {
             const target = { worktree: worktree.path, branch: worktree.branch ?? '' };
             return (
-              <div key={worktree.path} className="menu-row">
+              <div key={worktree.path} className="menu-row menu-worktree">
                 <MenuItem
-                  main={<>⌂ {worktree.name}</>}
-                  sub={
-                    worktree.branch === null ? (
-                      'ohne Branch'
-                    ) : (
-                      <>
-                        <BranchIcon /> {worktree.branch}
-                      </>
-                    )
-                  }
+                  main={worktree.name}
+                  sub={<MenuWhere folder={null} branch={worktree.branch} />}
                   tip={worktree.path}
                   current={worktree.path === info.worktreePath}
                   newTab={target}
@@ -709,13 +728,13 @@ function WhereList({
                   }}
                 />
                 {tabButton(target, worktree.name, tabs?.tabs.find((tab) => sameTab(tab, target)))}
-                <span className="menu-spacer" />
+                <span className="menu-eye-spacer" />
               </div>
             );
           })}
         </>
       )}
-      <div className="menu-row">
+      <div className="menu-row menu-head">
         <MenuSection>Lokal</MenuSection>
         {eye(LOCAL_GROUP, 'alle lokalen Branches')}
       </div>
@@ -737,16 +756,20 @@ function WhereList({
               />
               {eye(group, `alle Branches in ${folder}`)}
             </div>
-            {open &&
-              inFolder.map((ref) =>
-                branch(ref, ref.name.slice(folder.length + 1), ref.name === info.checkedOut ? 'ausgecheckt' : undefined),
-              )}
+            {open && (
+              <div className="menu-children">
+                {inFolder.map((ref) =>
+                  branch(ref, ref.name.slice(folder.length + 1), ref.name === info.checkedOut ? 'ausgecheckt' : undefined),
+                )}
+              </div>
+            )}
           </Fragment>
         );
       })}
       {locals
         .filter((ref) => !ref.name.includes('/'))
         .map((ref) => branch(ref, ref.name, ref.name === info.checkedOut ? 'ausgecheckt' : undefined))}
+      {remotes.length > 0 && <div className="menu-rule" />}
       {remotes.length > 0 && (
         <div className={`menu-row${hiddenBy(hidden, REMOTES_GROUP) !== null ? ' menu-row-hidden' : ''}`}>
           <Toggle
@@ -760,18 +783,26 @@ function WhereList({
           {eye(REMOTES_GROUP, 'alle Remotes')}
         </div>
       )}
-      {remotesOpen &&
-        remoteNames.map((remote) => (
-          <Fragment key={remote}>
-            <div className={`menu-row${hiddenBy(hidden, remoteGroup(remote)) !== null ? ' menu-row-hidden' : ''}`}>
-              <MenuSection>☁ {remote}</MenuSection>
-              {eye(remoteGroup(remote), `alle Branches von ${remote}`)}
-            </div>
-            {remotes
-              .filter((ref) => remoteOf(ref) === remote)
-              .map((ref) => branch(ref, ref.name.slice(remote.length + 1)))}
-          </Fragment>
-        ))}
+      {remotesOpen && (
+        <div className="menu-children">
+          {remoteNames.map((remote) => (
+            <Fragment key={remote}>
+              <div
+                className={`menu-row menu-remote${hiddenBy(hidden, remoteGroup(remote)) !== null ? ' menu-row-hidden' : ''}`}
+              >
+                <CloudIcon />
+                <span className="menu-main">{remote}</span>
+                {eye(remoteGroup(remote), `alle Branches von ${remote}`)}
+              </div>
+              <div className="menu-children">
+                {remotes
+                  .filter((ref) => remoteOf(ref) === remote)
+                  .map((ref) => branch(ref, ref.name.slice(remote.length + 1)))}
+              </div>
+            </Fragment>
+          ))}
+        </div>
+      )}
       {error !== null && <MenuNote error>{error}</MenuNote>}
     </div>
   );
@@ -787,12 +818,12 @@ function Toggle({ name, count, open, onToggle }: { name: string; count: number; 
   return (
     <button type="button" className="menu-item menu-toggle" aria-expanded={open} onClick={onToggle}>
       <span className="menu-check" aria-hidden="true">
-        {open ? '▾' : '▸'}
+        <ChevronIcon open={open} />
       </span>
       <span className="menu-text">
         <span className="menu-main">{name}</span>
       </span>
-      <span className="menu-aside">{count}</span>
+      <span className="menu-count">{count}</span>
     </button>
   );
 }
@@ -852,21 +883,4 @@ function groupName(group: string): string {
     return `allen Branches in ${group.slice(LOCAL_GROUP.length, -1)}`;
   }
   return `allen Branches von ${group.slice(REMOTES_GROUP.length, -1)}`;
-}
-
-/** Ein Auge wie in Fork, durchgestrichen für einen ausgeblendeten Branch. */
-function EyeIcon({ crossed }: { crossed: boolean }) {
-  return (
-    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
-      <path
-        d="M1.75 9C3.4 5.9 6 4.25 9 4.25S14.6 5.9 16.25 9C14.6 12.1 12 13.75 9 13.75S3.4 12.1 1.75 9Z"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinejoin="round"
-      />
-      <circle cx="9" cy="9" r="2.25" fill="none" stroke="currentColor" strokeWidth="1.5" />
-      {crossed && <path d="M3 15 15 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />}
-    </svg>
-  );
 }

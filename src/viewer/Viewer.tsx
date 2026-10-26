@@ -23,7 +23,7 @@ import { Tooltips } from './Tooltips';
 import { useHidden } from './useHidden';
 import { useRepoChanges } from './useRepoChanges';
 import type { Layout } from './Header';
-import { TabsContext, whereOf } from './Tabs';
+import { TabsContext, whereInMenu } from './Tabs';
 import { WhereMenus } from './ViewMenus';
 import type { OpenView } from './ViewMenus';
 
@@ -350,7 +350,7 @@ export function Viewer({ view, search, onSearch, onOpen, onShow, tabs }: ViewerP
                         key: `${tab.worktree}\n${tab.branch}`,
                         section: COPY_SECTIONS[tab.place],
                         main: tab.repo,
-                        sub: whereOf(tab),
+                        sub: whereInMenu(tab),
                         tip: tab.worktree,
                       })),
                     onCopy: async (path, key) => {
