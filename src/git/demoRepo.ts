@@ -27,6 +27,8 @@ export interface MemoryRepo {
   side: SideBranch[];
   /** Die Branches mit der Kennung des Commits, auf den sie zeigen. */
   refs: Ref[];
+  /** Die lokalen Branches, deren Upstream der gleichnamige Branch von `origin` ist. */
+  upstreams: string[];
   /** Der Branch, der im Repo selbst ausgecheckt ist; `info.branch` liegt in einem eigenen Worktree. */
   checkedOut: string;
   /** Die Dateien, die im Repo selbst geändert und nicht committet sind, wie in `StoredCommit.files`. */
@@ -758,8 +760,12 @@ export const DEMO_REPO: MemoryRepo = {
     { name: 'schritte', kind: 'local', sha: '84c7d2f' },
     { name: 'backup/vor-transaktionen', kind: 'local', sha: '51c08ad' },
     { name: 'backup/vor-listener', kind: 'local', sha: '9be4d71' },
-    { name: 'origin/schritte', kind: 'remote', sha: '84c7d2f' },
+    // Der letzte Schritt ist noch nicht gepusht, und das Backup auf dem Remote ist weiter als das
+    // lokale.
+    { name: 'origin/schritte', kind: 'remote', sha: 'f19e0a3' },
+    { name: 'origin/backup/vor-listener', kind: 'remote', sha: '51c08ad' },
   ],
+  upstreams: ['schritte'],
   checkedOut: 'live_coding',
   // Das Live-Coding steckt mitten in Schritt 04a, und eine Notiz ist dazugekommen.
   local: {

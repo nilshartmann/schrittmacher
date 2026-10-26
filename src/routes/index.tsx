@@ -113,6 +113,9 @@ function OpenedView({ view, search }: { view: LoadedView; search: ViewSearch }) 
           <TabBar
             tabs={tabs.list}
             current={tabs.current}
+            tracking={
+              view.repo.refs.find((ref) => ref.kind === 'local' && ref.name === view.repo.info.branch)?.tracking
+            }
             onChoose={tabs.choose}
             onClose={tabs.close}
           />

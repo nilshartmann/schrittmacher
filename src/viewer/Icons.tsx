@@ -79,6 +79,15 @@ export function CloudIcon() {
   );
 }
 
+/** Ein Pfeil im Kreis: die Branches eines Remotes holen. */
+export function FetchIcon() {
+  return (
+    <Outline size={14}>
+      <path d="M13 8a5 5 0 1 1-1.46-3.54M13 2.5v3h-3" />
+    </Outline>
+  );
+}
+
 /** Die Lupe im Filterfeld. */
 export function SearchIcon() {
   return (

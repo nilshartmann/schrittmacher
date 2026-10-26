@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router';
 import { useContext, useEffect, useRef, useState } from 'react';
 import type { MouseEvent, ReactNode } from 'react';
+import type { Tracking } from '../git/types';
 import type { ViewSearch } from '../server/store';
 import { BranchIcon, CheckMarkIcon, HouseIcon, LinkIcon, WindowIcon } from './Icons';
 import { TabsContext } from './Tabs';
@@ -223,4 +224,33 @@ export function MenuDivider({ children }: { children: ReactNode }) {
 
 export function MenuNote({ children, error }: { children: ReactNode; error?: boolean }) {
   return <p className={error === true ? 'menu-note menu-error' : 'menu-note'}>{children}</p>;
+}
+
+function commits(count: number): string {
+  return count === 1 ? '1 Commit' : `${String(count)} Commits`;
+}
+
+/**
+ * Der Abstand eines lokalen Branches zu seinem Branch auf dem Remote als `↑2 ↓1`, ohne Abstand
+ * nichts. Ist kein Upstream eingerichtet und gilt der gleichnamige Branch, ist der Rahmen
+ * gestrichelt.
+ */
+export function TrackingBadge({ tracking }: { tracking: Tracking | undefined }) {
+  if (tracking === undefined || (tracking.ahead === 0 && tracking.behind === 0)) {
+    return null;
+  }
+  const { remote, ahead, behind } = tracking;
+  const counts = [
+    ...(ahead > 0 ? [`${commits(ahead)} nicht auf ${remote}`] : []),
+    ...(behind > 0 ? [`${commits(behind)} nur auf ${remote}`] : []),
+  ].join(', ');
+  return (
+    <span
+      className={tracking.assumed ? 'tracking tracking-assumed' : 'tracking'}
+      data-tip={tracking.assumed ? `Kein Upstream eingerichtet; ${counts}` : counts}
+    >
+      {ahead > 0 && <span>↑{ahead}</span>}
+      {behind > 0 && <span>↓{behind}</span>}
+    </span>
+  );
 }

@@ -596,6 +596,44 @@ a.menu-item {
   display: none;
 }
 
+/*
+ * Der Abstand eines lokalen Branches zum Remote, etwa `↑2 ↓1`. Gestrichelt und blasser, wenn kein
+ * Upstream eingerichtet ist und der gleichnamige Branch gilt.
+ */
+.tracking {
+  display: inline-flex;
+  flex: none;
+  gap: 4px;
+  padding: 0 5px;
+  border: 1px solid var(--border-tree);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  font-weight: 500;
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+.tracking-assumed {
+  border-style: dashed;
+  opacity: 0.7;
+}
+
+/* Der Pfeil im Kreis dreht sich, solange geholt wird, und bleibt dabei sichtbar. */
+.menu-fetch-running svg {
+  animation: fetch-spin 0.9s linear infinite;
+}
+
+.menu-actions:has(.menu-fetch-running) {
+  display: flex;
+}
+
+@keyframes fetch-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* Knöpfe einer Zeile, die erst beim Überfahren erscheinen */
 .menu-actions {
   display: none;
@@ -1842,6 +1880,10 @@ a.menu-item {
   margin-left: 0.3em;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.tab-label .tracking {
+  margin-left: 0.4em;
 }
 
 .tab-close {

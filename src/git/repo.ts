@@ -75,6 +75,13 @@ export interface RepoSource {
    * demselben Namen. Mit `force` gilt `--force-with-lease`.
    */
   push: (branch: string, force: boolean) => Promise<void>;
+  /**
+   * Holt die Branches eines Remotes, ohne Remote die aller, und entfernt dabei die, die es auf dem
+   * Remote nicht mehr gibt. Lokale Branches bleiben unberührt.
+   */
+  fetch: (remote: string | null) => Promise<void>;
+  /** Der Zeitpunkt des letzten Fetch in Millisekunden; `null`, wenn noch keiner lief. */
+  fetched: () => Promise<number | null>;
   /** Der Inhalt der Datei unter `path` im Commit `revision`; mit `LOCAL` der im Worktree. */
   content: (revision: string, path: string) => Promise<Uint8Array>;
   /**

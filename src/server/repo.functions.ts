@@ -254,6 +254,21 @@ export const pushBranch = createServerFn({ method: 'POST' })
     await (await access(data.worktree)).source.push(data.branch, data.force);
   });
 
+/** Holt die Branches eines Remotes, ohne Remote die aller, siehe `RepoSource.fetch`. */
+export const fetchRemote = createServerFn({ method: 'POST' })
+  .validator((data: { worktree: string; remote: string | null }) => ({
+    worktree: text(data.worktree, 'worktree'),
+    remote: data.remote === null ? null : text(data.remote, 'remote'),
+  }))
+  .handler(async ({ data }) => {
+    await (await access(data.worktree)).source.fetch(data.remote);
+  });
+
+/** Der Zeitpunkt des letzten Fetch im Repo des Worktrees. */
+export const lastFetch = createServerFn({ method: 'GET' })
+  .validator((data: { worktree: string }) => ({ worktree: text(data.worktree, 'worktree') }))
+  .handler(async ({ data }) => (await access(data.worktree)).source.fetched());
+
 /**
  * Kopiert eine Datei aus dem Vergleich in den Worktree eines anderen Tabs, an dieselbe Stelle.
  * Gelesen wird sie im Commit `revision`, mit `LOCAL` im Worktree. Im Ziel muss der Branch des Tabs

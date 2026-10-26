@@ -53,7 +53,8 @@ const DIFF = [
 
 /**
  * Ein echtes Repo als Quelle, gelesen über Git im Verzeichnis eines Worktrees. Git ändert dabei
- * nichts am Repo, außer bei `commit` und `push`; `write` schreibt eine Datei in den Worktree.
+ * nichts am Repo, außer bei `commit`, `push` und `fetch`; `write` schreibt eine Datei in den
+ * Worktree.
  */
 export function gitSource(worktree: string): RepoSource {
   const git = (...args: string[]) => runGit(worktree, args);
@@ -82,10 +83,7 @@ export function gitSource(worktree: string): RepoSource {
     },
     state: async (local) => (await stateOf(git, worktree, local)).state,
     worktrees: () => worktreesOf(git),
-    branches: async () =>
-      lines(await git('for-each-ref', `--format=%(refname)${FIELD}%(objectname)`, 'refs/heads', 'refs/remotes')).flatMap(
-        refOf,
-      ),
+    branches: () => refsOf(git),
     commit: async (branch, message, paths) => {
       await checkedOutIs(worktree, branch);
       if (message.trim() === '') {
@@ -112,6 +110,15 @@ export function gitSource(worktree: string): RepoSource {
       // Ohne Terminal kann Git nicht nach einem Passwort fragen und bricht sonst nicht ab.
       await plain(runGit(worktree, ['push', '--quiet', ...lease, ...target], { GIT_TERMINAL_PROMPT: '0' }));
     },
+    fetch: async (remote) => {
+      // Ein Name mit `-` vorn wäre für Git eine Option.
+      if (remote?.startsWith('-') === true) {
+        throw new Error(`Einen Remote '${remote}' gibt es nicht.`);
+      }
+      const which = remote === null ? ['--all'] : [remote];
+      await plain(runGit(worktree, ['fetch', '--quiet', '--prune', ...which], { GIT_TERMINAL_PROMPT: '0' }));
+    },
+    fetched: () => fetchedAt(git),
     content: async (revision, path) =>
       revision === LOCAL
         ? readFile(inWorktree(worktree, path))
@@ -186,8 +193,7 @@ async function load(git: Git, worktree: string, wanted: string | null, options: 
   // bei der nächsten Abfrage auf. Ohne einen Branch, den es gibt, gilt der ausgecheckte.
   const local = where.checkedOut !== null && (wanted === null || wanted === where.checkedOut);
   const { state, changes } = await stateOf(git, worktree, local);
-  const refs = await git('for-each-ref', `--format=%(refname)${FIELD}%(objectname)`, 'refs/heads', 'refs/remotes');
-  const allRefs = lines(refs).flatMap(refOf);
+  const allRefs = await refsOf(git);
   const found =
     allRefs.find((ref) => ref.kind === 'local' && ref.name === wanted) ??
     allRefs.find((ref) => ref.kind === 'remote' && ref.name === wanted);
@@ -309,15 +315,73 @@ function commitOf(line: string): Commit {
   };
 }
 
-/** Ein Branch aus `for-each-ref`; der Zeiger `HEAD` eines Remotes ist keiner. */
+/**
+ * Die lokalen Branches und die der Remotes. Ein lokaler Branch mit Upstream kennt den Abstand dazu.
+ * Ohne Upstream gilt der gleichnamige Branch von `origin`, falls es ihn gibt.
+ */
+async function refsOf(git: Git): Promise<Ref[]> {
+  const output = await git(
+    'for-each-ref',
+    `--format=%(refname)${FIELD}%(objectname)${FIELD}%(upstream:short)${FIELD}%(upstream:track,nobracket)`,
+    'refs/heads',
+    'refs/remotes',
+  );
+  const refs = lines(output).flatMap(refOf);
+  const remotes = new Set(refs.filter((ref) => ref.kind === 'remote').map((ref) => ref.name));
+  return Promise.all(
+    refs.map(async (ref) => {
+      const remote = `origin/${ref.name}`;
+      if (ref.kind === 'remote' || ref.tracking !== undefined || !remotes.has(remote)) {
+        return ref;
+      }
+      const counts = await git('rev-list', '--left-right', '--count', `refs/heads/${ref.name}...refs/remotes/${remote}`);
+      const [ahead = 0, behind = 0] = counts.trim().split(/\s+/).map(Number);
+      return { ...ref, tracking: { remote, assumed: true, ahead, behind } };
+    }),
+  );
+}
+
+/**
+ * Ein Branch aus `for-each-ref`; der Zeiger `HEAD` eines Remotes ist keiner. Ein Upstream, den es
+ * auf dem Remote nicht mehr gibt, zählt wie keiner.
+ */
 function refOf(line: string): Ref[] {
-  const [name = '', sha = ''] = line.split(FIELD);
+  const [name = '', sha = '', upstream = '', track = ''] = line.split(FIELD);
   if (name.endsWith('/HEAD')) {
     return [];
   }
-  return name.startsWith('refs/heads/')
-    ? [{ name: name.slice('refs/heads/'.length), kind: 'local', sha }]
-    : [{ name: name.slice('refs/remotes/'.length), kind: 'remote', sha }];
+  if (name.startsWith('refs/remotes/')) {
+    return [{ name: name.slice('refs/remotes/'.length), kind: 'remote', sha }];
+  }
+  const ref: Ref = { name: name.slice('refs/heads/'.length), kind: 'local', sha };
+  if (upstream === '' || track === 'gone') {
+    return [ref];
+  }
+  // Git nennt den Abstand als `ahead 2, behind 1`, ohne Abstand gar nicht.
+  const count = (word: string) => Number(new RegExp(`${word} (\\d+)`).exec(track)?.[1] ?? 0);
+  return [{ ...ref, tracking: { remote: upstream, assumed: false, ahead: count('ahead'), behind: count('behind') } }];
+}
+
+/**
+ * Der Zeitpunkt des letzten Fetch in Millisekunden, abgelesen an `FETCH_HEAD`; `null`, wenn noch
+ * keiner lief. Ein Worktree hat ein eigenes `FETCH_HEAD`, deshalb zählt auch das des Repos, in das
+ * etwa Fork holt.
+ */
+async function fetchedAt(git: Git): Promise<number | null> {
+  const [own, common] = await Promise.all([
+    git('rev-parse', '--path-format=absolute', '--git-path', 'FETCH_HEAD'),
+    git('rev-parse', '--path-format=absolute', '--git-common-dir'),
+  ]);
+  const times = await Promise.all(
+    [own.trim(), join(common.trim(), 'FETCH_HEAD')].map((path) =>
+      stat(path).then(
+        (found) => found.mtimeMs,
+        () => null,
+      ),
+    ),
+  );
+  const found = times.filter((time) => time !== null);
+  return found.length === 0 ? null : Math.max(...found);
 }
 
 /**

@@ -127,6 +127,8 @@ const SHOTS = [
     async (page) => {
       await whereMenu(page);
       await page.locator('.menu-toggle', { hasText: 'Remotes' }).click();
+      // Der Ordner backup von origin, unter dem lokalen gleichen Namens
+      await page.locator('.menu-toggle', { hasText: 'backup' }).last().click();
     },
   ],
   [
@@ -184,7 +186,7 @@ const SHOTS = [
       await page.getByRole('button', { name: 'live_coding in neuem Tab öffnen' }).click();
       await page.locator('.tab[aria-selected="true"]', { hasText: 'live_coding' }).waitFor();
       await whereMenu(page);
-      await page.locator('.menu-toggle', { hasText: 'backup' }).click();
+      await page.locator('.menu-toggle', { hasText: 'backup' }).first().click();
       await branchItem(page, 'schritte').first().hover();
       await page.getByRole('button', { name: 'Tab von schritte schließen' }).first().hover();
       await page.waitForTimeout(700);

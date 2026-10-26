@@ -1,13 +1,14 @@
+import { useRouter } from '@tanstack/react-router';
 import { Fragment, useContext, useEffect, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import { LOCAL_GROUP, REMOTES_GROUP, hiddenBy, refPath, remoteGroup, remoteOf } from '../git/hidden';
 import type { Hidden } from '../git/hidden';
 import type { Ref, RepoInfo, Worktree } from '../git/types';
-import { listRepos, listViews, openRepo, saveExcluded } from '../server/repo.functions';
+import { fetchRemote, lastFetch, listRepos, listViews, openRepo, saveExcluded } from '../server/repo.functions';
 import type { ProjectChoice, RepoChoice } from '../server/repo.functions';
 import type { SavedView, Tab, ViewSearch } from '../server/store';
-import { BranchIcon, ChevronIcon, CloseIcon, CloudIcon, EyeIcon, FolderIcon, SearchIcon } from './Icons';
-import { Menu, MenuDivider, MenuItem, MenuNote, MenuSection, MenuWhere, NewTabButton } from './Menu';
+import { BranchIcon, ChevronIcon, CloseIcon, CloudIcon, EyeIcon, FetchIcon, FolderIcon, SearchIcon } from './Icons';
+import { Menu, MenuDivider, MenuItem, MenuNote, MenuSection, MenuWhere, NewTabButton, TrackingBadge } from './Menu';
 import { CloseButton, sameTab, TabsContext } from './Tabs';
 
 /** Wechselt zu einer Ansicht; fehlende Teile ergänzt der Server. */
@@ -608,11 +609,12 @@ export function WhereMenu({
 
 /**
  * Oben die Worktrees, falls es mehr als einen gibt, darunter die lokalen Branches und die Remotes
- * eingeklappt und nach Remote gruppiert. Lokale Branches mit `/` im Namen stehen wie in Fork
+ * eingeklappt und nach Remote gruppiert. Branches mit `/` im Namen stehen lokal wie beim Remote
  * eingeklappt in einem Ordner. Ein Worktree bringt seinen ausgecheckten Branch mit, ein Branch
  * ändert nur die Commit-Liste im aktuellen Worktree. Jede Zeile öffnet ihre Ansicht auch in einem
  * neuen Tab. Neben jedem Branch und jeder Gruppe blendet ein Auge die Badges in der Commit-Liste
- * aus und wieder ein.
+ * aus und wieder ein. Ein lokaler Branch nennt seinen Abstand zum Remote. Der Pfeil im Kreis neben
+ * „Remotes" holt alle Remotes, der neben einem Remote nur dieses.
  */
 function WhereList({
   info,
@@ -633,13 +635,60 @@ function WhereList({
   const remoteNames = [...new Set(remotes.map(remoteOf))];
   const [remotesOpen, setRemotesOpen] = useState(remotes.some((ref) => ref.name === info.branch));
   const locals = refs.filter((ref) => ref.kind === 'local');
-  const folders = [...new Set(locals.flatMap((ref) => (ref.name.includes('/') ? [folderOf(ref.name)] : [])))].sort();
   // Ein Ordner ist anfangs nur offen, wenn der gezeigte Branch darin liegt.
   const [openFolders, setOpenFolders] = useState(() =>
-    folders.filter((folder) => info.branch?.startsWith(`${folder}/`) === true),
+    refs.flatMap((ref) => {
+      const inner = ref.kind === 'local' ? ref.name : ref.name.slice(remoteOf(ref).length + 1);
+      return ref.name === info.branch && inner.includes('/')
+        ? [`${refPath(ref).slice(0, -inner.length)}${folderOf(inner)}/`]
+        : [];
+    }),
   );
   const tabs = useContext(TabsContext);
   const [error, choose] = useChoice(close);
+  const router = useRouter();
+  // Eingepackt, weil `null` hier „noch nie geholt" heißt und nicht „noch nicht geladen".
+  const loadedFetch = useLoaded(async () => ({ time: await lastFetch({ data: { worktree: info.worktreePath } }) }));
+  // Der Remote, der gerade geholt wird, `ALL_REMOTES` für alle; danach gilt der eigene Zeitpunkt.
+  const [fetching, setFetching] = useState<string | null>(null);
+  const [fetchedNow, setFetchedNow] = useState<number | null>(null);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const fetched = fetchedNow ?? loadedFetch.data?.time;
+  const fetchButton = (remote: string | null) => {
+    const key = remote ?? ALL_REMOTES;
+    const name = remote ?? 'alle Remotes';
+    return (
+      <button
+        type="button"
+        className={`menu-action menu-fetch${fetching === key ? ' menu-fetch-running' : ''}`}
+        aria-label={`${name} holen`}
+        aria-busy={fetching === key}
+        data-tip={remote === null ? 'Alle Remotes holen (fetch --prune)' : `${remote} holen (fetch --prune)`}
+        onClick={() => {
+          if (fetching !== null) {
+            return;
+          }
+          setFetching(key);
+          setFetchError(null);
+          fetchRemote({ data: { worktree: info.worktreePath, remote } })
+            .then(
+              () => {
+                setFetchedNow(Date.now());
+                return router.invalidate();
+              },
+              (failure: unknown) => {
+                setFetchError(messageOf(failure));
+              },
+            )
+            .finally(() => {
+              setFetching(null);
+            });
+        }}
+      >
+        <FetchIcon />
+      </button>
+    );
+  };
   // Ist die Ansicht in einem Tab offen, holt der Knopf diesen Tab nach vorn, und daneben steht sein
   // Schließen-Kreuz; sonst steht dort ein Platzhalter, damit die Knöpfe untereinander stehen. Der
   // letzte Tab lässt sich nicht schließen.
@@ -697,6 +746,7 @@ function WhereList({
         <MenuItem
           main={main}
           sub={sub}
+          aside={ref?.tracking === undefined ? undefined : <TrackingBadge tracking={ref.tracking} />}
           current={name === (info.branch ?? '')}
           newTab={target}
           onChoose={() => {
@@ -706,6 +756,41 @@ function WhereList({
         {tabButton(inTab, main, open)}
         {path !== null ? eye(path, name) : <span className="menu-eye-spacer" />}
       </div>
+    );
+  };
+  // Branches mit `/` im Namen hinter `prefix` stehen wie in Fork eingeklappt in einem Ordner, die
+  // übrigen darunter. Ein Ordner blendet sich mit seinem Auge als Gruppe unter `group` aus.
+  const grouped = (list: Ref[], prefix: string, group: string, sub?: (ref: Ref) => string | undefined) => {
+    const innerOf = (ref: Ref) => ref.name.slice(prefix.length);
+    const folders = [...new Set(list.flatMap((ref) => (innerOf(ref).includes('/') ? [folderOf(innerOf(ref))] : [])))].sort();
+    return (
+      <>
+        {folders.map((folder) => {
+          const inFolder = list.filter((ref) => innerOf(ref).includes('/') && folderOf(innerOf(ref)) === folder);
+          const path = `${group}${folder}/`;
+          const open = openFolders.includes(path);
+          return (
+            <Fragment key={path}>
+              <div className={`menu-row${hiddenBy(hidden, path) !== null ? ' menu-row-hidden' : ''}`}>
+                <Toggle
+                  name={folder}
+                  open={open}
+                  onToggle={() => {
+                    setOpenFolders(open ? openFolders.filter((other) => other !== path) : [...openFolders, path]);
+                  }}
+                />
+                {eye(path, `alle Branches in ${prefix}${folder}`)}
+              </div>
+              {open && (
+                <div className="menu-children">
+                  {inFolder.map((ref) => branch(ref, innerOf(ref).slice(folder.length + 1), sub?.(ref)))}
+                </div>
+              )}
+            </Fragment>
+          );
+        })}
+        {list.filter((ref) => !innerOf(ref).includes('/')).map((ref) => branch(ref, innerOf(ref), sub?.(ref)))}
+      </>
     );
   };
   return (
@@ -739,47 +824,19 @@ function WhereList({
         {eye(LOCAL_GROUP, 'alle lokalen Branches')}
       </div>
       {info.checkedOut === null && branch(null, 'HEAD ohne Branch', 'ausgecheckt')}
-      {folders.map((folder) => {
-        const inFolder = locals.filter((ref) => ref.name.includes('/') && folderOf(ref.name) === folder);
-        const open = openFolders.includes(folder);
-        const group = `${LOCAL_GROUP}${folder}/`;
-        return (
-          <Fragment key={`${folder}/`}>
-            <div className={`menu-row${hiddenBy(hidden, group) !== null ? ' menu-row-hidden' : ''}`}>
-              <Toggle
-                name={folder}
-                count={inFolder.length}
-                open={open}
-                onToggle={() => {
-                  setOpenFolders(open ? openFolders.filter((other) => other !== folder) : [...openFolders, folder]);
-                }}
-              />
-              {eye(group, `alle Branches in ${folder}`)}
-            </div>
-            {open && (
-              <div className="menu-children">
-                {inFolder.map((ref) =>
-                  branch(ref, ref.name.slice(folder.length + 1), ref.name === info.checkedOut ? 'ausgecheckt' : undefined),
-                )}
-              </div>
-            )}
-          </Fragment>
-        );
-      })}
-      {locals
-        .filter((ref) => !ref.name.includes('/'))
-        .map((ref) => branch(ref, ref.name, ref.name === info.checkedOut ? 'ausgecheckt' : undefined))}
+      {grouped(locals, '', LOCAL_GROUP, (ref) => (ref.name === info.checkedOut ? 'ausgecheckt' : undefined))}
       {remotes.length > 0 && <div className="menu-rule" />}
       {remotes.length > 0 && (
         <div className={`menu-row${hiddenBy(hidden, REMOTES_GROUP) !== null ? ' menu-row-hidden' : ''}`}>
           <Toggle
             name="Remotes"
-            count={remotes.length}
+            sub={loadedFetch.error === null ? fetchedText(fetched) : undefined}
             open={remotesOpen}
             onToggle={() => {
               setRemotesOpen(!remotesOpen);
             }}
           />
+          {fetchButton(null)}
           {eye(REMOTES_GROUP, 'alle Remotes')}
         </div>
       )}
@@ -792,20 +849,50 @@ function WhereList({
               >
                 <CloudIcon />
                 <span className="menu-main">{remote}</span>
+                <span className="menu-actions">{fetchButton(remote)}</span>
                 {eye(remoteGroup(remote), `alle Branches von ${remote}`)}
               </div>
               <div className="menu-children">
-                {remotes
-                  .filter((ref) => remoteOf(ref) === remote)
-                  .map((ref) => branch(ref, ref.name.slice(remote.length + 1)))}
+                {grouped(
+                  remotes.filter((ref) => remoteOf(ref) === remote),
+                  `${remote}/`,
+                  remoteGroup(remote),
+                )}
               </div>
             </Fragment>
           ))}
         </div>
       )}
+      {fetchError !== null && <MenuNote error>{fetchError}</MenuNote>}
       {error !== null && <MenuNote error>{error}</MenuNote>}
     </div>
   );
+}
+
+/** Die Kennung für den Fetch aller Remotes; ein Remote kann nicht leer heißen. */
+const ALL_REMOTES = '';
+
+const FETCH_DATE = new Intl.DateTimeFormat('de-DE', { dateStyle: 'medium' });
+
+/** Wann zuletzt geholt wurde, grob wie in Fork. */
+function fetchedText(time: number | null | undefined): string | undefined {
+  if (time === undefined) {
+    return undefined;
+  }
+  if (time === null) {
+    return 'Noch nie geholt';
+  }
+  const minutes = Math.floor((Date.now() - time) / 60_000);
+  if (minutes < 1) {
+    return 'Gerade geholt';
+  }
+  if (minutes < 60) {
+    return `Geholt vor ${String(minutes)} Min.`;
+  }
+  if (minutes < 24 * 60) {
+    return `Geholt vor ${String(Math.floor(minutes / 60))} Std.`;
+  }
+  return `Geholt am ${FETCH_DATE.format(time)}`;
 }
 
 /** Der Ordner eines lokalen Branches, `backup` für `backup/2026-10-11_interaktion`. */
@@ -813,8 +900,25 @@ function folderOf(name: string): string {
   return name.slice(0, name.indexOf('/'));
 }
 
-/** Eine Zeile, die eine Gruppe von Branches auf- und zuklappt, mit der Zahl der Branches darin. */
-function Toggle({ name, count, open, onToggle }: { name: string; count: number; open: boolean; onToggle: () => void }) {
+/**
+ * Eine Zeile, die eine Gruppe auf- und zuklappt, auf Wunsch mit der Zahl der Einträge darin. Im
+ * Branch-Menü steht keine Zahl, weil sie sich dort mit der Zahl ungepushter Commits verwechseln
+ * ließe.
+ */
+function Toggle({
+  name,
+  sub,
+  count,
+  open,
+  onToggle,
+}: {
+  name: string;
+  /** Eine zweite Zeile unter dem Namen, etwa wann zuletzt geholt wurde. */
+  sub?: string;
+  count?: number;
+  open: boolean;
+  onToggle: () => void;
+}) {
   return (
     <button type="button" className="menu-item menu-toggle" aria-expanded={open} onClick={onToggle}>
       <span className="menu-check" aria-hidden="true">
@@ -822,8 +926,9 @@ function Toggle({ name, count, open, onToggle }: { name: string; count: number; 
       </span>
       <span className="menu-text">
         <span className="menu-main">{name}</span>
+        {sub !== undefined && <span className="menu-sub">{sub}</span>}
       </span>
-      <span className="menu-count">{count}</span>
+      {count !== undefined && <span className="menu-count">{count}</span>}
     </button>
   );
 }
@@ -882,5 +987,6 @@ function groupName(group: string): string {
   if (group.startsWith(LOCAL_GROUP)) {
     return `allen Branches in ${group.slice(LOCAL_GROUP.length, -1)}`;
   }
-  return `allen Branches von ${group.slice(REMOTES_GROUP.length, -1)}`;
+  const remote = group.slice(REMOTES_GROUP.length, -1);
+  return remote.includes('/') ? `allen Branches in ${remote}` : `allen Branches von ${remote}`;
 }

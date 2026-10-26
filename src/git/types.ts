@@ -42,6 +42,20 @@ export interface Ref {
   name: string;
   kind: 'local' | 'remote';
   sha: string;
+  /** Wie ein lokaler Branch zu seinem Branch auf dem Remote steht; fehlt, wenn er keinen hat. */
+  tracking?: Tracking;
+}
+
+/** Die Commits, die ein lokaler Branch dem Branch auf dem Remote voraus ist und umgekehrt. */
+export interface Tracking {
+  /** Der Branch auf dem Remote, etwa `origin/schritte`. */
+  remote: string;
+  /** Ob kein Upstream eingerichtet ist und deshalb der gleichnamige Branch von `origin` gilt. */
+  assumed: boolean;
+  /** Die Commits, die nur der lokale Branch hat. */
+  ahead: number;
+  /** Die Commits, die nur der Branch auf dem Remote hat. */
+  behind: number;
 }
 
 export type DiffLineKind = 'context' | 'added' | 'removed';

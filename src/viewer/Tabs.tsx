@@ -1,9 +1,10 @@
 import { createContext } from 'react';
 import type { ReactNode } from 'react';
+import type { Tracking } from '../git/types';
 import type { Tab, ViewSearch } from '../server/store';
 import { CopyButton, HoverTools } from './HoverTools';
 import { BranchIcon, CloseIcon } from './Icons';
-import { Menu, MenuItem, MenuWhere } from './Menu';
+import { Menu, MenuItem, MenuWhere, TrackingBadge } from './Menu';
 
 /** Die offenen Tabs und das Öffnen neuer, für die Einträge der Menüs. */
 export interface TabActions {
@@ -58,6 +59,8 @@ export function whereInMenu(tab: Tab): ReactNode {
 interface TabBarProps {
   tabs: Tab[];
   current: Tab;
+  /** Der Abstand des Branches im aktiven Tab zum Remote, falls es ein lokaler mit Gegenstück ist. */
+  tracking?: Tracking;
   onChoose: (tab: Tab) => void;
   onClose: (tab: Tab) => void;
 }
@@ -67,10 +70,10 @@ interface TabBarProps {
  * über der Kopfzeile, weil der Tab bestimmt, was darunter steht. Jeder Tab ist eine Ansicht; die Tabs teilen sich die Breite und
  * sind gleich breit, ob aktiv oder nicht. Sind es mehr als `SHOWN_TABS`, stehen die übrigen im
  * Menü rechts. Mit nur einem Tab fehlt das Schließen. Über einem Tab erscheint ein Knopf, der den
- * Pfad des Worktrees kopiert. Die Tabs zeigen nur, was offen ist; gewechselt wird über die Knöpfe
+ * Pfad des Worktrees kopiert. Der aktive Tab nennt den Abstand seines Branches zum Remote. Die Tabs zeigen nur, was offen ist; gewechselt wird über die Knöpfe
  * der Kopfzeile.
  */
-export function TabBar({ tabs, current, onChoose, onClose }: TabBarProps) {
+export function TabBar({ tabs, current, tracking, onChoose, onClose }: TabBarProps) {
   const rest = tabs.slice(SHOWN_TABS);
   return (
     <nav className="tabs" role="tablist" aria-label="Tabs">
@@ -90,6 +93,7 @@ export function TabBar({ tabs, current, onChoose, onClose }: TabBarProps) {
             >
               <span className="tab-repo">{tab.repo}</span>
               <span className="tab-where">· {whereOf(tab)}</span>
+              {active && <TrackingBadge tracking={tracking} />}
             </button>
             <HoverTools>
               <CopyButton text={tab.worktree} tip="Pfad kopieren" />

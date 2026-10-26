@@ -27,9 +27,9 @@ function environment(date: string): Record<string, string> {
 /**
  * Baut die Testdaten als echtes Repo auf und liefert den Pfad des Worktrees mit dem Branch der
  * Commits. Daneben liegt das Repo selbst, mit dem Branch des Live-Codings und lokalen Änderungen,
- * wie bei einem Workshop mit Worktrees. Sein `origin` ist ein leeres Repo im selben Verzeichnis, damit
- * sich der Push ausprobieren lässt. Geschrieben wird dabei nur im eigenen Verzeichnis unter
- * `tmpdir()`.
+ * wie bei einem Workshop mit Worktrees. Sein `origin` ist ein Repo im selben Verzeichnis mit den
+ * Branches von `origin`, damit sich Push und Fetch ausprobieren lassen. Geschrieben wird dabei nur
+ * im eigenen Verzeichnis unter `tmpdir()`.
  */
 export async function buildDemoRepo(repo: MemoryRepo): Promise<string> {
   const main = join(DEMO_BASE, repo.info.repo);
@@ -72,21 +72,28 @@ export async function buildDemoRepo(repo: MemoryRepo): Promise<string> {
     }
   }
 
+  // Die Branches von `origin` liegen auch im Repo dahinter, damit ein Fetch sie nicht entfernt.
+  const origin = join(DEMO_BASE, 'origin.git');
+  await mkdir(origin);
+  await runGit(origin, ['init', '--quiet', '--bare'], environment(repo.commits[0]?.date ?? ''));
+  await git(['remote', 'add', 'origin', origin]);
   for (const ref of repo.refs) {
     const sha = shas.get(ref.sha);
     if (sha === undefined) {
       throw new Error(`Der Branch '${ref.name}' zeigt auf einen Commit, den es nicht gibt.`);
     }
     if (ref.kind === 'remote') {
+      if (ref.name.startsWith('origin/')) {
+        await git(['push', '--quiet', 'origin', `${sha}:refs/heads/${ref.name.slice('origin/'.length)}`]);
+      }
       await git(['update-ref', `refs/remotes/${ref.name}`, sha]);
     } else if (ref.name !== repo.info.branch) {
       await git(['branch', ref.name, sha]);
     }
   }
-  const origin = join(DEMO_BASE, 'origin.git');
-  await mkdir(origin);
-  await runGit(origin, ['init', '--quiet', '--bare'], environment(repo.commits[0]?.date ?? ''));
-  await git(['remote', 'add', 'origin', origin]);
+  for (const name of repo.upstreams) {
+    await git(['branch', '--quiet', `--set-upstream-to=origin/${name}`, name]);
+  }
   await git(['switch', '--quiet', repo.checkedOut]);
   await git(['worktree', 'add', '--quiet', worktree, repo.info.branch]);
   await write(repo.local);
