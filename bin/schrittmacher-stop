@@ -1,0 +1,36 @@
+#!/bin/sh
+# Beendet den Server von Schrittmacher, egal ob ihn `schrittmacher-start` oder `pnpm dev…` gestartet
+# hat. Beendet wird nur ein Vite-Prozess auf dem Port, damit nichts Fremdes getroffen wird.
+#
+#   SCHRITTMACHER_URL  der Server, sonst http://127.0.0.1:5310; daraus stammt der Port
+set -eu
+
+url="${SCHRITTMACHER_URL:-http://127.0.0.1:5310}"
+port="$(printf '%s\n' "$url" | sed -E 's#^[a-z]+://[^/:]+:([0-9]+).*$#\1#')"
+
+pids="$(lsof -ti "tcp:$port" -sTCP:LISTEN || true)"
+if [ -z "$pids" ]; then
+  echo "schrittmacher: Auf Port $port läuft kein Server."
+  exit 0
+fi
+
+for pid in $pids; do
+  if ps -o command= -p "$pid" | grep -q vite; then
+    # Mit dem Vite-Prozess endet auch das pnpm darüber.
+    kill "$pid"
+  else
+    echo "schrittmacher: Auf Port $port läuft kein Vite, sondern: $(ps -o command= -p "$pid")" >&2
+    exit 1
+  fi
+done
+
+waited=0
+while lsof -ti "tcp:$port" -sTCP:LISTEN >/dev/null; do
+  if [ "$waited" -ge 20 ]; then
+    echo "schrittmacher: Der Server auf Port $port läuft nach 10 Sekunden noch." >&2
+    exit 1
+  fi
+  sleep 0.5
+  waited=$((waited + 1))
+done
+echo "schrittmacher: Server auf Port $port beendet."

@@ -1,0 +1,37 @@
+#!/bin/sh
+# Startet den Server von Schrittmacher mit den echten Repos (`pnpm dev:echt`), falls er noch nicht
+# läuft, und holt danach die Web-App nach vorn. Läuft er schon, kommt nur die Web-App nach vorn.
+# Der Server läuft im Hintergrund weiter, auch wenn das Terminal geschlossen wird.
+#
+#   SCHRITTMACHER_URL  der Server, sonst http://127.0.0.1:5310
+#   SCHRITTMACHER_APP  die Web-App, sonst Schrittmacher; leer, um sie nicht zu öffnen
+#   SCHRITTMACHER_LOG  die Ausgabe des Servers, sonst $TMPDIR/schrittmacher-server.log
+set -eu
+
+url="${SCHRITTMACHER_URL:-http://127.0.0.1:5310}"
+app="${SCHRITTMACHER_APP-Schrittmacher}"
+log="${SCHRITTMACHER_LOG:-${TMPDIR:-/tmp}/schrittmacher-server.log}"
+# Das Skript liegt als Link in ~/.local/bin; das Projekt ist der Ordner über dem echten bin/.
+project="$(cd "$(dirname "$(realpath "$0")")/.." && pwd -P)"
+
+# Jede Antwort zählt, auch ein Fehlerstatus; nur ohne Verbindung läuft der Server nicht.
+running() {
+  curl -s -o /dev/null --max-time 2 "$url/"
+}
+
+if ! running; then
+  echo "schrittmacher: Server startet, Ausgabe in $log"
+  (cd "$project" && nohup pnpm dev:echt </dev/null >"$log" 2>&1 &)
+  waited=0
+  until running; do
+    if [ "$waited" -ge 60 ]; then
+      echo "schrittmacher: Der Server antwortet nach 30 Sekunden nicht unter $url, siehe $log" >&2
+      exit 1
+    fi
+    sleep 0.5
+    waited=$((waited + 1))
+  done
+fi
+if [ -n "$app" ]; then
+  open -a "$app"
+fi
