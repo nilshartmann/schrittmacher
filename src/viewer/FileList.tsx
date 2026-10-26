@@ -1,9 +1,11 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { KeyboardEvent, PointerEvent, ReactNode } from 'react';
 import type { DiffFile } from '../git/types';
-import { CopyToButton, HoverTools } from './HoverTools';
+import { HoverTools, MenuToolButton } from './HoverTools';
 import { NoteIcon } from './Icons';
 import type { CopyTarget } from './HoverTools';
+import { OpenInMenu } from './OpenInMenu';
+import type { MenuCopyTo } from './OpenInMenu';
 
 function nameOf(path: string): string {
   return path.slice(path.lastIndexOf('/') + 1);
@@ -32,6 +34,11 @@ function PathText({ path }: { path: string }) {
   );
 }
 
+/** Das Kopieren nach `copyTo` für eine Datei, wie es das Menü braucht. */
+function copyToFor(copyTo: CopyTo, path: string): MenuCopyTo {
+  return { load: copyTo.load, onCopy: (target) => copyTo.onCopy(path, target) };
+}
+
 /** Die Grenzen der Breite der Dateiliste in Pixeln; der Rest bleibt mindestens für den Diff. */
 export const FILES_WIDTH = { min: 140, start: 300, restMin: 400 };
 
@@ -52,10 +59,13 @@ export interface CopyTo {
  * Datei steht mit ihrem ganzen Pfad da; wird es eng, kürzt er vorn, damit der Dateiname bleibt.
  * Hat die Liste den Fokus, wählen ↑ und ↓ die Datei darüber oder darunter. Mit `selection` hat
  * jede Datei einen Haken, darüber stehen Knöpfe für alle und keine, und die Leertaste schaltet den
- * Haken der gewählten Datei um. Mit `copyTo` erscheint über jeder Datei, die es nachher gibt, ein
- * Knopf, der sie in einen anderen Tab kopiert. Unter der Liste steht `footer`.
+ * Haken der gewählten Datei um. Über jeder Datei erscheint ein Knopf mit einem Menü, das ihren
+ * Ordner in `worktree` in einem anderen Programm öffnet oder ihren Pfad kopiert; ein Rechtsklick
+ * öffnet dasselbe Menü. Mit `copyTo` kopiert es eine Datei, die es nachher gibt, in einen anderen
+ * Tab. Unter der Liste steht `footer`.
  */
 export function FileList({
+  worktree,
   files,
   current,
   onChoose,
@@ -65,6 +75,7 @@ export function FileList({
   copyTo,
   footer,
 }: {
+  worktree: string;
   files: DiffFile[];
   current: string;
   onChoose: (path: string) => void;
@@ -75,6 +86,10 @@ export function FileList({
   footer?: ReactNode;
 }) {
   const list = useRef<HTMLElement>(null);
+  const [context, setContext] = useState<{ file: DiffFile; at: { x: number; y: number } } | null>(null);
+  const closeContext = useCallback(() => {
+    setContext(null);
+  }, []);
   useEffect(() => {
     list.current?.querySelector('[aria-current="true"]')?.scrollIntoView({ block: 'nearest' });
   }, [current]);
@@ -139,7 +154,14 @@ export function FileList({
     <nav ref={list} className="file-list" aria-label="Dateien" tabIndex={0} onKeyDown={onKeyDown}>
       <ol>
         {files.map((file) => (
-          <li key={file.path} className="hover-tools-host">
+          <li
+            key={file.path}
+            className="hover-tools-host"
+            onContextMenu={(event) => {
+              event.preventDefault();
+              setContext({ file, at: { x: event.clientX, y: event.clientY } });
+            }}
+          >
             {selection !== undefined && (
               <input
                 type="checkbox"
@@ -163,19 +185,29 @@ export function FileList({
               <span className={`file-kind file-kind-${file.kind}`}>{KIND_SIGN[file.kind]}</span>
               <PathText path={file.path} />
             </button>
-            {copyTo !== undefined && file.kind !== 'deleted' && (
-              <HoverTools>
-                <CopyToButton
-                  load={copyTo.load}
-                  tip="Kopieren nach …"
-                  onCopy={(target) => copyTo.onCopy(file.path, target)}
-                />
-              </HoverTools>
-            )}
+            <HoverTools>
+              <MenuToolButton
+                tip="Aktionen"
+                expanded={context?.file.path === file.path}
+                onOpen={(at) => {
+                  setContext({ file, at });
+                }}
+              />
+            </HoverTools>
           </li>
         ))}
       </ol>
     </nav>
+    {context !== null && (
+      <OpenInMenu
+        worktree={worktree}
+        path={context.file.path}
+        at={context.at}
+        copies={[{ label: 'Vollen Pfad kopieren', text: `${worktree}/${context.file.path}` }]}
+        copyTo={copyTo === undefined || context.file.kind === 'deleted' ? undefined : copyToFor(copyTo, context.file.path)}
+        onClose={closeContext}
+      />
+    )}
     {footer}
     </div>
     <WidthSplitter width={width} onWidth={onWidth} limits={FILES_WIDTH} label="Breite der Dateiliste" />

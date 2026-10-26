@@ -331,6 +331,27 @@ button.crumb:hover,
   left: auto;
 }
 
+/* Das Kontextmenü steht an der Stelle des Rechtsklicks, nicht unter einem Knopf. */
+.menu-context {
+  position: fixed;
+  z-index: 30;
+  width: max-content;
+  min-width: 220px;
+  padding: 6px;
+}
+
+/* Ein Kontextmenü hat nichts Gewähltes; an der Stelle des Hakens steht ein Symbol je Eintrag. */
+.menu-context .menu-check {
+  width: 22px;
+  margin-right: 2px;
+  color: var(--text-secondary);
+}
+
+/* Der Eintrag, dessen Untermenü offen ist, bleibt hervorgehoben. */
+.menu-context .menu-row-open {
+  background: var(--bg-hover);
+}
+
 /* Im Menü der Repos stehen Filterfeld und Fußzeile bis an den Rand. */
 .menu-panel-repos {
   width: min(400px, calc(100vw - 24px));
@@ -1196,12 +1217,15 @@ a.menu-item {
   list-style: none;
 }
 
-/* Die Zeilen mit Abstand zum Rand und runden Ecken wie in Fork. */
+/* Die Zeilen mit Abstand zum Rand und runden Ecken wie in Fork. Ohne Markierung, weil Safari sonst
+   beim Rechtsklick für das Kontextmenü das Wort unter der Maus markiert. */
 .file-list li {
   display: flex;
   align-items: center;
   gap: 4px;
   padding: 0 6px;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .file-check {
@@ -2066,6 +2090,9 @@ span.info-parent {
   border-right: 1px solid var(--line);
   color: var(--quiet);
   font-size: var(--size-small);
+  /* Sonst markiert Safari beim Rechtsklick für das Kontextmenü das Wort unter der Maus. */
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .tab:hover {

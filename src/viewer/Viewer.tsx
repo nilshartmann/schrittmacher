@@ -454,6 +454,7 @@ export function Viewer({ view, search, onSearch, onOpen, onShow, tabs }: ViewerP
       <main className="body">
         {settings.filesOpen && (
           <FileList
+            worktree={worktree}
             files={files ?? []}
             current={current?.file.path ?? ''}
             onChoose={(file) => {

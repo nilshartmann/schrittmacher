@@ -43,6 +43,28 @@ export function FolderIcon() {
   );
 }
 
+/** Ein Fenster mit Eingabeaufforderung: im Terminal öffnen. */
+export function TerminalIcon() {
+  return (
+    <Outline size={15}>
+      <rect x="1.75" y="2.75" width="12.5" height="10.5" rx="1.75" />
+      <path d="M4.5 6.5 6.5 8l-2 1.5M8 10h3" />
+    </Outline>
+  );
+}
+
+/** Ein Graph mit Abzweig wie in einem Git-Client: in Fork öffnen. */
+export function GitClientIcon() {
+  return (
+    <Outline size={15}>
+      <circle cx="4.5" cy="3.5" r="1.5" />
+      <circle cx="4.5" cy="12.5" r="1.5" />
+      <circle cx="11.5" cy="5.5" r="1.5" />
+      <path d="M4.5 5v6M11.5 7c0 2.5-4.5 2-6.5 4" />
+    </Outline>
+  );
+}
+
 /** Der Haken vor dem aktuellen Eintrag eines Menüs. */
 export function CheckMarkIcon() {
   return (

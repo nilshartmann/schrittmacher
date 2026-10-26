@@ -1,11 +1,7 @@
-import { Fragment, useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { createPortal } from 'react-dom';
 
-/** So lange zeigt ein Knopf zum Kopieren den Haken, in Millisekunden. */
-const COPIED_FOR = 1200;
-
-/** Die Breite des Menüs von `CopyToButton` und sein Abstand zum Rand des Fensters, in Pixeln. */
+/** Die Breite des Menüs von `CopyToMenu` und sein Abstand zum Rand des Fensters, in Pixeln. */
 const PANEL = { width: 360, margin: 12 };
 
 /**
@@ -17,44 +13,49 @@ export function HoverTools({ children }: { children: ReactNode }) {
   return <span className="hover-tools">{children}</span>;
 }
 
-/** Ein Knopf, der `text` in die Zwischenablage legt und danach kurz einen Haken zeigt. */
-export function CopyButton({ text, tip }: { text: string; tip: string }) {
-  const [copied, setCopied] = useState(false);
-  useEffect(() => {
-    if (!copied) {
-      return;
-    }
-    const timer = setTimeout(() => {
-      setCopied(false);
-    }, COPIED_FOR);
-    return () => {
-      clearTimeout(timer);
-    };
-  }, [copied]);
+/**
+ * Ein Knopf, der ein Menü darunter öffnet; `onOpen` bekommt die Stelle für das Menü. Ein zweiter
+ * Klick schließt es wieder. Solange es offen ist, bleibt die Leiste sichtbar.
+ */
+export function MenuToolButton({
+  tip,
+  expanded,
+  onOpen,
+}: {
+  tip: string;
+  expanded: boolean;
+  onOpen: (at: { x: number; y: number }) => void;
+}) {
+  // Ein Klick daneben schließt das Menü schon beim Drücken. War es da offen, schließt der Klick
+  // auf den Knopf es also und öffnet es nicht gleich wieder.
+  const wasOpen = useRef(false);
   return (
     <button
       type="button"
       className="hover-tool"
       aria-label={tip}
-      data-tip={copied ? 'Kopiert' : tip}
+      aria-haspopup="menu"
+      aria-expanded={expanded}
+      data-tip={expanded ? undefined : tip}
+      onPointerDown={() => {
+        wasOpen.current = expanded;
+      }}
       onClick={(event) => {
         event.stopPropagation();
-        navigator.clipboard.writeText(text).then(
-          () => {
-            setCopied(true);
-          },
-          (error: unknown) => {
-            console.error('Der Text ließ sich nicht kopieren.', error);
-          },
-        );
+        if (wasOpen.current) {
+          wasOpen.current = false;
+          return;
+        }
+        const box = event.currentTarget.getBoundingClientRect();
+        onOpen({ x: box.left, y: box.bottom + 4 });
       }}
     >
-      {copied ? <CheckIcon /> : <CopyIcon />}
+      <MoreIcon />
     </button>
   );
 }
 
-/** Ein Ziel für `CopyToButton`, mit Schlüssel und Beschriftung im Menü. */
+/** Ein Ziel für `CopyToMenu`, mit Schlüssel und Beschriftung im Menü. */
 export interface CopyTarget {
   key: string;
   /** Die Überschrift des Abschnitts, in dem das Ziel steht. */
@@ -65,147 +66,93 @@ export interface CopyTarget {
 }
 
 /**
- * Ein Knopf, der ein Menü mit Zielen öffnet; die Wahl eines Ziels ruft `onCopy`. Die Ziele lädt
- * `load` bei jedem Öffnen, in Abschnitten nach `section`. Das Menü steht
- * fest im Fenster und hängt an `body`, damit weder eine Liste mit eigenem Scrollen es abschneidet
- * noch das `transform` der Leiste es verschiebt. Solange es offen ist
- * oder kopiert wird, bleibt die Leiste sichtbar. Danach zeigt der Knopf kurz einen Haken, ein
- * Fehler steht im Menü.
+ * Das Untermenü mit den Zielen zum Kopieren, seitlich neben dem Eintrag `anchor`. Es steht rechts
+ * davon und weicht nach links aus, wenn rechts der Platz fehlt. Die Ziele lädt `load` beim Öffnen,
+ * in Abschnitten nach `section`; die Wahl eines Ziels ruft `onCopy`, danach `onDone`. Ein Fehler
+ * steht im Menü.
  */
-export function CopyToButton({
+export function CopyToMenu({
+  anchor,
+  label,
   load,
-  tip,
   onCopy,
+  onDone,
 }: {
+  anchor: { left: number; right: number; top: number };
+  label: string;
   load: () => Promise<CopyTarget[]>;
-  tip: string;
   onCopy: (key: string) => Promise<void>;
+  onDone: () => void;
 }) {
-  const [at, setAt] = useState<{ top: number; left: number } | null>(null);
   const [targets, setTargets] = useState<CopyTarget[] | null>(null);
-  const [state, setState] = useState<{ kind: 'running' | 'done' } | { kind: 'failed'; message: string } | null>(null);
-  const button = useRef<HTMLButtonElement>(null);
+  const [state, setState] = useState<{ kind: 'running' } | { kind: 'failed'; message: string } | null>(null);
   const panel = useRef<HTMLDivElement>(null);
-  const open = at !== null;
+  const [place, setPlace] = useState({ top: anchor.top, left: anchor.right });
+  // Geladen wird einmal beim Öffnen, auch wenn `load` bei jedem Rendern neu entsteht.
+  const loadOnce = useRef(load);
   useEffect(() => {
-    if (!open) {
+    loadOnce.current().then(setTargets, (error: unknown) => {
+      setTargets([]);
+      setState({ kind: 'failed', message: error instanceof Error ? error.message : String(error) });
+    });
+  }, []);
+  useLayoutEffect(() => {
+    const box = panel.current?.getBoundingClientRect();
+    if (box === undefined) {
       return;
     }
-    const onPointer = (event: PointerEvent) => {
-      const inside = [button.current, panel.current].some((part) => part?.contains(event.target as Node) === true);
-      if (!inside) {
-        setAt(null);
-      }
-    };
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setAt(null);
-      }
-    };
-    document.addEventListener('pointerdown', onPointer);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('pointerdown', onPointer);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [open]);
-  useEffect(() => {
-    if (state?.kind !== 'done') {
-      return;
-    }
-    const timer = setTimeout(() => {
-      setState(null);
-    }, COPIED_FOR);
-    return () => {
-      clearTimeout(timer);
-    };
-  }, [state]);
+    const fitsRight = anchor.right + box.width + PANEL.margin <= window.innerWidth;
+    setPlace({
+      left: fitsRight ? anchor.right : Math.max(PANEL.margin, anchor.left - box.width),
+      top: Math.max(PANEL.margin, Math.min(anchor.top, window.innerHeight - box.height - PANEL.margin)),
+    });
+  }, [anchor, targets]);
   const copy = (key: string) => {
     setState({ kind: 'running' });
-    onCopy(key).then(
-      () => {
-        setAt(null);
-        setState({ kind: 'done' });
-      },
-      (error: unknown) => {
-        setState({ kind: 'failed', message: error instanceof Error ? error.message : String(error) });
-      },
-    );
+    onCopy(key).then(onDone, (error: unknown) => {
+      setState({ kind: 'failed', message: error instanceof Error ? error.message : String(error) });
+    });
   };
   return (
-    <>
-      <button
-        ref={button}
-        type="button"
-        className="hover-tool"
-        aria-label={tip}
-        aria-expanded={open || state?.kind === 'running'}
-        data-tip={open ? undefined : state?.kind === 'done' ? 'Kopiert' : tip}
-        onClick={(event) => {
-          event.stopPropagation();
-          if (open) {
-            setAt(null);
-            return;
-          }
-          const box = event.currentTarget.getBoundingClientRect();
-          setAt({
-            top: box.bottom + 4,
-            left: Math.max(PANEL.margin, Math.min(box.left, window.innerWidth - PANEL.width - PANEL.margin)),
-          });
-          setState(null);
-          setTargets(null);
-          load().then(setTargets, (error: unknown) => {
-            setTargets([]);
-            setState({ kind: 'failed', message: error instanceof Error ? error.message : String(error) });
-          });
-        }}
-      >
-        {state?.kind === 'done' ? <CheckIcon /> : <CopyToIcon />}
-      </button>
-      {at !== null &&
-        createPortal(
-          <div
-            ref={panel}
-            className="menu-panel copy-to-panel"
-            role="menu"
-            aria-label={tip}
-            style={{ top: at.top, left: at.left, width: PANEL.width }}
+    <div
+      ref={panel}
+      className="menu-panel copy-to-panel"
+      role="menu"
+      aria-label={label}
+      style={{ top: place.top, left: place.left, width: PANEL.width }}
+    >
+      {targets === null && <p className="menu-note">Lädt …</p>}
+      {targets?.length === 0 && state?.kind !== 'failed' && (
+        <p className="menu-note">Es ist kein anderer Tab mit ausgechecktem Branch offen.</p>
+      )}
+      {targets?.map((target, index) => (
+        <Fragment key={target.key}>
+          {target.section !== targets[index - 1]?.section && <div className="menu-section">{target.section}</div>}
+          <button
+            type="button"
+            role="menuitem"
+            className="menu-item"
+            data-tip={target.tip}
+            disabled={state?.kind === 'running'}
+            onClick={() => {
+              copy(target.key);
+            }}
           >
-            {targets === null && <p className="menu-note">Lädt …</p>}
-            {targets?.length === 0 && state?.kind !== 'failed' && (
-              <p className="menu-note">Es ist kein anderer Tab mit ausgechecktem Branch offen.</p>
-            )}
-            {targets?.map((target, index) => (
-              <Fragment key={target.key}>
-                {target.section !== targets[index - 1]?.section && <div className="menu-section">{target.section}</div>}
-                <button
-                  type="button"
-                  role="menuitem"
-                  className="menu-item"
-                  data-tip={target.tip}
-                  disabled={state?.kind === 'running'}
-                  onClick={() => {
-                    copy(target.key);
-                  }}
-                >
-                  <span className="menu-check" aria-hidden="true" />
-                  <span className="menu-text">
-                    <span className="menu-main">{target.main}</span>
-                    <span className="menu-sub">{target.sub}</span>
-                  </span>
-                </button>
-              </Fragment>
-            ))}
-            {state?.kind === 'failed' && <p className="menu-note menu-error">{state.message}</p>}
-          </div>,
-          document.body,
-        )}
-    </>
+            <span className="menu-check" aria-hidden="true" />
+            <span className="menu-text">
+              <span className="menu-main">{target.main}</span>
+              <span className="menu-sub">{target.sub}</span>
+            </span>
+          </button>
+        </Fragment>
+      ))}
+      {state?.kind === 'failed' && <p className="menu-note menu-error">{state.message}</p>}
+    </div>
   );
 }
 
 /** Zwei Blätter übereinander, wie das Symbol zum Kopieren in macOS. */
-function CopyIcon() {
+export function CopyIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
       <rect x="4.5" y="4.5" width="8" height="8" rx="1.5" fill="none" stroke="currentColor" strokeWidth="1.3" />
@@ -215,7 +162,7 @@ function CopyIcon() {
 }
 
 /** Ein Blatt mit einem Pfeil nach rechts: eine Datei an einen anderen Ort kopieren. */
-function CopyToIcon() {
+export function CopyToIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
       <path d="M8 1.5H3a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h3" fill="none" stroke="currentColor" strokeWidth="1.3" />
@@ -225,10 +172,13 @@ function CopyToIcon() {
   );
 }
 
-function CheckIcon() {
+/** Drei Punkte wie auf dem Knopf für weitere Aktionen in macOS. */
+function MoreIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
-      <path d="M2.5 7.5l3 3 6-7" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="3" cy="7" r="1.25" fill="currentColor" />
+      <circle cx="7" cy="7" r="1.25" fill="currentColor" />
+      <circle cx="11" cy="7" r="1.25" fill="currentColor" />
     </svg>
   );
 }

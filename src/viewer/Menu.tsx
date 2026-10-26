@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router';
-import { useContext, useEffect, useRef, useState } from 'react';
+import { useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { MouseEvent, ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import type { Tracking } from '../git/types';
 import type { ViewSearch } from '../server/store';
 import { BranchIcon, CheckMarkIcon, HouseIcon, LinkIcon, WindowIcon } from './Icons';
@@ -81,12 +82,86 @@ export function Menu(props: MenuProps) {
   );
 }
 
+/** Der Abstand des Kontextmenüs zum Rand des Fensters. */
+const CONTEXT_MARGIN = 8;
+
+/**
+ * Ein Kontextmenü an der Stelle eines Rechtsklicks. Es rückt so weit nach links und oben, dass es
+ * ganz im Fenster steht. Es hängt an `body`, damit weder eine Liste mit eigenem Scrollen noch das
+ * `transform` der schwebenden Knöpfe es verschiebt. Ein Klick daneben, Escape und ein Wechsel in
+ * ein anderes Programm schließen es.
+ */
+export function ContextMenu({
+  at,
+  label,
+  onClose,
+  children,
+}: {
+  at: { x: number; y: number };
+  label: string;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  const panel = useRef<HTMLDivElement>(null);
+  const [place, setPlace] = useState(at);
+
+  useLayoutEffect(() => {
+    const box = panel.current?.getBoundingClientRect();
+    if (box === undefined) {
+      return;
+    }
+    setPlace({
+      x: Math.max(CONTEXT_MARGIN, Math.min(at.x, window.innerWidth - box.width - CONTEXT_MARGIN)),
+      y: Math.max(CONTEXT_MARGIN, Math.min(at.y, window.innerHeight - box.height - CONTEXT_MARGIN)),
+    });
+  }, [at]);
+
+  useEffect(() => {
+    const onPointer = (event: PointerEvent) => {
+      if (event.target instanceof Node && panel.current?.contains(event.target) !== true) {
+        onClose();
+      }
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+    document.addEventListener('pointerdown', onPointer);
+    document.addEventListener('keydown', onKey);
+    window.addEventListener('blur', onClose);
+    return () => {
+      document.removeEventListener('pointerdown', onPointer);
+      document.removeEventListener('keydown', onKey);
+      window.removeEventListener('blur', onClose);
+    };
+  }, [onClose]);
+
+  return createPortal(
+    <div
+      ref={panel}
+      className="menu-panel menu-context"
+      role="menu"
+      aria-label={label}
+      style={{ left: place.x, top: place.y }}
+      onContextMenu={(event) => {
+        event.preventDefault();
+      }}
+    >
+      {children}
+    </div>,
+    document.body,
+  );
+}
+
 interface MenuItemProps {
   main: ReactNode;
   sub?: ReactNode;
   /** Rechts in der Zeile, etwa die Nummer eines Schritts. */
   aside?: ReactNode;
   current?: boolean;
+  /** Ein Symbol vor dem Text an der Stelle des Hakens, etwa in einem Kontextmenü. */
+  icon?: ReactNode;
   /** Ausgegraut und ohne Wirkung, etwa eine Wahl, für die es keine Branches gibt. */
   disabled?: boolean;
   tip?: string;
@@ -110,7 +185,7 @@ export function MenuItem(props: MenuItemProps) {
   const content = (
     <>
       <span className="menu-check" aria-hidden="true">
-        {props.current === true && <CheckMarkIcon />}
+        {props.current === true ? <CheckMarkIcon /> : props.icon}
       </span>
       <span className="menu-text">
         <span className="menu-main">{props.main}</span>

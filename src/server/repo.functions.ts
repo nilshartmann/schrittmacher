@@ -1,6 +1,6 @@
-import { realpath } from 'node:fs/promises';
+import { realpath, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
-import { dirname, isAbsolute, join, sep } from 'node:path';
+import { dirname, isAbsolute, join, resolve, sep } from 'node:path';
 import { createServerFn, createServerOnlyFn } from '@tanstack/react-start';
 import { buildDemoRepo, DEMO_BASE } from '../git/demoGit';
 import { DEMO_REPO } from '../git/demoRepo';
@@ -11,6 +11,8 @@ import { branchScopeOf } from '../git/scope';
 import type { RepoEntry, RepoProject } from '../git/repos';
 import type { SyncAction } from '../git/types';
 import { noteInputOf } from '../notes/notes';
+import { isOpenApp, openIn } from './apps';
+import type { OpenApp } from './apps';
 import { createNotes } from './notes';
 import { shared } from './shared';
 import { createStore, defaultStoreDir, expandHome, sameView } from './store';
@@ -330,6 +332,46 @@ export const copyFile = createServerFn({ method: 'POST' })
     const content = await from.source.content(data.revision, data.path);
     await to.source.write(data.target.branch, data.path, content);
   });
+
+/**
+ * Öffnet den Worktree in einem Programm auf dem Mac, etwa im Terminal oder in Fork. Mit `path`
+ * öffnen Terminal und ForkLift den Ordner dieser Datei im Worktree; Fork kennt nur ganze Repos.
+ */
+export const openWorktreeIn = createServerFn({ method: 'POST' })
+  .validator((data: { worktree: string; app: OpenApp; path?: string }) => {
+    if (!isOpenApp(data.app)) {
+      throw new Error(`Das Programm '${String(data.app)}' ist unbekannt.`);
+    }
+    return { worktree: text(data.worktree, 'worktree'), app: data.app, path: optionalText(data.path) };
+  })
+  .handler(async ({ data }) => {
+    const { worktreePath } = await access(data.worktree);
+    const place =
+      data.path === undefined || data.app === 'fork' ? worktreePath : await folderInWorktree(worktreePath, data.path);
+    await openIn(data.app, place);
+  });
+
+/**
+ * Der Ordner einer Datei im Worktree. Gibt es ihn dort nicht mehr, etwa weil der Commit älter ist,
+ * gilt der nächste Ordner darüber, den es noch gibt, höchstens der Worktree selbst.
+ */
+async function folderInWorktree(worktreePath: string, path: string): Promise<string> {
+  let folder = resolve(worktreePath, dirname(path));
+  if (!inside(folder, worktreePath)) {
+    throw new Error(`Der Pfad '${path}' liegt nicht im Worktree.`);
+  }
+  while (folder !== worktreePath && !(await isFolder(folder))) {
+    folder = dirname(folder);
+  }
+  return folder;
+}
+
+function isFolder(path: string): Promise<boolean> {
+  return stat(path).then(
+    (found) => found.isDirectory(),
+    () => false,
+  );
+}
 
 /**
  * Die Hinweise im Ordner des Speichers. Sie entstehen bei jedem Aufruf neu und nicht einmal in
