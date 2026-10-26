@@ -32,8 +32,9 @@ export function Timer({ end, onEnd }: TimerProps) {
       document.title = title;
     }
   }, [end, now]);
-  // Ohne Timer `null`, nach dem Ende 0 für eine Plakette ohne Zahl.
-  const badge = end === null ? null : Math.max(0, Math.ceil((end - now) / MINUTE));
+  // Ohne Timer und nach dem Ende `null`, weil Safari weder 0, negative Zahlen noch einen Punkt zeigt.
+  const minutesLeft = end === null ? 0 : Math.ceil((end - now) / MINUTE);
+  const badge = minutesLeft > 0 ? minutesLeft : null;
   useEffect(() => {
     showBadge(badge);
   }, [badge]);
@@ -153,19 +154,15 @@ function useNow(end: number | null): number {
 }
 
 /**
- * Zeigt die Plakette am Symbol der Web-App im Dock: die Zahl, bei 0 einen Punkt, bei `null` keine.
+ * Zeigt die Plakette am Symbol der Web-App im Dock: die Zahl, bei `null` keine. Bei 0 entfernt die
+ * Badging API die Plakette, und Safari zeigt auch für `setAppBadge()` ohne Zahl keinen Punkt.
  * Ein Browser ohne Badging API und eine Plakette ohne Erlaubnis bleiben ohne Fehler.
  */
 function showBadge(minutes: number | null): void {
   if (!('setAppBadge' in navigator)) {
     return;
   }
-  const shown =
-    minutes === null
-      ? navigator.clearAppBadge()
-      : minutes === 0
-        ? navigator.setAppBadge()
-        : navigator.setAppBadge(minutes);
+  const shown = minutes === null ? navigator.clearAppBadge() : navigator.setAppBadge(minutes);
   shown.catch((error: unknown) => {
     console.warn('Die Plakette des Timers ließ sich nicht zeigen.', error);
   });
