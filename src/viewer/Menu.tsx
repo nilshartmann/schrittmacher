@@ -87,6 +87,8 @@ interface MenuItemProps {
   /** Rechts in der Zeile, etwa die Nummer eines Schritts. */
   aside?: ReactNode;
   current?: boolean;
+  /** Ausgegraut und ohne Wirkung, etwa eine Wahl, für die es keine Branches gibt. */
+  disabled?: boolean;
   tip?: string;
   /**
    * Die Ansicht, zu der die Zeile führt. Die Zeile ist dann ein Link, den ⌘-Klick und mittlere
@@ -150,6 +152,7 @@ export function MenuItem(props: MenuItemProps) {
     <button
       type="button"
       {...shared}
+      disabled={props.disabled}
       onClick={(event) => {
         if (newTab !== null && target !== undefined && event.metaKey) {
           newTab(target);
@@ -230,27 +233,43 @@ function commits(count: number): string {
   return count === 1 ? '1 Commit' : `${String(count)} Commits`;
 }
 
+/** Ob ein Branch einen Abstand zum Remote hat, der angezeigt wird. */
+export function hasDistance(tracking: Tracking | undefined): tracking is Tracking {
+  return tracking !== undefined && (tracking.ahead > 0 || tracking.behind > 0);
+}
+
+/** Der Abstand zum Remote in Worten, für einen Tooltip. */
+export function distanceTip(tracking: Tracking): string {
+  const { remote, ahead, behind } = tracking;
+  const counts = [
+    ...(ahead > 0 ? [`${commits(ahead)} nicht auf ${remote}`] : []),
+    ...(behind > 0 ? [`${commits(behind)} nur auf ${remote}`] : []),
+  ].join(', ');
+  return tracking.assumed ? `Kein Upstream eingerichtet; ${counts}` : counts;
+}
+
+/** Der Abstand als `↑2 ↓1`, ohne Rahmen. */
+export function Distance({ tracking }: { tracking: Tracking }) {
+  return (
+    <>
+      {tracking.ahead > 0 && <span>↑{tracking.ahead}</span>}
+      {tracking.behind > 0 && <span>↓{tracking.behind}</span>}
+    </>
+  );
+}
+
 /**
  * Der Abstand eines lokalen Branches zu seinem Branch auf dem Remote als `↑2 ↓1`, ohne Abstand
  * nichts. Ist kein Upstream eingerichtet und gilt der gleichnamige Branch, ist der Rahmen
  * gestrichelt.
  */
 export function TrackingBadge({ tracking }: { tracking: Tracking | undefined }) {
-  if (tracking === undefined || (tracking.ahead === 0 && tracking.behind === 0)) {
+  if (!hasDistance(tracking)) {
     return null;
   }
-  const { remote, ahead, behind } = tracking;
-  const counts = [
-    ...(ahead > 0 ? [`${commits(ahead)} nicht auf ${remote}`] : []),
-    ...(behind > 0 ? [`${commits(behind)} nur auf ${remote}`] : []),
-  ].join(', ');
   return (
-    <span
-      className={tracking.assumed ? 'tracking tracking-assumed' : 'tracking'}
-      data-tip={tracking.assumed ? `Kein Upstream eingerichtet; ${counts}` : counts}
-    >
-      {ahead > 0 && <span>↑{ahead}</span>}
-      {behind > 0 && <span>↓{behind}</span>}
+    <span className={tracking.assumed ? 'tracking tracking-assumed' : 'tracking'} data-tip={distanceTip(tracking)}>
+      <Distance tracking={tracking} />
     </span>
   );
 }

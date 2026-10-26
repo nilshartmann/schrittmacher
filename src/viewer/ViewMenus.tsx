@@ -7,7 +7,19 @@ import type { Ref, RepoInfo, Worktree } from '../git/types';
 import { fetchRemote, lastFetch, listRepos, listViews, openRepo, saveExcluded } from '../server/repo.functions';
 import type { ProjectChoice, RepoChoice } from '../server/repo.functions';
 import type { SavedView, Tab, ViewSearch } from '../server/store';
-import { BranchIcon, ChevronIcon, CloseIcon, CloudIcon, EyeIcon, FetchIcon, FolderIcon, SearchIcon } from './Icons';
+import { WORKSHOP_BRANCHES, scopeRefs, shownRef } from '../git/scope';
+import type { BranchScope } from '../git/scope';
+import {
+  BranchIcon,
+  ChevronIcon,
+  CloseIcon,
+  CloudIcon,
+  EyeIcon,
+  FetchIcon,
+  FolderIcon,
+  GraphIcon,
+  SearchIcon,
+} from './Icons';
 import { Menu, MenuDivider, MenuItem, MenuNote, MenuSection, MenuWhere, NewTabButton, TrackingBadge } from './Menu';
 import { CloseButton, sameTab, TabsContext } from './Tabs';
 
@@ -563,6 +575,108 @@ function ExcludedList({
         </div>
       )}
     </>
+  );
+}
+
+/**
+ * Welche Branches die Commit-Liste zeigt, als Schnellwahl. Jede Wahl bezieht sich auf den gezeigten
+ * Branch und nennt die Branches, die sie zeigt, lokale mit ihrem Abstand zum Remote wie im
+ * Branch-Menü. Hervorgehoben ist der Knopf, sobald mehr als der
+ * gezeigte Branch in der Liste steht.
+ */
+export function ScopeMenu({
+  info,
+  refs,
+  hidden,
+  scope,
+  onScope,
+}: {
+  info: RepoInfo;
+  refs: Ref[];
+  hidden: Hidden;
+  scope: BranchScope;
+  onScope: (scope: BranchScope) => void;
+}) {
+  const branch = info.branch ?? 'HEAD';
+  const shown = shownRef(refs, info.branch);
+  const namesOf = (choice: BranchScope) => scopeRefs(choice, refs, shown, hidden).map((ref) => ref.name);
+  const remote = namesOf('remote');
+  const workshop = namesOf('workshop');
+  // Die Branches des Workshops in fester Reihenfolge, der gezeigte vorn, falls er keiner davon ist.
+  const workshopNames = [
+    ...(WORKSHOP_BRANCHES.includes(branch) ? [] : [branch]),
+    ...WORKSHOP_BRANCHES.filter((name) => name === branch || workshop.includes(name)),
+  ];
+  const local = (name: string) => refs.find((ref) => ref.kind === 'local' && ref.name === name);
+  const withDistance = (names: string[]): ReactNode =>
+    names.map((name, index) => (
+      <Fragment key={name}>
+        {index > 0 && ', '}
+        {name}
+        <TrackingBadge tracking={local(name)?.tracking} />
+      </Fragment>
+    ));
+  const choices: { scope: BranchScope; main: string; sub?: ReactNode; aside?: ReactNode; disabled?: boolean }[] = [
+    { scope: 'branch', main: `Nur ${branch}` },
+    {
+      scope: 'remote',
+      main: `${branch} mit Remote`,
+      sub: remote.length === 0 ? 'Kein Branch gleichen Namens auf einem Remote' : remote.join(', '),
+      aside: shown?.kind === 'local' ? <TrackingBadge tracking={shown.tracking} /> : undefined,
+      disabled: remote.length === 0,
+    },
+    ...(workshop.length === 0
+      ? []
+      : [
+          {
+            scope: 'workshop' as const,
+            main: 'Workshop',
+            sub: <span className="menu-names">{withDistance(workshopNames)}</span>,
+          },
+        ]),
+    { scope: 'all', main: 'Alle Branches', sub: 'Außer den mit dem Auge im Branch-Menü ausgeblendeten' },
+  ];
+  const tips: Record<BranchScope, string> = {
+    branch: `nur ${branch}`,
+    remote: [branch, ...remote].join(', '),
+    workshop: workshopNames.join(', '),
+    all: 'alle Branches außer den ausgeblendeten',
+  };
+  return (
+    <Menu
+      button={
+        <>
+          <GraphIcon />
+          <ChevronIcon open size={8} />
+        </>
+      }
+      label="Branches der Commit-Liste"
+      tip={`Commit-Liste: ${tips[scope]}`}
+      className={scope === 'branch' ? 'bar-tool bar-menu' : 'bar-tool bar-menu bar-tool-active'}
+    >
+      {(close) => (
+        <div className="menu-scroll">
+          <MenuSection>Commit-Liste</MenuSection>
+          {choices.map((choice) => (
+            <div key={choice.scope} className="menu-row">
+              <MenuItem
+                main={choice.main}
+                sub={choice.sub}
+                aside={choice.aside}
+                current={choice.scope === scope}
+                disabled={choice.disabled}
+                onChoose={() => {
+                  close();
+                  if (choice.scope !== scope) {
+                    onScope(choice.scope);
+                  }
+                }}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+    </Menu>
   );
 }
 

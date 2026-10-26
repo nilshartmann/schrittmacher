@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
-import type { RepoInfo } from '../git/types';
 import type { ViewSearch } from '../server/store';
-import { GraphIcon, NoteIcon, SidebarIcon } from './Icons';
+import { NoteIcon, SidebarIcon } from './Icons';
 import { Timer } from './Timer';
 import { RepoMenu } from './ViewMenus';
 
@@ -12,11 +11,10 @@ import { RepoMenu } from './ViewMenus';
 export type Layout = { mode: 'split'; share: number } | { mode: 'unified'; showRemoved: boolean };
 
 interface HeaderProps {
-  info: RepoInfo;
   /** Die Knöpfe zum Wechseln von Repo, Worktree und Branch. */
   where: ReactNode;
-  allBranches: boolean;
-  onAllBranches: () => void;
+  /** Das Menü, welche Branches die Commit-Liste zeigt. */
+  scope: ReactNode;
   fontSize: number;
   onFontSize: (change: number) => void;
   filesOpen: boolean;
@@ -37,7 +35,6 @@ interface HeaderProps {
  * (`ComparisonBar`).
  */
 export function Header(props: HeaderProps) {
-  const { info } = props;
   return (
     <header className="header">
       <div className="header-start">
@@ -52,20 +49,7 @@ export function Header(props: HeaderProps) {
           <SidebarIcon />
         </button>
         <span className="bar-separator" />
-        <button
-          type="button"
-          className="bar-tool"
-          aria-pressed={props.allBranches}
-          aria-label="Alle Branches"
-          data-tip={
-            props.allBranches
-              ? `Nur die Commits von ${info.branch ?? 'HEAD'} zeigen`
-              : 'Die Commits aller Branches zeigen, außer den ausgeblendeten'
-          }
-          onClick={props.onAllBranches}
-        >
-          <GraphIcon />
-        </button>
+        {props.scope}
         {props.where}
       </div>
       <div className="header-tools">

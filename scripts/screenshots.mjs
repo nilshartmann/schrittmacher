@@ -162,9 +162,22 @@ const SHOTS = [
     },
   ],
   [
+    '20-menue-commit-liste',
+    async (page) => page.getByRole('button', { name: 'Branches der Commit-Liste' }).click(),
+  ],
+  [
+    '20a-mit-remote',
+    async (page) => {
+      await page.getByRole('button', { name: 'Branches der Commit-Liste' }).click();
+      await page.getByRole('menuitem', { name: /mit Remote/ }).click();
+      await page.locator('.commit-graph').first().waitFor();
+    },
+  ],
+  [
     '20-alle-branches',
     async (page) => {
-      await page.getByRole('button', { name: 'Alle Branches' }).click();
+      await page.getByRole('button', { name: 'Branches der Commit-Liste' }).click();
+      await page.getByRole('menuitem', { name: /^Alle Branches/ }).click();
       await page.locator('.commit-graph').first().waitFor();
       // Die Liste wird höher gezogen, damit die Abzweigung von live_coding zu sehen ist.
       const splitter = await page.locator('.height-splitter').boundingBox();
@@ -226,6 +239,9 @@ const SHOTS = [
       await page.getByLabel('Commit-Nachricht').fill('04a: Wann ist ein Buch überfällig?');
       await page.getByRole('button', { name: 'Commit', exact: true }).click();
       await page.locator('.push-note-done').waitFor();
+      // Den Badge des neuen Branches auf dem Remote zeigt die Liste erst mit der Wahl „mit Remote“.
+      await page.getByRole('button', { name: 'Branches der Commit-Liste' }).click();
+      await page.getByRole('menuitem', { name: /mit Remote/ }).click();
       await page.locator('.ref', { hasText: 'origin/live_coding' }).waitFor();
     },
   ],

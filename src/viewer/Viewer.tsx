@@ -8,6 +8,7 @@ import type { Commit, DiffFile, Worktree } from '../git/types';
 import { rangesOf, splitRows, unifiedRows } from '../diff/rows';
 import type { Extent } from '../diff/rows';
 import { isHidden } from '../git/hidden';
+import { scopeRefs, shownRef } from '../git/scope';
 import { compareCommits, copyFile, copyTargets, pushBranch } from '../server/repo.functions';
 import type { CopyPlace } from '../server/repo.functions';
 import type { Tab, ViewSearch } from '../server/store';
@@ -27,7 +28,7 @@ import { useHidden } from './useHidden';
 import { useRepoChanges } from './useRepoChanges';
 import type { Layout } from './Header';
 import { TabsContext, whereInMenu } from './Tabs';
-import { WhereMenus } from './ViewMenus';
+import { ScopeMenu, WhereMenus } from './ViewMenus';
 import type { OpenView } from './ViewMenus';
 
 const NO_GAPS: ReadonlyMap<string, ReadonlySet<number>> = new Map();
@@ -140,15 +141,24 @@ export function Viewer({ view, search, onSearch, onOpen, onShow, tabs }: ViewerP
   // und behält seine Stelle beim Scrollen.
   const fetchKey = comparison.to === LOCAL ? `${comparisonKey}\n${repo.state}` : comparisonKey;
   const [hidden, toggleHidden] = useHidden(repo.info.repoPath, worktree, view.hidden, () => {
-    if (repo.all) {
+    if (repo.scope === 'all') {
       void router.invalidate();
     }
   });
-  // Der Branch der Liste behält seinen Badge, auch wenn er ausgeblendet ist.
-  const shownRefs = useMemo(
-    () => repo.refs.filter((ref) => ref.name === repo.info.branch || !isHidden(hidden, ref)),
-    [repo.refs, repo.info.branch, hidden],
-  );
+  // Badges bekommen der gezeigte Branch und die gewählten dazu, bei „Alle Branches“ alle außer den
+  // ausgeblendeten. Der gezeigte behält seinen Badge, auch wenn er ausgeblendet ist. Steht auch ein
+  // Branch eines Remotes in der Liste, nennen die lokalen Badges ihren Abstand dazu.
+  const { shownRefs, listsRemote } = useMemo(() => {
+    const shown = shownRef(repo.refs, repo.info.branch);
+    const chosen = scopeRefs(repo.scope, repo.refs, shown, hidden);
+    return {
+      shownRefs:
+        repo.scope === 'all'
+          ? repo.refs.filter((ref) => ref === shown || !isHidden(hidden, ref))
+          : repo.refs.filter((ref) => ref === shown || chosen.includes(ref)),
+      listsRemote: shown?.kind === 'remote' || chosen.some((ref) => ref.kind === 'remote'),
+    };
+  }, [repo.refs, repo.info.branch, repo.scope, hidden]);
   const draft = drafts.get(worktree) ?? EMPTY_DRAFT;
   const setDraft = (next: Draft) => {
     setDrafts((current) => new Map(current).set(worktree, next));
@@ -321,7 +331,6 @@ export function Viewer({ view, search, onSearch, onOpen, onShow, tabs }: ViewerP
     <div className="app" style={{ '--code-size': `${String(settings.fontSize)}px` } as CSSProperties}>
       {tabs}
       <Header
-        info={repo.info}
         where={
           <WhereMenus
             info={repo.info}
@@ -337,10 +346,17 @@ export function Viewer({ view, search, onSearch, onOpen, onShow, tabs }: ViewerP
             }}
           />
         }
-        allBranches={settings.allBranches}
-        onAllBranches={() => {
-          void saveNow({ allBranches: !settings.allBranches }).then(() => router.invalidate());
-        }}
+        scope={
+          <ScopeMenu
+            info={repo.info}
+            refs={repo.refs}
+            hidden={hidden}
+            scope={settings.branchScope}
+            onScope={(branchScope) => {
+              void saveNow({ branchScope }).then(() => router.invalidate());
+            }}
+          />
+        }
         fontSize={settings.fontSize}
         onFontSize={(change) => {
           set({ fontSize: Math.min(FONT_SIZES.max, Math.max(FONT_SIZES.min, settings.fontSize + change)) });
@@ -365,6 +381,7 @@ export function Viewer({ view, search, onSearch, onOpen, onShow, tabs }: ViewerP
         commits={repo.commits}
         changes={repo.changes}
         refs={shownRefs}
+        distance={listsRemote}
         graph={graph}
         line={line}
         branch={repo.info.branch}

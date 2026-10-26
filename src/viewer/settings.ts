@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
+import { branchScopeOf } from '../git/scope';
+import type { BranchScope } from '../git/scope';
 import { saveSettings } from '../server/repo.functions';
 import { LIST_HEIGHT } from './CommitList';
 import { FILES_WIDTH } from './FileList';
@@ -30,8 +32,8 @@ export interface Settings {
   /** Die Höhe des Felds für einen Hinweis, wenn sie von Hand gezogen wurde; sonst wächst es mit. */
   noteHeight: number | null;
   listHeight: number;
-  /** Ob die Commit-Liste alle Branches zeigt; der Server liest das beim Laden. */
-  allBranches: boolean;
+  /** Welche Branches die Commit-Liste neben dem gezeigten zeigt; der Server liest das beim Laden. */
+  branchScope: BranchScope;
   /**
    * Das Ende des Vortrags in Millisekunden seit 1970, ohne Timer `null`. Es steht hier, damit der
    * Timer ein Neuladen der Web-App übersteht.
@@ -55,7 +57,7 @@ const DEFAULTS: Settings = {
   notesWidth: NOTES_WIDTH.start,
   noteHeight: null,
   listHeight: LIST_HEIGHT.start,
-  allBranches: false,
+  branchScope: 'branch',
   timerEnd: null,
   root: null,
 };
@@ -87,7 +89,7 @@ export function settingsOf(raw: Record<string, unknown>): Settings {
     notesWidth: number(raw.notesWidth, DEFAULTS.notesWidth, NOTES_WIDTH.min, 2000),
     noteHeight: typeof raw.noteHeight === 'number' && Number.isFinite(raw.noteHeight) ? raw.noteHeight : DEFAULTS.noteHeight,
     listHeight: number(raw.listHeight, DEFAULTS.listHeight, LIST_HEIGHT.min, 2000),
-    allBranches: flag(raw.allBranches, DEFAULTS.allBranches),
+    branchScope: branchScopeOf(raw),
     timerEnd: typeof raw.timerEnd === 'number' && Number.isFinite(raw.timerEnd) ? raw.timerEnd : DEFAULTS.timerEnd,
     root: typeof raw.root === 'string' ? raw.root : DEFAULTS.root,
   };

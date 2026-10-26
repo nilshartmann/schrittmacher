@@ -7,6 +7,7 @@ import { DEMO_REPO } from '../git/demoRepo';
 import { gitSource, locate } from '../git/gitRepo';
 import type { Comparison, RepoSource } from '../git/repo';
 import { changedAt, findRepos, projectsOf } from '../git/repos';
+import { branchScopeOf } from '../git/scope';
 import type { RepoEntry, RepoProject } from '../git/repos';
 import { noteInputOf } from '../notes/notes';
 import { createNotes } from './notes';
@@ -210,7 +211,7 @@ export const loadView = createServerFn({ method: 'GET' })
     const state = await (await server()).store.state();
     const hidden = state.hidden[repoPath] ?? [];
     const [repo, worktrees] = await Promise.all([
-      source.load(data.branch === '' ? null : data.branch, { all: state.settings.allBranches === true, hidden }),
+      source.load(data.branch === '' ? null : data.branch, { scope: branchScopeOf(state.settings), hidden }),
       source.worktrees(),
     ]);
     return { repo, worktrees, settings: state.settings, hidden, tabs: state.tabs };

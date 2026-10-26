@@ -1,4 +1,5 @@
 import type { Hidden } from './hidden';
+import type { BranchScope } from './scope';
 import type { Commit, DiffFile, Ref, RepoInfo, Worktree } from './types';
 
 /**
@@ -22,7 +23,9 @@ export interface RepoData {
   /** Die Commits vom ersten zum letzten. */
   commits: Commit[];
   refs: Ref[];
-  /** Ob die Liste die Commits aller Branches enthält, die nicht ausgeblendet sind. */
+  /** Welche Branches die Liste neben dem gezeigten enthält. */
+  scope: BranchScope;
+  /** Ob die Liste die Commits mehrerer Branches enthält und deshalb einen Graphen braucht. */
   all: boolean;
   /** Der Commit, den die Oberfläche ohne Wahl zeigt: der neueste des Branches. */
   start: string;
@@ -42,8 +45,8 @@ export function showsCheckedOut(info: RepoInfo): boolean {
 
 /** Welche Commits außer denen des Branches geladen werden. */
 export interface LoadOptions {
-  /** Auch die Commits aller anderen Branches, außer den ausgeblendeten. */
-  all: boolean;
+  scope: BranchScope;
+  /** Die ausgeblendeten Branches; sie gelten nur bei `all`. */
   hidden: Hidden;
 }
 

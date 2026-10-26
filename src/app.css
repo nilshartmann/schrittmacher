@@ -535,6 +535,19 @@ a.menu-item {
   background: transparent;
 }
 
+/* Eine Wahl ohne Wirkung, etwa ohne passende Branches */
+.menu-item:disabled {
+  cursor: default;
+}
+
+.menu-item:disabled .menu-main {
+  opacity: 0.45;
+}
+
+.menu-row:has(> .menu-item:disabled):hover {
+  background: transparent;
+}
+
 /* Die Kinder einer Gruppe, eingerückt mit einer Linie links */
 .menu-children {
   margin-left: 16px;
@@ -1097,6 +1110,8 @@ a.menu-item {
 .ref-current {
   border-color: #d08a00;
   font-weight: 600;
+  /* Ein Klick auf den Badge des gezeigten Branches bewirkt nichts. */
+  cursor: default;
 }
 
 .ref-sign {
@@ -1880,6 +1895,30 @@ a.menu-item {
   margin-left: 0.3em;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Namen mit ihrem Abstand zum Remote in der zweiten Zeile, etwa bei der Wahl „Workshop“ */
+.menu-names .tracking {
+  margin: 0 0 0 4px;
+  padding: 0 4px;
+  font-size: 10.5px;
+  line-height: 14px;
+}
+
+/* Der Abstand zum Remote im Badge eines lokalen Branches, abgesetzt vom Namen */
+.ref-distance {
+  display: inline-flex;
+  gap: 3px;
+  margin-left: 2px;
+  padding-left: 5px;
+  border-left: 1px solid #e3b45a;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.ref-distance-assumed {
+  border-left-style: dashed;
+  opacity: 0.7;
 }
 
 .tab-label .tracking {

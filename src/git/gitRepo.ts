@@ -4,7 +4,8 @@ import { parseDiff } from './diffParser';
 import type { ParsedFile } from './diffParser';
 import { markParts } from './lineParts';
 import { GitError, runGit, runGitBytes } from './process';
-import { isHidden, refPath } from './hidden';
+import { refPath } from './hidden';
+import { scopeRefs, shownRef } from './scope';
 import { LOCAL } from './repo';
 import type { Comparison, LoadOptions, RepoData, RepoSource } from './repo';
 import type { Commit, DiffFile, DiffLine, Ref, Worktree } from './types';
@@ -184,8 +185,8 @@ export async function locate(
 /**
  * Die Commits eines Branches, lokal oder auf einem Remote, unabhängig vom ausgecheckten. Ohne
  * Branch oder mit einem, den es nicht gibt, gelten die Commits von `HEAD`; dann nennt
- * `info.branch` den ausgecheckten Branch. Mit `options.all` kommen die Commits aller Branches
- * dazu, die nicht ausgeblendet sind, nach Datum sortiert wie im Graphen von Fork.
+ * `info.branch` den ausgecheckten Branch. Die Commits der Branches aus `options.scope` kommen
+ * dazu, nach Datum sortiert wie im Graphen von Fork.
  */
 async function load(git: Git, worktree: string, wanted: string | null, options: LoadOptions): Promise<RepoData> {
   const where = await locate(worktree);
@@ -194,21 +195,18 @@ async function load(git: Git, worktree: string, wanted: string | null, options: 
   const local = where.checkedOut !== null && (wanted === null || wanted === where.checkedOut);
   const { state, changes } = await stateOf(git, worktree, local);
   const allRefs = await refsOf(git);
-  const found =
-    allRefs.find((ref) => ref.kind === 'local' && ref.name === wanted) ??
-    allRefs.find((ref) => ref.kind === 'remote' && ref.name === wanted);
+  const found = shownRef(allRefs, wanted);
   const branch = found?.name ?? where.checkedOut;
   const revision =
     found === undefined ? 'HEAD' : `refs/${found.kind === 'local' ? 'heads' : 'remotes'}/${found.name}`;
-  const others = options.all
-    ? allRefs.filter((ref) => ref !== found && !isHidden(options.hidden, ref)).map(refPath)
-    : [];
+  const others = scopeRefs(options.scope, allRefs, shownRef(allRefs, branch), options.hidden).map(refPath);
+  const all = options.scope !== 'branch';
   const [log, tip] = await Promise.all([
     git(
       'log',
       `--max-count=${String(MAX_COMMITS)}`,
       '--reverse',
-      ...(options.all ? ['--date-order'] : []),
+      ...(all ? ['--date-order'] : []),
       `--format=%H${FIELD}%P${FIELD}%an${FIELD}%aI${FIELD}%s`,
       revision,
       ...others,
@@ -232,7 +230,8 @@ async function load(git: Git, worktree: string, wanted: string | null, options: 
     },
     commits,
     refs: allRefs,
-    all: options.all,
+    scope: options.scope,
+    all,
     start,
     changes,
     state,

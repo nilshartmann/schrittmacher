@@ -5,6 +5,7 @@ import { LOCAL } from '../git/repo';
 import type { Comparison } from '../git/repo';
 import type { Commit, Ref } from '../git/types';
 import { BranchIcon, NoteIcon } from './Icons';
+import { Distance, distanceTip, hasDistance } from './Menu';
 
 /** Die Breite einer Spalte des Graphen und die Höhe einer Zeile in Pixeln. */
 const LANE = 14;
@@ -30,6 +31,11 @@ interface CommitListProps {
   line: ReadonlySet<string>;
   /** Der Branch, dessen Commits die Liste zeigt; sein Badge ist hervorgehoben. */
   branch: string | null;
+  /**
+   * Ob die Badges lokaler Branches ihren Abstand zum Remote nennen, etwa weil auch ein Branch eines
+   * Remotes in der Liste steht.
+   */
+  distance: boolean;
   /** Ein Klick auf einen Badge zeigt die Commits dieses Branches. */
   onBranch: (name: string) => void;
   comparison: Comparison;
@@ -193,6 +199,7 @@ export function CommitList(props: CommitListProps) {
                     <RefBadges
                       refs={props.refs.filter((ref) => ref.sha === commit.sha)}
                       branch={props.branch}
+                      distance={props.distance}
                       onBranch={props.onBranch}
                     />
                   </td>
@@ -283,10 +290,12 @@ function HeightSplitter({ height, onHeight }: { height: number; onHeight: (heigh
 function RefBadges({
   refs,
   branch,
+  distance,
   onBranch,
 }: {
   refs: Ref[];
   branch: string | null;
+  distance: boolean;
   onBranch: (name: string) => void;
 }) {
   if (refs.length === 0) {
@@ -295,7 +304,13 @@ function RefBadges({
   return (
     <span className="refs">
       {refs.map((ref) => (
-        <RefBadge key={ref.name} branchRef={ref} current={ref.name === branch} onBranch={onBranch} />
+        <RefBadge
+          key={ref.name}
+          branchRef={ref}
+          current={ref.name === branch}
+          distance={distance}
+          onBranch={onBranch}
+        />
       ))}
     </span>
   );
@@ -303,22 +318,27 @@ function RefBadges({
 
 /**
  * Ein Branch als Badge, wie in Fork: lokal mit dem Symbol eines Branches, auf einem Remote mit ☁. Ein Klick zeigt seine
- * Commits, ohne den Commit der Zeile zu wählen.
+ * Commits, ohne den Commit der Zeile zu wählen. Mit `distance` nennt ein lokaler Branch dahinter
+ * seinen Abstand zum Remote, blasser ohne eingerichteten Upstream.
  */
 function RefBadge({
   branchRef,
   current,
+  distance,
   onBranch,
 }: {
   branchRef: Ref;
   current: boolean;
+  distance: boolean;
   onBranch: (name: string) => void;
 }) {
+  const tracking = distance && hasDistance(branchRef.tracking) ? branchRef.tracking : null;
+  const tip = current ? 'Die Liste zeigt diesen Branch' : `Commits von ${branchRef.name} zeigen`;
   return (
     <button
       type="button"
       className={`ref ref-${branchRef.kind}${current ? ' ref-current' : ''}`}
-      data-tip={current ? 'Die Liste zeigt diesen Branch' : `Commits von ${branchRef.name} zeigen`}
+      data-tip={tracking === null ? tip : `${tip}. ${distanceTip(tracking)}`}
       onClick={(event) => {
         event.stopPropagation();
         if (!current) {
@@ -330,6 +350,11 @@ function RefBadge({
         {branchRef.kind === 'local' ? <BranchIcon /> : '☁'}
       </span>
       {branchRef.name}
+      {tracking !== null && (
+        <span className={tracking.assumed ? 'ref-distance ref-distance-assumed' : 'ref-distance'}>
+          <Distance tracking={tracking} />
+        </span>
+      )}
     </button>
   );
 }
