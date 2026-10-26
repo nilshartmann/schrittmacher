@@ -46,6 +46,8 @@ interface CommitListProps {
   onHeight: (height: number) => void;
   /** Die Zahl der Hinweise je Commit; ein Commit mit Hinweisen zeigt sie hinter dem Titel. */
   noted?: ReadonlyMap<string, number>;
+  /** Ob hinter dem Datum des Committers eine Spalte mit dem des Autors steht. */
+  authorDate: boolean;
 }
 
 /**
@@ -56,7 +58,9 @@ interface CommitListProps {
  * mit ⇧ wandert ein Ende des Vergleichs, und der zuerst gewählte Commit bleibt fest. Ganz einklappen lässt sich das Band
  * nicht, nur bis auf eine Zeile verkleinern. Mit allen Branches steht links der Graph, und Commits
  * anderer Branches sind blasser. Hat der Worktree lokale Änderungen, steht über allen Commits wie in
- * Fork ihre Zeile; sie lässt sich nur allein wählen.
+ * Fork ihre Zeile; sie lässt sich nur allein wählen. Das Datum ist das des Committers, weil es nach
+ * einem Rebase den Stand eines Schritts zeigt. Das des Autors steht auf Wunsch daneben, nur wenn es
+ * davon abweicht.
  */
 export function CommitList(props: CommitListProps) {
   const { commits, comparison, onChoose } = props;
@@ -171,6 +175,7 @@ export function CommitList(props: CommitListProps) {
                 <td className="commit-meta" />
                 <td className="commit-meta commit-sha" />
                 <td className="commit-meta" />
+                {props.authorDate && <td className="commit-meta" />}
               </tr>
             )}
             {/* Die Indizes bleiben die der Historie, nur die Anzeige ist umgedreht. */}
@@ -208,7 +213,18 @@ export function CommitList(props: CommitListProps) {
                   </td>
                   <td className="commit-meta">{commit.author}</td>
                   <td className="commit-meta commit-sha">{commit.sha.slice(0, 7)}</td>
-                  <td className="commit-meta">{commit.date}</td>
+                  <td className="commit-meta" data-tip="Datum des Committers">
+                    {commit.committed}
+                  </td>
+                  {props.authorDate && (
+                    commit.date === commit.committed ? (
+                      <td className="commit-meta" />
+                    ) : (
+                      <td className="commit-meta" data-tip="Datum des Autors">
+                        {commit.date}
+                      </td>
+                    )
+                  )}
                 </tr>
               );
             })}

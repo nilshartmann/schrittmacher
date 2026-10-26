@@ -8,13 +8,19 @@ import { refPath } from './hidden';
 import { scopeRefs, shownRef } from './scope';
 import { LOCAL } from './repo';
 import type { Comparison, LoadOptions, RepoData, RepoSource } from './repo';
-import type { Commit, DiffFile, DiffLine, Ref, SyncAction, SyncPlan, Worktree } from './types';
+import type { ChangeStats, Commit, CommitDetails, DiffFile, DiffLine, RangeCommit, Ref, SyncAction, SyncPlan, Worktree } from './types';
 
 /** Der Baum ohne Dateien; gegen ihn vergleicht Git den ersten Commit. */
 const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
 
 /** Trennt die Felder einer Zeile, die Git ausgibt; im Titel eines Commits kommt es nicht vor. */
 const FIELD = '\x1f';
+
+/** Die Felder eines Commits für `commitOf`, als Format für `git log`. */
+const COMMIT_FORMAT = `--format=%H${FIELD}%P${FIELD}%an${FIELD}%aI${FIELD}%cI${FIELD}%s`;
+
+/** Steht vor jedem Commit in `between`, damit die Zeile mit der Statistik darunter zuzuordnen ist. */
+const RECORD = '\x1e';
 
 /** Ein Titel mit Schritt, etwa `25e: Mit @TransactionalEventListener …`. */
 const STEP = /^(\d+[a-z]?):\s*(.*)$/;
@@ -87,6 +93,14 @@ export function gitSource(worktree: string): RepoSource {
       }
       cached.catch(() => cache.delete(key));
       return cached;
+    },
+    details: (sha) => details(git, sha),
+    between: async (comparison) => {
+      if (comparison.from === null) {
+        return between(git, `${comparison.to}^!`);
+      }
+      const [older, newer] = await sides(git, comparison);
+      return between(git, `${older}..${newer}`);
     },
     state: async (local) => (await stateOf(git, worktree, local)).state,
     worktrees: () => worktreesOf(git),
@@ -215,7 +229,7 @@ async function load(git: Git, worktree: string, wanted: string | null, options: 
       `--max-count=${String(MAX_COMMITS)}`,
       '--reverse',
       ...(all ? ['--date-order'] : []),
-      `--format=%H${FIELD}%P${FIELD}%an${FIELD}%aI${FIELD}%s`,
+      COMMIT_FORMAT,
       revision,
       ...others,
       '--',
@@ -310,7 +324,7 @@ function lines(output: string): string[] {
 }
 
 function commitOf(line: string): Commit {
-  const [sha = '', parents = '', author = '', date = '', subject = ''] = line.split(FIELD);
+  const [sha = '', parents = '', author = '', date = '', committed = '', subject = ''] = line.split(FIELD);
   const step = STEP.exec(subject);
   return {
     sha,
@@ -318,6 +332,7 @@ function commitOf(line: string): Commit {
     title: step?.[2] ?? subject,
     author,
     date: DATE.format(new Date(date)),
+    committed: DATE.format(new Date(committed)),
     parents: parents === '' ? [] : parents.split(' '),
   };
 }
@@ -369,9 +384,68 @@ function refOf(line: string): Ref[] {
   return [{ ...ref, tracking: { remote: upstream, assumed: false, ahead: count('ahead'), behind: count('behind') } }];
 }
 
+/**
+ * Personen und ganze Nachricht eines Commits. Die Trailer stehen im letzten Absatz der Nachricht;
+ * nennt Git welche, fehlt dieser Absatz im Text.
+ */
+async function details(git: Git, sha: string): Promise<CommitDetails> {
+  const output = await git(
+    'show',
+    '--no-patch',
+    '--no-show-signature',
+    `--format=%H${FIELD}%an${FIELD}%ae${FIELD}%aI${FIELD}%cn${FIELD}%ce${FIELD}%cI${FIELD}%(trailers:only,unfold)${FIELD}%b`,
+    `${sha}^{commit}`,
+    '--',
+  );
+  const [found = '', author = '', authorEmail = '', authored = '', committer = '', committerEmail = '', committed = '', trailerText = '', ...rest] =
+    output.split(FIELD);
+  const trailers = lines(trailerText).map((line) => {
+    const colon = line.indexOf(':');
+    return colon < 0
+      ? { key: line.trim(), value: '' }
+      : { key: line.slice(0, colon).trim(), value: line.slice(colon + 1).trim() };
+  });
+  const paragraphs = rest.join(FIELD).trim().split(/\n\s*\n/);
+  if (trailers.length > 0) {
+    paragraphs.pop();
+  }
+  return {
+    sha: found,
+    author: { name: author, email: authorEmail, date: DATE.format(new Date(authored)) },
+    committer: { name: committer, email: committerEmail, date: DATE.format(new Date(committed)) },
+    body: paragraphs.join('\n\n').trim(),
+    trailers,
+  };
+}
+
+/** Die Commits eines Bereichs wie `a..b` mit ihrer Statistik, der neueste zuerst. */
+async function between(git: Git, range: string): Promise<RangeCommit[]> {
+  const log = await git(
+    'log',
+    `--max-count=${String(MAX_COMMITS)}`,
+    '--shortstat',
+    COMMIT_FORMAT.replace('--format=', `--format=${RECORD}`),
+    range,
+    '--',
+  );
+  return log
+    .split(RECORD)
+    .filter((record) => record.trim() !== '')
+    .map((record) => {
+      const [line = '', ...stat] = lines(record);
+      return { commit: commitOf(line), stats: statsOf(stat.join(' ')) };
+    });
+}
+
+/** Die Statistik aus `--shortstat`, etwa ` 3 files changed, 24 insertions(+), 7 deletions(-)`. */
+function statsOf(line: string): ChangeStats {
+  const count = (pattern: RegExp) => Number(pattern.exec(line)?.[1] ?? 0);
+  return { files: count(/(\d+) files? changed/), added: count(/(\d+) insertions?/), removed: count(/(\d+) deletions?/) };
+}
+
 /** Die Commits einer Revision oder eines Bereichs wie `a..b`, der neueste zuerst. */
 async function commitsOf(git: Git, range: string, count: number): Promise<Commit[]> {
-  const log = await git('log', `--max-count=${String(count)}`, `--format=%H${FIELD}%P${FIELD}%an${FIELD}%aI${FIELD}%s`, range, '--');
+  const log = await git('log', `--max-count=${String(count)}`, COMMIT_FORMAT, range, '--');
   return lines(log).map(commitOf);
 }
 

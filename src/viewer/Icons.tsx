@@ -148,6 +148,17 @@ export function SidebarIcon() {
   );
 }
 
+/** Ein „i“ im Kreis als Knopf für die Angaben zum gewählten Commit. */
+export function InfoIcon() {
+  return (
+    <Outline size={15}>
+      <circle cx="8" cy="8" r="6.25" />
+      <line x1="8" y1="7.25" x2="8" y2="11.25" />
+      <circle cx="8" cy="4.75" r="0.4" fill="currentColor" />
+    </Outline>
+  );
+}
+
 /** Ein Branch, der abzweigt, wie im Graphen der Commit-Liste. */
 export function GraphIcon() {
   return (

@@ -11,7 +11,7 @@ export const DEMO_BASE = join(tmpdir(), 'schrittmacher-testdaten');
  * Die Umgebung für den Aufbau. Ohne die Konfiguration des Benutzers laufen keine Hooks und keine
  * Signaturen, und mit festen Namen und Zeitpunkten sind die SHAs bei jedem Aufbau dieselben.
  */
-function environment(date: string): Record<string, string> {
+function environment(date: string, committed = date): Record<string, string> {
   return {
     GIT_CONFIG_GLOBAL: '/dev/null',
     GIT_CONFIG_NOSYSTEM: '1',
@@ -20,7 +20,7 @@ function environment(date: string): Record<string, string> {
     GIT_COMMITTER_NAME: 'Nils Hartmann',
     GIT_COMMITTER_EMAIL: 'testdaten@schrittmacher.invalid',
     GIT_AUTHOR_DATE: date,
-    GIT_COMMITTER_DATE: date,
+    GIT_COMMITTER_DATE: committed,
   };
 }
 
@@ -36,7 +36,8 @@ export async function buildDemoRepo(repo: MemoryRepo): Promise<string> {
   const worktree = join(DEMO_BASE, `${repo.info.repo}-worktrees`, repo.info.branch);
   await rm(DEMO_BASE, { recursive: true, force: true });
   await mkdir(main, { recursive: true });
-  const git = (args: string[], date = repo.commits[0]?.date ?? '') => runGit(main, args, environment(date));
+  const git = (args: string[], date = repo.commits[0]?.date ?? '', committed = date) =>
+    runGit(main, args, environment(date, committed));
 
   await git(['init', '--quiet', `--initial-branch=${repo.info.branch}`]);
   const shas = new Map<string, string>();
@@ -53,9 +54,10 @@ export async function buildDemoRepo(repo: MemoryRepo): Promise<string> {
   };
   const commit = async (stored: StoredCommit) => {
     await write(stored.files);
-    const message = stored.step === null ? stored.title : `${stored.step}: ${stored.title}`;
+    const title = stored.step === null ? stored.title : `${stored.step}: ${stored.title}`;
+    const message = stored.body === undefined ? title : `${title}\n\n${stored.body}`;
     await git(['add', '--all']);
-    await git(['commit', '--quiet', '--no-verify', `--message=${message}`], stored.date);
+    await git(['commit', '--quiet', '--no-verify', `--message=${message}`], stored.date, stored.committed);
     shas.set(stored.sha, (await git(['rev-parse', 'HEAD'])).trim());
   };
   for (const stored of repo.commits) {

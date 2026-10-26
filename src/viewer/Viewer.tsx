@@ -15,6 +15,7 @@ import type { Tab, ViewSearch } from '../server/store';
 import { CommitList } from './CommitList';
 import { SyncMenu } from './SyncMenu';
 import { CommitPanel, EMPTY_DRAFT, PushNote } from './CommitPanel';
+import { CommitInfo } from './CommitInfo';
 import { ComparisonBar } from './ComparisonBar';
 import type { Draft, PushState } from './CommitPanel';
 import { DiffView } from './DiffView';
@@ -273,6 +274,20 @@ export function Viewer({ view, search, onSearch, onOpen, onShow, tabs }: ViewerP
     };
   }, [fetchKey]);
 
+  // ⌘I schaltet die Angaben zum Commit, wie der Knopf in der Kopfzeile.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'i' && event.metaKey && !event.shiftKey && !event.altKey && !event.ctrlKey) {
+        event.preventDefault();
+        set({ infoOpen: !settings.infoOpen });
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [settings.infoOpen]);
+
   const files = loaded?.files;
   const { sideBySide, share, showRemoved } = settings;
   const layout: Layout = sideBySide ? { mode: 'split', share } : { mode: 'unified', showRemoved };
@@ -361,6 +376,10 @@ export function Viewer({ view, search, onSearch, onOpen, onShow, tabs }: ViewerP
             onScope={(branchScope) => {
               void saveNow({ branchScope }).then(() => router.invalidate());
             }}
+            authorDate={settings.authorDate}
+            onAuthorDate={(authorDate) => {
+              set({ authorDate });
+            }}
           />
         }
         fontSize={settings.fontSize}
@@ -370,6 +389,10 @@ export function Viewer({ view, search, onSearch, onOpen, onShow, tabs }: ViewerP
         filesOpen={settings.filesOpen}
         onFilesOpen={() => {
           set({ filesOpen: !settings.filesOpen });
+        }}
+        infoOpen={settings.infoOpen}
+        onInfoOpen={() => {
+          set({ infoOpen: !settings.infoOpen });
         }}
         timerEnd={settings.timerEnd}
         onTimerEnd={(timerEnd) => {
@@ -404,6 +427,7 @@ export function Viewer({ view, search, onSearch, onOpen, onShow, tabs }: ViewerP
           set({ listHeight });
         }}
         noted={settings.notesOpen ? noted : undefined}
+        authorDate={settings.authorDate}
       />
       {syncing !== null && (
         <SyncMenu
@@ -414,7 +438,19 @@ export function Viewer({ view, search, onSearch, onOpen, onShow, tabs }: ViewerP
           onClose={closeSync}
         />
       )}
-      <ComparisonBar commits={repo.commits} comparison={comparison} />
+      {settings.infoOpen ? (
+        <CommitInfo
+          worktree={worktree}
+          commits={repo.commits}
+          refs={repo.refs}
+          checkedOut={repo.info.checkedOut}
+          comparison={comparison}
+          files={loaded?.key === comparisonKey ? loaded.files : null}
+          onChoose={choose}
+        />
+      ) : (
+        <ComparisonBar commits={repo.commits} comparison={comparison} />
+      )}
       <main className="body">
         {settings.filesOpen && (
           <FileList

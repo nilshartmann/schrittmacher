@@ -32,6 +32,10 @@ export interface Settings {
   /** Die Höhe des Felds für einen Hinweis, wenn sie von Hand gezogen wurde; sonst wächst es mit. */
   noteHeight: number | null;
   listHeight: number;
+  /** Ob die Commit-Liste neben dem Datum des Committers das des Autors zeigt. */
+  authorDate: boolean;
+  /** Ob unter der Commit-Liste der Bereich mit den Angaben zum gewählten Commit steht. */
+  infoOpen: boolean;
   /** Welche Branches die Commit-Liste neben dem gezeigten zeigt; der Server liest das beim Laden. */
   branchScope: BranchScope;
   /**
@@ -57,6 +61,8 @@ const DEFAULTS: Settings = {
   notesWidth: NOTES_WIDTH.start,
   noteHeight: null,
   listHeight: LIST_HEIGHT.start,
+  authorDate: false,
+  infoOpen: false,
   branchScope: 'branch',
   timerEnd: null,
   root: null,
@@ -89,6 +95,8 @@ export function settingsOf(raw: Record<string, unknown>): Settings {
     notesWidth: number(raw.notesWidth, DEFAULTS.notesWidth, NOTES_WIDTH.min, 2000),
     noteHeight: typeof raw.noteHeight === 'number' && Number.isFinite(raw.noteHeight) ? raw.noteHeight : DEFAULTS.noteHeight,
     listHeight: number(raw.listHeight, DEFAULTS.listHeight, LIST_HEIGHT.min, 2000),
+    authorDate: flag(raw.authorDate, DEFAULTS.authorDate),
+    infoOpen: flag(raw.infoOpen, DEFAULTS.infoOpen),
     branchScope: branchScopeOf(raw),
     timerEnd: typeof raw.timerEnd === 'number' && Number.isFinite(raw.timerEnd) ? raw.timerEnd : DEFAULTS.timerEnd,
     root: typeof raw.root === 'string' ? raw.root : DEFAULTS.root,

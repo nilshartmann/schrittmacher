@@ -590,12 +590,17 @@ export function ScopeMenu({
   hidden,
   scope,
   onScope,
+  authorDate,
+  onAuthorDate,
 }: {
   info: RepoInfo;
   refs: Ref[];
   hidden: Hidden;
   scope: BranchScope;
   onScope: (scope: BranchScope) => void;
+  /** Ob die Liste neben dem Datum des Committers das des Autors zeigt. */
+  authorDate: boolean;
+  onAuthorDate: (authorDate: boolean) => void;
 }) {
   const branch = info.branch ?? 'HEAD';
   const shown = shownRef(refs, info.branch);
@@ -674,6 +679,18 @@ export function ScopeMenu({
               />
             </div>
           ))}
+          <MenuSection>Spalten</MenuSection>
+          <div className="menu-row">
+            <MenuItem
+              main="Datum des Autors"
+              sub="Neben dem des Committers, wenn es abweicht"
+              current={authorDate}
+              onChoose={() => {
+                close();
+                onAuthorDate(!authorDate);
+              }}
+            />
+          </div>
         </div>
       )}
     </Menu>

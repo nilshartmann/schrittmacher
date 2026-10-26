@@ -9,9 +9,48 @@ export interface Commit {
   /** Der Titel ohne die Nummer des Schritts. */
   title: string;
   author: string;
+  /** Das Datum des Autors, formatiert für die Anzeige. */
   date: string;
+  /** Das Datum des Committers, formatiert wie `date`; nach Rebase oder Amend ist es ein anderes. */
+  committed: string;
   /** Die SHAs der Vorgänger, der erste zuerst; der erste Commit hat keinen. */
   parents: string[];
+}
+
+/** Wer einen Commit geschrieben oder committet hat, mit dem Datum formatiert wie `Commit.date`. */
+export interface Person {
+  name: string;
+  email: string;
+  date: string;
+}
+
+/** Eine Zeile wie `Co-Authored-By: …` am Ende der Nachricht eines Commits. */
+export interface Trailer {
+  key: string;
+  value: string;
+}
+
+/** Was die Liste von einem Commit nicht kennt: Personen und die ganze Nachricht. */
+export interface CommitDetails {
+  sha: string;
+  author: Person;
+  committer: Person;
+  /** Die Nachricht nach dem Titel, ohne Trailer und ohne Leerzeilen davor und danach. */
+  body: string;
+  trailers: Trailer[];
+}
+
+/** Wie viele Dateien und Zeilen ein Commit oder ein Vergleich ändert. */
+export interface ChangeStats {
+  files: number;
+  added: number;
+  removed: number;
+}
+
+/** Ein Commit zwischen zwei verglichenen Commits, mit dem, was er ändert. */
+export interface RangeCommit {
+  commit: Commit;
+  stats: ChangeStats;
 }
 
 /** Repo, Worktree und Branch, wie sie die Kopfzeile nennt, mit den Pfaden dazu. */

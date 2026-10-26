@@ -3,9 +3,9 @@ import type { Commit } from '../git/types';
 
 /**
  * Die Zeile unter der Commit-Liste beim Vergleich zweier Commits, wie in Fork: je Commit Autor, SHA,
- * Datum und Titel, der ältere oben. Die SHAs haben die Farben der entfernten und der neuen Zeilen,
- * weil der ältere Commit die linke und der neuere die rechte Seite des Diffs ist. Ohne zweiten
- * Commit fehlt die Zeile, weil die Liste den Vergleich dann allein zeigt.
+ * Datum des Committers und Titel, der ältere oben. Die SHAs haben die Farben der entfernten und der
+ * neuen Zeilen, weil der ältere Commit die linke und der neuere die rechte Seite des Diffs ist. Ohne
+ * zweiten Commit fehlt die Zeile, weil die Liste den Vergleich dann allein zeigt.
  */
 export function ComparisonBar({ commits, comparison }: { commits: Commit[]; comparison: Comparison }) {
   const from = commits.find((commit) => commit.sha === comparison.from);
@@ -21,12 +21,13 @@ export function ComparisonBar({ commits, comparison }: { commits: Commit[]; comp
   );
 }
 
-function ComparedCommit({ commit, side }: { commit: Commit; side: 'old' | 'new' }) {
+/** Ein Commit des Vergleichs mit Autor, SHA, Datum und Titel; die SHA in der Farbe seiner Seite. */
+export function ComparedCommit({ commit, side }: { commit: Commit; side: 'old' | 'new' }) {
   return (
     <div className="compared">
       <span className="compared-author">{commit.author}</span>
       <span className={`compared-sha compared-sha-${side}`}>{commit.sha.slice(0, 10)}</span>
-      <span className="compared-date">{commit.date}</span>
+      <span className="compared-date">{commit.committed}</span>
       <span className="compared-title">
         {commit.step !== null && <b>{commit.step}: </b>}
         {commit.title}

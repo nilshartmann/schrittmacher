@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import type { ViewSearch } from '../server/store';
-import { NoteIcon, SidebarIcon } from './Icons';
+import { InfoIcon, NoteIcon, SidebarIcon } from './Icons';
 import { Timer } from './Timer';
 import { RepoMenu } from './ViewMenus';
 
@@ -19,6 +19,8 @@ interface HeaderProps {
   onFontSize: (change: number) => void;
   filesOpen: boolean;
   onFilesOpen: () => void;
+  infoOpen: boolean;
+  onInfoOpen: () => void;
   timerEnd: number | null;
   onTimerEnd: (end: number | null) => void;
   notesOpen: boolean;
@@ -28,8 +30,8 @@ interface HeaderProps {
 }
 
 /**
- * Die schmale Kopfzeile: links der Knopf für die Dateiliste, nach einem Trennstrich der für alle
- * Branches und die Knöpfe zum Wechseln von Repo, Worktree und Branch; rechts der Timer für den
+ * Die schmale Kopfzeile: links die Knöpfe für die Dateiliste und die Angaben zum Commit, nach einem
+ * Trennstrich der für alle Branches und die Knöpfe zum Wechseln von Repo, Worktree und Branch; rechts der Timer für den
  * Vortrag und die Knöpfe für die Schriftgröße, deren Wert der Tooltip nennt. Den gewählten
  * Vergleich zeigt die Commit-Liste, den zweier Commits zusätzlich die Zeile darunter
  * (`ComparisonBar`).
@@ -47,6 +49,16 @@ export function Header(props: HeaderProps) {
           onClick={props.onFilesOpen}
         >
           <SidebarIcon />
+        </button>
+        <button
+          type="button"
+          className="bar-tool"
+          aria-pressed={props.infoOpen}
+          aria-label="Angaben zum Commit"
+          data-tip={props.infoOpen ? 'Angaben zum Commit ausblenden (⌘I)' : 'Angaben zum Commit zeigen (⌘I)'}
+          onClick={props.onInfoOpen}
+        >
+          <InfoIcon />
         </button>
         <span className="bar-separator" />
         {props.scope}

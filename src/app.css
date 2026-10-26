@@ -1421,6 +1421,213 @@ a.menu-item {
   text-overflow: ellipsis;
 }
 
+/* Angaben zum gewählten Commit zwischen Commit-Liste und Dateien. Der Bereich wächst mit seinem
+   Inhalt bis zu einem Drittel des Fensters und scrollt danach. */
+.info {
+  flex: none;
+  max-height: 33vh;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.info:empty {
+  display: none;
+}
+
+.info-quiet {
+  color: var(--quiet);
+}
+
+.info-single {
+  display: flex;
+  gap: 24px;
+}
+
+.info-facts {
+  display: grid;
+  flex: none;
+  grid-template-columns: auto auto;
+  align-content: start;
+  justify-content: start;
+  column-gap: 12px;
+  max-width: 50%;
+  margin: 0;
+}
+
+.info-facts dt {
+  color: var(--quiet);
+}
+
+.info-facts dd {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  white-space: nowrap;
+}
+
+.info-date {
+  margin-left: 6px;
+  color: var(--quiet);
+  font-variant-numeric: tabular-nums;
+}
+
+.info-sha {
+  font-family: var(--font-code);
+  font-size: 12px;
+}
+
+.info-copy,
+.info-parent,
+.info-more {
+  padding: 0 4px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+}
+
+.info-copy:hover,
+.info-parent:hover,
+.info-more:hover {
+  background: var(--hover);
+}
+
+.info-parent {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: -4px;
+  color: inherit;
+}
+
+span.info-parent {
+  cursor: default;
+}
+
+.info-ref {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.info-ref-remote {
+  color: var(--quiet);
+}
+
+.info-stats {
+  display: inline-flex;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+.info-added {
+  color: var(--diff-added-ink);
+}
+
+.info-removed {
+  color: var(--diff-removed-ink);
+}
+
+.info-message {
+  flex: 1 1 auto;
+  min-width: 0;
+  /* Titel und Nachricht lassen sich markieren und kopieren. */
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.info-facts dd {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.info-title {
+  font-weight: 600;
+}
+
+.info-body {
+  margin-top: 4px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.info-body-clipped {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: var(--info-lines);
+}
+
+.info-more {
+  margin-left: -4px;
+}
+
+.info-trailer {
+  margin-top: 2px;
+  color: var(--quiet);
+  font-size: var(--size-small);
+}
+
+.info-range .compared {
+  height: 22px;
+}
+
+.info-sum {
+  display: flex;
+  gap: 10px;
+  margin: 4px 0 2px;
+  color: var(--quiet);
+}
+
+.info-between {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.info-between-commit {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 22px;
+  padding: 0 4px;
+  margin-left: -4px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.info-between-commit:hover {
+  background: var(--hover);
+}
+
+.info-between-step {
+  flex: none;
+  min-width: 28px;
+  font-variant-numeric: tabular-nums;
+}
+
+.info-between-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .file-bar {
   display: flex;
   flex: none;

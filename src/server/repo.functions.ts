@@ -222,6 +222,19 @@ export const compareCommits = createServerFn({ method: 'GET' })
   .validator((data: { worktree: string; comparison: Comparison }) => data)
   .handler(async ({ data }) => (await access(data.worktree)).source.compare(data.comparison));
 
+/** Personen und ganze Nachricht eines Commits, siehe `RepoSource.details`. */
+export const commitDetails = createServerFn({ method: 'GET' })
+  .validator((data: { worktree: string; sha: string }) => ({
+    worktree: text(data.worktree, 'worktree'),
+    sha: text(data.sha, 'sha'),
+  }))
+  .handler(async ({ data }) => (await access(data.worktree)).source.details(data.sha));
+
+/** Die Commits zwischen zwei verglichenen Commits, siehe `RepoSource.between`. */
+export const commitsBetween = createServerFn({ method: 'GET' })
+  .validator((data: { worktree: string; comparison: Comparison }) => data)
+  .handler(async ({ data }) => (await access(data.worktree)).source.between(data.comparison));
+
 /** Der Stand des Repos; mit `local` auch der lokalen Änderungen, siehe `RepoSource.state`. */
 export const repoState = createServerFn({ method: 'GET' })
   .validator((data: { worktree: string; local: boolean }) => ({

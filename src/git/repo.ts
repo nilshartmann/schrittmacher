@@ -1,6 +1,6 @@
 import type { Hidden } from './hidden';
 import type { BranchScope } from './scope';
-import type { Commit, DiffFile, Ref, RepoInfo, SyncAction, SyncPlan, Worktree } from './types';
+import type { Commit, CommitDetails, DiffFile, RangeCommit, Ref, RepoInfo, SyncAction, SyncPlan, Worktree } from './types';
 
 /**
  * Die Kennung der lokalen Änderungen im Worktree, anstelle eines Commits in `Comparison.to` und in
@@ -59,6 +59,13 @@ export interface RepoSource {
    * `LOCAL` die lokalen Änderungen, auch die Dateien, die Git noch nicht kennt.
    */
   compare: (comparison: Comparison) => Promise<DiffFile[]>;
+  /** Personen und ganze Nachricht des Commits `sha`. */
+  details: (sha: string) => Promise<CommitDetails>;
+  /**
+   * Die Commits, die der neuere Commit eines Vergleichs mehr hat als der ältere, der neueste zuerst.
+   * Ohne `from` ist es nur `to` selbst.
+   */
+  between: (comparison: Comparison) => Promise<RangeCommit[]>;
   /**
    * Ein Text, der sich ändert, sobald sich Commits oder Branches ändern, mit `local` auch bei jeder
    * lokalen Änderung. Die Oberfläche fragt ihn regelmäßig ab und lädt das Repo neu, wenn er nicht

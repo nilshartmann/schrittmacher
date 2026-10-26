@@ -5,9 +5,13 @@ import type { Commit, Ref } from './types';
 
 /**
  * Ein Commit mit den Dateien, die er ändert. Eine Datei mit `null` wird gelöscht. Der SHA ist nur
- * eine Kennung für die Branches, das echte Repo hat eigene. Das Datum steht in ISO 8601.
+ * eine Kennung für die Branches, das echte Repo hat eigene. Die Daten stehen in ISO 8601; ohne
+ * `committed` gilt für den Committer dasselbe wie für den Autor.
  */
-export interface StoredCommit extends Omit<Commit, 'parents'> {
+export interface StoredCommit extends Omit<Commit, 'parents' | 'committed'> {
+  committed?: string;
+  /** Die Nachricht nach dem Titel, mit Trailern. */
+  body?: string;
   files: Record<string, string | null>;
 }
 
@@ -869,6 +873,7 @@ export const DEMO_REPO: MemoryRepo = {
       title: 'Der Listener mit @Async, er läuft in einem eigenen Thread',
       author: 'Nils Hartmann',
       date: '2026-10-22T09:02:00+02:00',
+      committed: '2026-10-24T08:50:00+02:00',
       files: {
         'src/main/java/nh/demo/bibliothek/reservation/ReservationListener.java': LISTENER_2,
       },
@@ -879,6 +884,15 @@ export const DEMO_REPO: MemoryRepo = {
       title: 'Mit @TransactionalEventListener erst nach dem Commit von returnBook',
       author: 'Nils Hartmann',
       date: '2026-10-22T09:27:00+02:00',
+      committed: '2026-10-24T08:50:00+02:00',
+      body: `Der Listener aus 06a läuft schon, bevor returnBook committet hat. Liest er die
+Ausleihe, sieht er noch den alten Stand.
+
+Mit @TransactionalEventListener wartet er auf das Ende der Transaktion. Damit er
+selbst schreiben darf, braucht er eine eigene mit REQUIRES_NEW.
+
+Refs: Folie 23
+Co-Authored-By: Testdaten <testdaten@schrittmacher.invalid>`,
       files: {
         'src/main/java/nh/demo/bibliothek/reservation/ReservationListener.java': LISTENER_3,
       },
@@ -889,6 +903,7 @@ export const DEMO_REPO: MemoryRepo = {
       title: 'Die Mahngebühr bei der Rückgabe, gedeckelt auf zehn Euro',
       author: 'Nils Hartmann',
       date: '2026-10-23T11:15:00+02:00',
+      committed: '2026-10-24T08:50:00+02:00',
       files: {
         'src/main/java/nh/demo/bibliothek/loan/FeeCalculator.java': FEE_CALCULATOR,
         'src/main/java/nh/demo/bibliothek/loan/LoanService.java': SERVICE_5,

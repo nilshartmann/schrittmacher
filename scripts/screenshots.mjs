@@ -282,6 +282,36 @@ const SHOTS = [
       await page.locator('.file', { hasText: 'LoanService' }).click();
     },
   ],
+  ['30-info', async (page) => page.getByRole('button', { name: 'Angaben zum Commit' }).click()],
+  [
+    '31-info-aufgeklappt',
+    async (page) => {
+      await page.getByRole('button', { name: 'Angaben zum Commit' }).click();
+      await page.locator('.info-more').click();
+    },
+  ],
+  [
+    '32-info-zwei-commits',
+    async (page) => {
+      await page.getByRole('button', { name: 'Angaben zum Commit' }).click();
+      await commit(page, '04b').click();
+      await commit(page, '07').click({ modifiers: ['Meta'] });
+    },
+  ],
+  [
+    '33-info-lokal',
+    async (page) => {
+      await page.getByRole('button', { name: 'Angaben zum Commit' }).click();
+      await openLocal(page);
+    },
+  ],
+  [
+    '34-autor-datum',
+    async (page) => {
+      await page.getByRole('button', { name: 'Branches der Commit-Liste' }).click();
+      await page.locator('.menu-item', { hasText: 'Datum des Autors' }).click();
+    },
+  ],
 ];
 
 await mkdir('screenshots', { recursive: true });
