@@ -30,8 +30,9 @@ Frag vor jeder Bibliothek, die über TanStack, React, Vite und Lezer hinausgeht.
 - `src/git/` importiert nichts aus React oder TanStack, damit Electron später eine Option bleibt.
 - Git läuft nur lesend und mit `--no-optional-locks`, weil Fork parallel auf demselben Repo
   arbeitet. Die einzigen Ausnahmen sind Commit und Push im Worktree eines Tabs
-  (`docs/commit.md`), der Fetch aus dem Branch-Menü (immer mit `--prune`) und das Kopieren einer
-  Datei in den Worktree eines anderen Tabs.
+  (`docs/commit.md`), der Fetch aus dem Branch-Menü (immer mit `--prune`), Merge und harter Reset
+  eines Branches mit seinem Branch auf dem Remote (Abstand im Badge) und das Kopieren einer Datei in
+  den Worktree eines anderen Tabs.
 - Fenstergröße zum Prüfen: 1194 × 764 pt (Sidecar abzüglich Menü- und Titelleiste der Web-App)
 - Bedienung mit Maus oder Trackpad des MacBooks, nicht mit dem Pencil; mit dem Finger wird nur
   gescrollt.

@@ -8,7 +8,7 @@ import { refPath } from './hidden';
 import { scopeRefs, shownRef } from './scope';
 import { LOCAL } from './repo';
 import type { Comparison, LoadOptions, RepoData, RepoSource } from './repo';
-import type { Commit, DiffFile, DiffLine, Ref, Worktree } from './types';
+import type { Commit, DiffFile, DiffLine, Ref, SyncAction, SyncPlan, Worktree } from './types';
 
 /** Der Baum ohne Dateien; gegen ihn vergleicht Git den ersten Commit. */
 const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
@@ -29,6 +29,12 @@ const CACHED_COMPARISONS = 100;
  * Grenze schützt vor einem großen Repo, das versehentlich geöffnet wird.
  */
 const MAX_COMMITS = 1000;
+
+/**
+ * So viele Commits je Seite liefert die Vorschau von Merge und Reset höchstens, die neuesten. Die
+ * Grenze schützt vor Branches, die weit voneinander abweichen.
+ */
+const SYNC_LISTED = 500;
 
 /** So viele Bytes vom Anfang einer Datei prüft Git auf ein Nullbyte, um eine Binärdatei zu erkennen. */
 const BINARY_PROBE = 8000;
@@ -54,8 +60,8 @@ const DIFF = [
 
 /**
  * Ein echtes Repo als Quelle, gelesen über Git im Verzeichnis eines Worktrees. Git ändert dabei
- * nichts am Repo, außer bei `commit`, `push` und `fetch`; `write` schreibt eine Datei in den
- * Worktree.
+ * nichts am Repo, außer bei `commit`, `push`, `fetch` und `sync`; `write` schreibt eine Datei in
+ * den Worktree.
  */
 export function gitSource(worktree: string): RepoSource {
   const git = (...args: string[]) => runGit(worktree, args);
@@ -120,6 +126,8 @@ export function gitSource(worktree: string): RepoSource {
       await plain(runGit(worktree, ['fetch', '--quiet', '--prune', ...which], { GIT_TERMINAL_PROMPT: '0' }));
     },
     fetched: () => fetchedAt(git),
+    syncPlan: (branch) => syncPlanOf(git, branch),
+    sync: (branch, action, expected) => sync(git, branch, action, expected),
     content: async (revision, path) =>
       revision === LOCAL
         ? readFile(inWorktree(worktree, path))
@@ -359,6 +367,99 @@ function refOf(line: string): Ref[] {
   // Git nennt den Abstand als `ahead 2, behind 1`, ohne Abstand gar nicht.
   const count = (word: string) => Number(new RegExp(`${word} (\\d+)`).exec(track)?.[1] ?? 0);
   return [{ ...ref, tracking: { remote: upstream, assumed: false, ahead: count('ahead'), behind: count('behind') } }];
+}
+
+/** Die Commits einer Revision oder eines Bereichs wie `a..b`, der neueste zuerst. */
+async function commitsOf(git: Git, range: string, count: number): Promise<Commit[]> {
+  const log = await git('log', `--max-count=${String(count)}`, `--format=%H${FIELD}%P${FIELD}%an${FIELD}%aI${FIELD}%s`, range, '--');
+  return lines(log).map(commitOf);
+}
+
+/**
+ * Was Merge und Reset bewirken würden. Gefragt wird nach den Branches, wie sie jetzt sind; die
+ * Oberfläche schickt ihre SHAs bei der Ausführung zur Prüfung mit.
+ */
+async function syncPlanOf(git: Git, branch: string): Promise<SyncPlan> {
+  const [refs, worktrees] = await Promise.all([refsOf(git), worktreesOf(git)]);
+  const tracking = refs.find((ref) => ref.kind === 'local' && ref.name === branch)?.tracking;
+  if (tracking === undefined || !refs.some((ref) => ref.kind === 'remote' && ref.name === tracking.remote)) {
+    throw new Error(`Zu ${branch} gibt es keinen Branch auf einem Remote.`);
+  }
+  const local = `refs/heads/${branch}`;
+  const upstream = `refs/remotes/${tracking.remote}`;
+  const worktree = worktrees.find((candidate) => candidate.branch === branch) ?? null;
+  const [[localTip], [upstreamTip], ahead, behind, status] = await Promise.all([
+    commitsOf(git, local, 1),
+    commitsOf(git, upstream, 1),
+    commitsOf(git, `${upstream}..${local}`, SYNC_LISTED),
+    commitsOf(git, `${local}..${upstream}`, SYNC_LISTED),
+    worktree === null ? Promise.resolve('') : runGit(worktree.path, ['status', '--porcelain']),
+  ]);
+  if (localTip === undefined || upstreamTip === undefined) {
+    throw new Error(`Zu ${branch} fehlt ein Commit.`);
+  }
+  const entries = lines(status);
+  return {
+    branch,
+    remote: tracking.remote,
+    local: localTip,
+    upstream: upstreamTip,
+    ahead,
+    behind,
+    tracking,
+    worktree,
+    changes: entries.some((entry) => !entry.startsWith('??')),
+    untracked: entries.some((entry) => entry.startsWith('??')),
+  };
+}
+
+/**
+ * Merge oder harter Reset, siehe `RepoSource.sync`. Ohne Worktree verschiebt `update-ref` den
+ * Branch nur, wenn er noch auf dem erwarteten Commit steht.
+ */
+async function sync(
+  git: Git,
+  branch: string,
+  action: SyncAction,
+  expected: { local: string; upstream: string },
+): Promise<void> {
+  const plan = await syncPlanOf(git, branch);
+  if (plan.local.sha !== expected.local || plan.upstream.sha !== expected.upstream) {
+    throw new Error(`${branch} oder ${plan.remote} hat sich inzwischen geändert. Bitte noch einmal ansehen.`);
+  }
+  if (action === 'merge' && plan.tracking.behind === 0) {
+    throw new Error(`${plan.remote} hat keine Commits, die ${branch} fehlen.`);
+  }
+  const target = plan.upstream.sha;
+  if (plan.worktree === null) {
+    if (action === 'merge' && plan.tracking.ahead > 0) {
+      throw new Error(`${branch} ist nirgends ausgecheckt; ohne Worktree geht nur ein Fast-Forward.`);
+    }
+    await plain(git('update-ref', '-m', `schrittmacher: ${action} ${plan.remote}`, `refs/heads/${branch}`, target, plan.local.sha));
+    return;
+  }
+  const path = plan.worktree.path;
+  const there = (...args: string[]) => runGit(path, args);
+  if (action === 'reset') {
+    await plain(there('reset', '--hard', '--quiet', target));
+    return;
+  }
+  try {
+    // Die Nachricht lautet wie bei `git merge origin/…`, der volle Name ist aber eindeutig.
+    const message = `Merge remote-tracking branch '${plan.remote}' into ${branch}`;
+    await there('merge', '--quiet', `--message=${message}`, `refs/remotes/${plan.remote}`);
+  } catch (failure) {
+    // Ein Merge mit Konflikten lässt Git halb fertig stehen; er wird ganz zurückgenommen.
+    const merging = await there('rev-parse', '--verify', '--quiet', 'MERGE_HEAD').then(
+      () => true,
+      () => false,
+    );
+    if (merging) {
+      await plain(there('merge', '--abort'));
+      throw new Error(`Der Merge hat Konflikte und wurde abgebrochen; ${branch} ist unverändert.`);
+    }
+    throw failure instanceof GitError ? new Error(failure.output) : failure;
+  }
 }
 
 /**

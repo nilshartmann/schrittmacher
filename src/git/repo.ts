@@ -1,6 +1,6 @@
 import type { Hidden } from './hidden';
 import type { BranchScope } from './scope';
-import type { Commit, DiffFile, Ref, RepoInfo, Worktree } from './types';
+import type { Commit, DiffFile, Ref, RepoInfo, SyncAction, SyncPlan, Worktree } from './types';
 
 /**
  * Die Kennung der lokalen Änderungen im Worktree, anstelle eines Commits in `Comparison.to` und in
@@ -83,6 +83,15 @@ export interface RepoSource {
    * Remote nicht mehr gibt. Lokale Branches bleiben unberührt.
    */
   fetch: (remote: string | null) => Promise<void>;
+  /** Was Merge und Reset des lokalen `branch` mit seinem Branch auf dem Remote bewirken würden. */
+  syncPlan: (branch: string) => Promise<SyncPlan>;
+  /**
+   * Führt den Merge des Branches vom Remote in den lokalen `branch` aus oder setzt ihn hart darauf
+   * zurück. Ist der Branch in einem Worktree des Repos ausgecheckt, geschieht das dort; sonst wird
+   * nur der Branch verschoben, beim Merge nur als Fast-Forward. Hat sich einer der Branches seit
+   * `expected` geändert, bricht die Aktion ab. Ein Merge mit Konflikten wird abgebrochen.
+   */
+  sync: (branch: string, action: SyncAction, expected: { local: string; upstream: string }) => Promise<void>;
   /** Der Zeitpunkt des letzten Fetch in Millisekunden; `null`, wenn noch keiner lief. */
   fetched: () => Promise<number | null>;
   /** Der Inhalt der Datei unter `path` im Commit `revision`; mit `LOCAL` der im Worktree. */

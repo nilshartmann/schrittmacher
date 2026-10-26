@@ -58,6 +58,31 @@ export interface Tracking {
   behind: number;
 }
 
+/** Was ein lokaler Branch mit seinem Branch auf dem Remote machen kann: Merge oder harter Reset. */
+export type SyncAction = 'merge' | 'reset';
+
+/** Was Merge und Reset eines lokalen Branches bewirken würden, für die Bestätigung. */
+export interface SyncPlan {
+  branch: string;
+  /** Der Branch auf dem Remote, etwa `origin/schritte`. */
+  remote: string;
+  /** Die Spitze des lokalen Branches. */
+  local: Commit;
+  /** Die Spitze des Branches auf dem Remote. */
+  upstream: Commit;
+  /** Die neuesten Commits, die nur der lokale Branch hat, der neueste zuerst; `tracking` zählt alle. */
+  ahead: Commit[];
+  /** Die neuesten Commits, die nur der Branch auf dem Remote hat, der neueste zuerst. */
+  behind: Commit[];
+  tracking: Tracking;
+  /** Der Worktree, in dem der Branch ausgecheckt ist; keiner, wenn er nirgends ausgecheckt ist. */
+  worktree: Worktree | null;
+  /** Ob der Worktree Änderungen an Dateien hat, die Git kennt; ein Reset verwirft sie. */
+  changes: boolean;
+  /** Ob der Worktree Dateien hat, die Git nicht kennt; sie bleiben bei einem Reset. */
+  untracked: boolean;
+}
+
 export type DiffLineKind = 'context' | 'added' | 'removed';
 
 /** Ein Bereich von Zeichen einer Zeile, in UTF-16-Einheiten; `end` gehört nicht mehr dazu. */

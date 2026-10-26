@@ -38,6 +38,8 @@ interface CommitListProps {
   distance: boolean;
   /** Ein Klick auf einen Badge zeigt die Commits dieses Branches. */
   onBranch: (name: string) => void;
+  /** Ein Klick auf den Abstand eines Badges bietet Merge und Reset an, unter der Stelle `at`. */
+  onDistance: (name: string, at: DOMRect) => void;
   comparison: Comparison;
   onChoose: (comparison: Comparison) => void;
   height: number;
@@ -201,6 +203,7 @@ export function CommitList(props: CommitListProps) {
                       branch={props.branch}
                       distance={props.distance}
                       onBranch={props.onBranch}
+                      onDistance={props.onDistance}
                     />
                   </td>
                   <td className="commit-meta">{commit.author}</td>
@@ -292,11 +295,13 @@ function RefBadges({
   branch,
   distance,
   onBranch,
+  onDistance,
 }: {
   refs: Ref[];
   branch: string | null;
   distance: boolean;
   onBranch: (name: string) => void;
+  onDistance: (name: string, at: DOMRect) => void;
 }) {
   if (refs.length === 0) {
     return null;
@@ -310,6 +315,7 @@ function RefBadges({
           current={ref.name === branch}
           distance={distance}
           onBranch={onBranch}
+          onDistance={onDistance}
         />
       ))}
     </span>
@@ -319,43 +325,57 @@ function RefBadges({
 /**
  * Ein Branch als Badge, wie in Fork: lokal mit dem Symbol eines Branches, auf einem Remote mit ☁. Ein Klick zeigt seine
  * Commits, ohne den Commit der Zeile zu wählen. Mit `distance` nennt ein lokaler Branch dahinter
- * seinen Abstand zum Remote, blasser ohne eingerichteten Upstream.
+ * seinen Abstand zum Remote, blasser ohne eingerichteten Upstream. Ein Klick auf den Abstand bietet
+ * Merge und Reset an.
  */
 function RefBadge({
   branchRef,
   current,
   distance,
   onBranch,
+  onDistance,
 }: {
   branchRef: Ref;
   current: boolean;
   distance: boolean;
   onBranch: (name: string) => void;
+  onDistance: (name: string, at: DOMRect) => void;
 }) {
   const tracking = distance && hasDistance(branchRef.tracking) ? branchRef.tracking : null;
-  const tip = current ? 'Die Liste zeigt diesen Branch' : `Commits von ${branchRef.name} zeigen`;
   return (
-    <button
-      type="button"
-      className={`ref ref-${branchRef.kind}${current ? ' ref-current' : ''}`}
-      data-tip={tracking === null ? tip : `${tip}. ${distanceTip(tracking)}`}
-      onClick={(event) => {
-        event.stopPropagation();
-        if (!current) {
-          onBranch(branchRef.name);
-        }
-      }}
-    >
-      <span className="ref-sign" aria-hidden="true">
-        {branchRef.kind === 'local' ? <BranchIcon /> : '☁'}
-      </span>
-      {branchRef.name}
-      {tracking !== null && (
-        <span className={tracking.assumed ? 'ref-distance ref-distance-assumed' : 'ref-distance'}>
-          <Distance tracking={tracking} />
+    <span className={`ref ref-${branchRef.kind}${current ? ' ref-current' : ''}`}>
+      <button
+        type="button"
+        className="ref-name"
+        data-tip={current ? 'Die Liste zeigt diesen Branch' : `Commits von ${branchRef.name} zeigen`}
+        onClick={(event) => {
+          event.stopPropagation();
+          if (!current) {
+            onBranch(branchRef.name);
+          }
+        }}
+      >
+        <span className="ref-sign" aria-hidden="true">
+          {branchRef.kind === 'local' ? <BranchIcon /> : '☁'}
         </span>
+        {branchRef.name}
+      </button>
+      {tracking !== null && (
+        <button
+          type="button"
+          className={tracking.assumed ? 'ref-distance ref-distance-assumed' : 'ref-distance'}
+          aria-label={`Merge oder Reset von ${branchRef.name}`}
+          aria-haspopup="menu"
+          data-tip={`${distanceTip(tracking)}. Klick für Merge oder Reset`}
+          onClick={(event) => {
+            event.stopPropagation();
+            onDistance(branchRef.name, event.currentTarget.getBoundingClientRect());
+          }}
+        >
+          <Distance tracking={tracking} />
+        </button>
       )}
-    </button>
+    </span>
   );
 }
 

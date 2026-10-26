@@ -1,4 +1,4 @@
-import { useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import { useRouter } from '@tanstack/react-router';
 import { graphOf } from '../git/graph';
@@ -13,6 +13,7 @@ import { compareCommits, copyFile, copyTargets, pushBranch } from '../server/rep
 import type { CopyPlace } from '../server/repo.functions';
 import type { Tab, ViewSearch } from '../server/store';
 import { CommitList } from './CommitList';
+import { SyncMenu } from './SyncMenu';
 import { CommitPanel, EMPTY_DRAFT, PushNote } from './CommitPanel';
 import { ComparisonBar } from './ComparisonBar';
 import type { Draft, PushState } from './CommitPanel';
@@ -203,6 +204,11 @@ export function Viewer({ view, search, onSearch, onOpen, onShow, tabs }: ViewerP
   const [noteDraft, setNoteDraft] = useState<NoteDraft | null>(null);
   const [activeNote, setActiveNote] = useState<string | null>(null);
   const [focus, setFocus] = useState<LineFocus | null>(null);
+  // Der Branch, dessen Abstand zum Remote gerade Merge und Reset anbietet, mit der Stelle des Badges.
+  const [syncing, setSyncing] = useState<{ branch: string; at: DOMRect } | null>(null);
+  const closeSync = useCallback(() => {
+    setSyncing(null);
+  }, []);
   // Die Hinweise je Commit der Liste, auch nach einem Rebase, siehe `commitOfNote`.
   const noted = useMemo(() => {
     const counts = new Map<string, number>();
@@ -388,6 +394,9 @@ export function Viewer({ view, search, onSearch, onOpen, onShow, tabs }: ViewerP
         onBranch={(branch) => {
           void onOpen({ worktree, branch });
         }}
+        onDistance={(branch, at) => {
+          setSyncing({ branch, at });
+        }}
         comparison={comparison}
         onChoose={choose}
         height={settings.listHeight}
@@ -396,6 +405,15 @@ export function Viewer({ view, search, onSearch, onOpen, onShow, tabs }: ViewerP
         }}
         noted={settings.notesOpen ? noted : undefined}
       />
+      {syncing !== null && (
+        <SyncMenu
+          key={`${worktree}\n${syncing.branch}`}
+          worktree={worktree}
+          branch={syncing.branch}
+          at={syncing.at}
+          onClose={closeSync}
+        />
+      )}
       <ComparisonBar commits={repo.commits} comparison={comparison} />
       <main className="body">
         {settings.filesOpen && (

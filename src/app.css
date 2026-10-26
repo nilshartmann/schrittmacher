@@ -1086,7 +1086,6 @@ a.menu-item {
 /* Branches als Badge rechts in der Spalte des Titels. Der Branch des Worktrees ist kräftiger. */
 .ref {
   display: inline-flex;
-  cursor: pointer;
   color: inherit;
   font-family: var(--font-ui);
   align-items: center;
@@ -1110,7 +1109,23 @@ a.menu-item {
 .ref-current {
   border-color: #d08a00;
   font-weight: 600;
-  /* Ein Klick auf den Badge des gezeigten Branches bewirkt nichts. */
+}
+
+/* Name und Abstand sind je ein Knopf, ohne eigenen Rahmen. */
+.ref > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+/* Ein Klick auf den Namen des gezeigten Branches bewirkt nichts. */
+.ref-current > .ref-name {
   cursor: default;
 }
 
@@ -1905,15 +1920,19 @@ a.menu-item {
   line-height: 14px;
 }
 
-/* Der Abstand zum Remote im Badge eines lokalen Branches, abgesetzt vom Namen */
-.ref-distance {
-  display: inline-flex;
-  gap: 3px;
-  margin-left: 2px;
-  padding-left: 5px;
+/* Der Abstand zum Remote im Badge eines lokalen Branches, abgesetzt vom Namen. Ein Klick darauf
+   bietet Merge und Reset an; hinterlegt wird er bis an den Rand des Badges. */
+.ref > .ref-distance {
+  margin: 0 -5px 0 2px;
+  padding: 0 5px;
   border-left: 1px solid #e3b45a;
+  border-radius: 0 3px 3px 0;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
+}
+
+.ref > .ref-distance:hover {
+  background: rgb(208 138 0 / 18%);
 }
 
 .ref-distance-assumed {
@@ -2514,4 +2533,165 @@ a.menu-item {
 
 .notes-clear {
   margin-left: auto;
+}
+
+/* Merge und Reset eines Branches mit seinem Branch auf dem Remote */
+
+.sync-menu {
+  position: fixed;
+  width: 330px;
+  z-index: 30;
+}
+
+/* Lange Branch-Namen und der Grund für eine gesperrte Wahl stehen ganz da. */
+.sync-menu .menu-main,
+.sync-menu .menu-sub {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.sync-dialog {
+  width: min(560px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  padding: 18px 20px 16px;
+  border: 1px solid var(--border-panel);
+  border-radius: 12px;
+  background: var(--bg-panel);
+  box-shadow: var(--shadow-panel);
+  color: var(--text-primary);
+  font-family: var(--font-menu);
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+}
+
+.sync-dialog::backdrop {
+  background: rgb(20 20 30 / 25%);
+}
+
+.sync-dialog h2 {
+  margin: 0 0 10px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.sync-dialog p {
+  margin: 8px 0;
+  line-height: 1.4;
+}
+
+.sync-path {
+  display: block;
+  color: var(--text-path);
+  font-family: var(--font-code);
+  font-size: 11.5px;
+  overflow-wrap: anywhere;
+}
+
+.sync-commits {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: stretch;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.sync-arrow {
+  align-self: center;
+  color: var(--text-label);
+  font-size: 16px;
+}
+
+.sync-card {
+  padding: 8px 10px;
+  border: 1px solid var(--border-tree);
+  border-radius: 8px;
+  background: var(--bg-footer);
+}
+
+.sync-label {
+  margin-bottom: 3px;
+  color: var(--text-label);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.sync-title {
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.sync-dialog .commit-sha {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.sync-quiet {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.sync-list {
+  margin: 10px 0;
+}
+
+.sync-list ul {
+  max-height: 220px;
+  margin: 0;
+  padding: 0 0 0 2px;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.sync-list li {
+  overflow: hidden;
+  padding: 1px 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sync-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 0;
+  border: 0;
+  background: transparent;
+  color: var(--menu-accent);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.sync-more:hover {
+  text-decoration: underline;
+}
+
+.sync-lost li:not(.sync-quiet) {
+  color: var(--diff-removed-ink);
+}
+
+.sync-warning {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--diff-removed);
+  color: var(--diff-removed-ink);
+  font-weight: 500;
+}
+
+.sync-error {
+  color: var(--diff-removed-ink);
+  white-space: pre-wrap;
+}
+
+/* Rot auch als Hauptknopf, dessen Blau sonst Vorrang hat */
+.sync-buttons .tool-danger:not(:disabled),
+.sync-buttons .tool-danger:hover:not(:disabled) {
+  background: var(--diff-removed-ink);
+}
+
+.sync-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
 }

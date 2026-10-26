@@ -9,6 +9,7 @@ import type { Comparison, RepoSource } from '../git/repo';
 import { changedAt, findRepos, projectsOf } from '../git/repos';
 import { branchScopeOf } from '../git/scope';
 import type { RepoEntry, RepoProject } from '../git/repos';
+import type { SyncAction } from '../git/types';
 import { noteInputOf } from '../notes/notes';
 import { createNotes } from './notes';
 import { shared } from './shared';
@@ -263,6 +264,35 @@ export const fetchRemote = createServerFn({ method: 'POST' })
   }))
   .handler(async ({ data }) => {
     await (await access(data.worktree)).source.fetch(data.remote);
+  });
+
+/** Was Merge und Reset eines lokalen Branches bewirken würden, siehe `RepoSource.syncPlan`. */
+export const syncPlan = createServerFn({ method: 'GET' })
+  .validator((data: { worktree: string; branch: string }) => ({
+    worktree: text(data.worktree, 'worktree'),
+    branch: text(data.branch, 'branch'),
+  }))
+  .handler(async ({ data }) => (await access(data.worktree)).source.syncPlan(data.branch));
+
+/** Merge oder harter Reset eines lokalen Branches, siehe `RepoSource.sync`. */
+export const syncBranch = createServerFn({ method: 'POST' })
+  .validator((data: { worktree: string; branch: string; action: SyncAction; local: string; upstream: string }) => {
+    if (data.action !== 'merge' && data.action !== 'reset') {
+      throw new Error('Die Aktion ist weder Merge noch Reset.');
+    }
+    return {
+      worktree: text(data.worktree, 'worktree'),
+      branch: text(data.branch, 'branch'),
+      action: data.action,
+      local: text(data.local, 'local'),
+      upstream: text(data.upstream, 'upstream'),
+    };
+  })
+  .handler(async ({ data }) => {
+    await (await access(data.worktree)).source.sync(data.branch, data.action, {
+      local: data.local,
+      upstream: data.upstream,
+    });
   });
 
 /** Der Zeitpunkt des letzten Fetch im Repo des Worktrees. */
