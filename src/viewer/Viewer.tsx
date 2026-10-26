@@ -16,6 +16,9 @@ import { CommitPanel, EMPTY_DRAFT, PushNote } from './CommitPanel';
 import { ComparisonBar } from './ComparisonBar';
 import type { Draft, PushState } from './CommitPanel';
 import { DiffView } from './DiffView';
+import type { LineFocus, LineMark } from './DiffView';
+import { commitOfNote, NotesColumn, useNotes } from './Notes';
+import type { NoteDraft } from './Notes';
 import { FileBar, FileList } from './FileList';
 import { Header } from './Header';
 import { CONTEXT, FONT_SIZES, useSettings } from './settings';
@@ -186,6 +189,21 @@ export function Viewer({ view, search, onSearch, onOpen, onShow, tabs }: ViewerP
       },
     );
   };
+  const notes = useNotes(worktree);
+  const [noteDraft, setNoteDraft] = useState<NoteDraft | null>(null);
+  const [activeNote, setActiveNote] = useState<string | null>(null);
+  const [focus, setFocus] = useState<LineFocus | null>(null);
+  // Die Hinweise je Commit der Liste, auch nach einem Rebase, siehe `commitOfNote`.
+  const noted = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const note of notes.notes) {
+      const commit = commitOfNote(note, repo.commits);
+      if (commit !== undefined) {
+        counts.set(commit.sha, (counts.get(commit.sha) ?? 0) + 1);
+      }
+    }
+    return counts;
+  }, [notes.notes, repo.commits]);
   const openTabs = useContext(TabsContext)?.tabs ?? [];
   const choose = (next: Comparison) => {
     onSearch({ ...keysOf(repo.commits, line, next), file: search.file });
@@ -274,6 +292,31 @@ export function Viewer({ view, search, onSearch, onOpen, onShow, tabs }: ViewerP
   );
   const current = views.find((candidate) => candidate.file.path === search.file) ?? views[0];
 
+  // Hinweise gibt es nur zu einem Commit, nicht zu den lokalen Änderungen. Sie gehören zu dem Commit,
+  // bis zu dem der Vergleich reicht. Mit eingeklappter Spalte ist alles zu Hinweisen ausgeblendet,
+  // etwa während eines Vortrags.
+  const noteCommit = settings.notesOpen
+    ? repo.commits.find((commit) => commit.sha === loaded?.comparison.to)
+    : undefined;
+  const startNote = (lines: NoteDraft['lines']) => {
+    if (noteCommit === undefined || current === undefined) {
+      return;
+    }
+    setNoteDraft({ sha: noteCommit.sha, step: noteCommit.step, title: noteCommit.title, path: current.file.path, lines });
+  };
+  const marks: LineMark[] = !settings.notesOpen ? [] : [
+    ...notes.notes.flatMap((note) =>
+      note.lines !== null &&
+      note.path === current?.file.path &&
+      commitOfNote(note, repo.commits)?.sha === noteCommit?.sha
+        ? [{ ...note.lines, active: note.id === activeNote }]
+        : [],
+    ),
+    ...(noteDraft?.lines != null && noteDraft.path === current?.file.path && noteDraft.sha === noteCommit?.sha
+      ? [{ ...noteDraft.lines, active: true }]
+      : []),
+  ];
+
   return (
     <div className="app" style={{ '--code-size': `${String(settings.fontSize)}px` } as CSSProperties}>
       {tabs}
@@ -310,6 +353,13 @@ export function Viewer({ view, search, onSearch, onOpen, onShow, tabs }: ViewerP
         onTimerEnd={(timerEnd) => {
           set({ timerEnd });
         }}
+        notesOpen={settings.notesOpen}
+        onNotesOpen={() => {
+          set({ notesOpen: !settings.notesOpen });
+          setNoteDraft(null);
+          setActiveNote(null);
+        }}
+        notesCount={notes.notes.length}
       />
       <CommitList
         commits={repo.commits}
@@ -327,6 +377,7 @@ export function Viewer({ view, search, onSearch, onOpen, onShow, tabs }: ViewerP
         onHeight={(listHeight) => {
           set({ listHeight });
         }}
+        noted={settings.notesOpen ? noted : undefined}
       />
       <ComparisonBar commits={repo.commits} comparison={comparison} />
       <main className="body">
@@ -448,6 +499,13 @@ export function Viewer({ view, search, onSearch, onOpen, onShow, tabs }: ViewerP
                 onShowRemoved={(next) => {
                   set({ showRemoved: next });
                 }}
+                onNote={
+                  noteCommit === undefined
+                    ? undefined
+                    : () => {
+                        startNote(null);
+                      }
+                }
               />
               {current.file.binary ? (
                 <p className="empty">Eine Binärdatei hat keine Zeilen zum Anzeigen.</p>
@@ -463,11 +521,53 @@ export function Viewer({ view, search, onSearch, onOpen, onShow, tabs }: ViewerP
                   onToggleGap={(start) => {
                     toggleGap(current.file.path, start);
                   }}
+                  marks={marks}
+                  focus={focus}
+                  onNote={noteCommit === undefined ? undefined : startNote}
                 />
               )}
             </>
           )}
         </section>
+        {settings.notesOpen && (
+          <NotesColumn
+            notes={notes.notes}
+            commits={repo.commits}
+            sha={noteCommit?.sha ?? null}
+            path={current?.file.path ?? null}
+            draft={noteDraft}
+            onDraftDone={() => {
+              setNoteDraft(null);
+            }}
+            onSave={notes.save}
+            onRemove={notes.remove}
+            onClear={notes.clear}
+            onActive={setActiveNote}
+            onShow={(note) => {
+              const commit = commitOfNote(note, repo.commits);
+              if (commit === undefined) {
+                return;
+              }
+              if (commit.sha !== comparison.to || comparison.from !== null || note.path !== current?.file.path) {
+                onSearch({ ...keysOf(repo.commits, line, { from: null, to: commit.sha }), file: note.path });
+              }
+              if (note.lines !== null) {
+                setFocus({ side: note.lines.side, line: note.lines.from, at: Date.now() });
+              }
+            }}
+            file={notes.file}
+            markdown={notes.markdown}
+            error={notes.error}
+            width={settings.notesWidth}
+            onWidth={(notesWidth) => {
+              set({ notesWidth });
+            }}
+            noteHeight={settings.noteHeight}
+            onNoteHeight={(noteHeight) => {
+              set({ noteHeight });
+            }}
+          />
+        )}
       </main>
       <Tooltips />
     </div>

@@ -6,7 +6,7 @@ Safari im Dock und wird per Sidecar auf einem iPad Pro 11" im Querformat gezeigt
 Darstellung und Bedienung ist Fork; wer zwischen beiden wechselt, soll sich nicht umstellen müssen.
 
 Der ursprüngliche Auftrag steht in `docs/auftrag-klick-dummy.md`, offene Punkte stehen in
-`docs/offen.md`.
+`docs/offen.md`. Die Hinweise zur Überarbeitung der Commits beschreibt `docs/hinweise.md`.
 
 ## Stack und Befehle
 

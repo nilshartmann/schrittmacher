@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { saveSettings } from '../server/repo.functions';
 import { LIST_HEIGHT } from './CommitList';
 import { FILES_WIDTH } from './FileList';
+import { NOTES_WIDTH } from './Notes';
 
 export const FONT_SIZES = { min: 9, max: 24, start: 12 };
 
@@ -23,6 +24,11 @@ export interface Settings {
   context: number;
   filesOpen: boolean;
   filesWidth: number;
+  /** Ob rechts vom Diff die Spalte mit den Hinweisen zur Überarbeitung steht. */
+  notesOpen: boolean;
+  notesWidth: number;
+  /** Die Höhe des Felds für einen Hinweis, wenn sie von Hand gezogen wurde; sonst wächst es mit. */
+  noteHeight: number | null;
   listHeight: number;
   /** Ob die Commit-Liste alle Branches zeigt; der Server liest das beim Laden. */
   allBranches: boolean;
@@ -45,6 +51,9 @@ const DEFAULTS: Settings = {
   context: CONTEXT.start,
   filesOpen: true,
   filesWidth: FILES_WIDTH.start,
+  notesOpen: false,
+  notesWidth: NOTES_WIDTH.start,
+  noteHeight: null,
   listHeight: LIST_HEIGHT.start,
   allBranches: false,
   timerEnd: null,
@@ -74,6 +83,9 @@ export function settingsOf(raw: Record<string, unknown>): Settings {
     context: number(raw.context, DEFAULTS.context, CONTEXT.min, CONTEXT.max),
     filesOpen: flag(raw.filesOpen, DEFAULTS.filesOpen),
     filesWidth: number(raw.filesWidth, DEFAULTS.filesWidth, FILES_WIDTH.min, 2000),
+    notesOpen: flag(raw.notesOpen, DEFAULTS.notesOpen),
+    notesWidth: number(raw.notesWidth, DEFAULTS.notesWidth, NOTES_WIDTH.min, 2000),
+    noteHeight: typeof raw.noteHeight === 'number' && Number.isFinite(raw.noteHeight) ? raw.noteHeight : DEFAULTS.noteHeight,
     listHeight: number(raw.listHeight, DEFAULTS.listHeight, LIST_HEIGHT.min, 2000),
     allBranches: flag(raw.allBranches, DEFAULTS.allBranches),
     timerEnd: typeof raw.timerEnd === 'number' && Number.isFinite(raw.timerEnd) ? raw.timerEnd : DEFAULTS.timerEnd,

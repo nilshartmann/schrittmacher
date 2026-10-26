@@ -8,6 +8,8 @@ import { gitSource, locate } from '../git/gitRepo';
 import type { Comparison, RepoSource } from '../git/repo';
 import { changedAt, findRepos, projectsOf } from '../git/repos';
 import type { RepoEntry, RepoProject } from '../git/repos';
+import { noteInputOf } from '../notes/notes';
+import { createNotes } from './notes';
 import { shared } from './shared';
 import { createStore, defaultStoreDir, expandHome, sameView } from './store';
 import type { JsonValue, SavedView, Store, Tab, ViewSearch } from './store';
@@ -15,6 +17,8 @@ import type { JsonValue, SavedView, Store, Tab, ViewSearch } from './store';
 /** Was der Server einmal beim Start einrichtet. */
 interface Setup {
   store: Store;
+  /** Der Ordner des Speichers; darin liegen auch die Hinweise zur Überarbeitung. */
+  dir: string;
   /** Die Ansicht für den ersten Start, ohne eine gemerkte. */
   first: ViewSearch | null;
   /** Repos, die immer erlaubt sind, auch außerhalb der Wurzeln. */
@@ -34,8 +38,10 @@ function server(): Promise<Setup> {
     const setup = (async () => {
       if (process.env.SCHRITTMACHER_DEMO === '1') {
         const worktree = await buildDemoRepo(DEMO_REPO);
+        const dir = join(DEMO_BASE, 'speicher');
         return {
-          store: createStore({ dir: join(DEMO_BASE, 'speicher'), roots: [DEMO_BASE] }),
+          store: createStore({ dir, roots: [DEMO_BASE] }),
+          dir,
           first: { worktree, branch: DEMO_REPO.info.branch, to: '06b' },
           allowed: [],
         };
@@ -44,6 +50,7 @@ function server(): Promise<Setup> {
       const first = worktree === undefined || worktree === '' ? null : { worktree };
       return {
         store: createStore({ dir: defaultStoreDir(), roots: ['~/develop'] }),
+        dir: defaultStoreDir(),
         first,
         allowed: first === null ? [] : [(await locate(first.worktree)).repoPath],
       };
@@ -263,6 +270,48 @@ export const copyFile = createServerFn({ method: 'POST' })
     const [from, to] = await Promise.all([access(data.worktree), access(data.target.worktree)]);
     const content = await from.source.content(data.revision, data.path);
     await to.source.write(data.target.branch, data.path, content);
+  });
+
+/**
+ * Die Hinweise im Ordner des Speichers. Sie entstehen bei jedem Aufruf neu und nicht einmal in
+ * `server`, damit der Dev-Server nach einer Änderung an `src/notes/notes.ts` deren neue Fassung
+ * nimmt; `server` überdauert das Neuladen der Module.
+ */
+async function notesStore() {
+  const setup = await server();
+  // Eine Einrichtung von vor dem Neuladen kennt `dir` noch nicht.
+  return createNotes(setup.dir ?? defaultStoreDir());
+}
+
+/** Die Hinweise zur Überarbeitung des Repos, zu dem der Worktree gehört. */
+export const loadNotes = createServerFn({ method: 'GET' })
+  .validator((data: { worktree: string }) => ({ worktree: text(data.worktree, 'worktree') }))
+  .handler(async ({ data }) => {
+    const { repoPath } = await access(data.worktree);
+    return (await notesStore()).load(repoPath);
+  });
+
+/** Legt einen Hinweis an oder ändert ihn und liefert danach alle Hinweise des Repos. */
+export const saveNote = createServerFn({ method: 'POST' })
+  .validator((data: { worktree: string; note: unknown }) => ({
+    worktree: text(data.worktree, 'worktree'),
+    note: noteInputOf(data.note),
+  }))
+  .handler(async ({ data }) => {
+    const { repoPath } = await access(data.worktree);
+    return (await notesStore()).save(repoPath, data.note);
+  });
+
+/** Löscht einen Hinweis, ohne `id` alle Hinweise des Repos, und liefert danach die übrigen. */
+export const deleteNotes = createServerFn({ method: 'POST' })
+  .validator((data: { worktree: string; id?: string }) => ({
+    worktree: text(data.worktree, 'worktree'),
+    id: optionalText(data.id),
+  }))
+  .handler(async ({ data }) => {
+    const { repoPath } = await access(data.worktree);
+    const notes = await notesStore();
+    return data.id === undefined ? notes.clear(repoPath) : notes.remove(repoPath, data.id);
   });
 
 /** Wo ein Ziel zum Kopieren liegt, vom Repo der Quelle aus gesehen. */

@@ -1995,3 +1995,442 @@ a.menu-item {
 .commit-band:focus-within .commit-chosen .ref-remote {
   color: var(--quiet);
 }
+
+/* Hinweise zur Überarbeitung, in der Farbe der Kommentare in Word */
+
+:root {
+  --note: #e0a100;
+  --note-ink: #8a6100;
+  --note-tint: #fff6dc;
+  --note-strong: #ffe39a;
+}
+
+.bar-notes {
+  gap: 3px;
+  padding: 0 5px;
+}
+
+.bar-count {
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.file-tools-separator {
+  flex: none;
+  width: 1px;
+  height: 16px;
+  margin: 0 4px;
+  background: var(--line);
+}
+
+/* Die Zahl der Hinweise hinter dem Titel eines Commits. */
+.commit-notes {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 8px;
+  color: var(--note-ink);
+  font-size: 11px;
+  vertical-align: -1px;
+}
+
+.commit-band:focus-within .commit-chosen .commit-notes {
+  color: inherit;
+}
+
+/* Zeilen mit einem Hinweis: ein Balken am Rand der Nummer und ein heller Grund dahinter. */
+.line-noted .number,
+.line-active .number {
+  box-shadow: inset 3px 0 0 var(--note);
+  background: var(--note-tint);
+  color: var(--note-ink);
+}
+
+.line-active .number {
+  background: var(--note-strong);
+}
+
+.line-active.line-context .text {
+  background: var(--note-tint);
+}
+
+/* Der schwebende Knopf am Ende der Markierung im Diff. */
+.note-button {
+  position: fixed;
+  z-index: 30;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 10px 0 8px;
+  border: 1px solid var(--border-panel);
+  border-radius: 14px;
+  background: var(--bg-panel);
+  box-shadow: 0 4px 14px rgb(20 20 30 / 18%);
+  color: var(--note-ink);
+  font-family: var(--font-menu);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.note-button:hover {
+  background: var(--note-tint);
+}
+
+.notes-column {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--bg-footer);
+  font-family: var(--font-menu);
+  -webkit-font-smoothing: antialiased;
+}
+
+.notes-bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  height: 36px;
+  padding: 0 8px 0 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.notes-heading {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.notes-scope {
+  display: flex;
+  padding: 2px;
+  border-radius: 7px;
+  background: var(--bg-segmented);
+}
+
+.notes-scope > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.notes-scope > button[aria-pressed='true'] {
+  background: var(--bg-panel);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 12%);
+  color: var(--text-primary);
+}
+
+.notes-count {
+  color: var(--text-label);
+  font-variant-numeric: tabular-nums;
+}
+
+.notes-list {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  padding: 8px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.notes-commit {
+  flex: none;
+  margin: 6px 2px -2px;
+  overflow: hidden;
+  color: var(--text-label);
+  font-size: 11.5px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notes-commit:first-child {
+  margin-top: 0;
+}
+
+.notes-empty {
+  margin: 8px 4px;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.notes-error {
+  flex: none;
+  margin: 0;
+  padding: 6px 12px;
+  color: var(--diff-removed-ink);
+  font-size: 12px;
+}
+
+.note {
+  flex: none;
+  padding: 8px 10px 10px;
+  border: 1px solid var(--border-tree);
+  border-left: 3px solid var(--note);
+  border-radius: 7px;
+  background: var(--bg-panel);
+}
+
+.note-quiet {
+  border-left-color: var(--border-tree);
+}
+
+.note-quiet .note-head {
+  opacity: 0.65;
+}
+
+.note-draft {
+  border-color: var(--menu-accent-focus);
+  border-left-color: var(--note);
+  box-shadow: 0 0 0 3px var(--menu-accent-ring);
+}
+
+.note-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.note-show {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.note-show:disabled {
+  cursor: default;
+}
+
+.note-show:hover:not(:disabled) .note-file {
+  text-decoration: underline;
+}
+
+.note-head {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.note-commit {
+  overflow: hidden;
+  color: var(--text-label);
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.note-where {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+
+.note-file {
+  overflow: hidden;
+  min-width: 0;
+  color: var(--text-primary);
+  font-weight: 600;
+  text-overflow: ellipsis;
+}
+
+.note-lines {
+  flex: none;
+  color: var(--text-label);
+  font-size: 11.5px;
+}
+
+.note-remove {
+  flex: none;
+  visibility: hidden;
+}
+
+.note:hover .note-remove,
+.note-remove:focus-visible {
+  visibility: visible;
+}
+
+.note-code {
+  margin: 6px 0 0;
+  padding: 4px 6px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--diff-gap);
+  color: var(--text-muted);
+  font-family: var(--font-code);
+  font-size: 11px;
+  line-height: 1.45;
+  text-overflow: ellipsis;
+  white-space: pre;
+}
+
+.note-text {
+  margin: 6px 0 0;
+  color: var(--text-primary);
+  font-size: 13px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  cursor: text;
+}
+
+.note-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+/* Der Kasten lässt sich am Griff rechts unten in der Höhe ziehen; was nicht hineinpasst, scrollt. */
+.md-box {
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  resize: vertical;
+  border: 1px solid var(--border-input);
+  border-radius: 6px;
+  background: var(--bg-panel);
+  font-family: var(--font-code);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.md-box:focus-within {
+  border-color: var(--menu-accent-focus);
+  box-shadow: 0 0 0 3px var(--menu-accent-ring);
+}
+
+/* Der Teil, den Schrittmacher ergänzt: nur zum Lesen, auf grauem Grund und lang genug zum Scrollen. */
+.md-generated {
+  flex: none;
+  max-height: 150px;
+  margin: 0;
+  padding: 6px 8px;
+  overflow: auto;
+  border-bottom: 1px dashed var(--border-input);
+  background: var(--diff-gap);
+  color: var(--text-muted);
+  font: inherit;
+  white-space: pre;
+}
+
+/* Das `pre` mit den Farben und die `textarea` stehen übereinander in derselben Zelle. */
+.md-input {
+  display: grid;
+  flex: 1 0 auto;
+}
+
+.md-mirror,
+.md-field {
+  grid-area: 1 / 1;
+  min-height: 72px;
+  margin: 0;
+  padding: 6px 8px;
+  border: 0;
+  font: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.md-mirror {
+  color: var(--text-primary);
+  pointer-events: none;
+}
+
+.md-field {
+  overflow: hidden;
+  background: transparent;
+  color: transparent;
+  caret-color: var(--text-primary);
+  outline: none;
+  resize: none;
+}
+
+.md-field::placeholder {
+  color: var(--text-disabled);
+}
+
+.md-field::selection {
+  background: rgb(10 99 214 / 25%);
+}
+
+/* Der markierte Teil der Zeilen, wie ein geänderter Teil im Diff hinterlegt. */
+.note-marked {
+  border-radius: 2px;
+  background: var(--note-strong);
+}
+
+.note-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.tool-small {
+  height: 26px;
+  padding: 0 9px;
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.tool-small.tool-primary {
+  padding: 0 10px;
+}
+
+.tool-danger,
+.tool-danger:hover:not(:disabled) {
+  border-color: transparent;
+  background: var(--diff-removed-ink);
+  color: #ffffff;
+}
+
+.notes-footer {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px 10px;
+  border-top: 1px solid var(--border-divider);
+}
+
+.notes-file {
+  overflow: hidden;
+  color: var(--text-path);
+  font-family: var(--font-code);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notes-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.notes-clear {
+  margin-left: auto;
+}

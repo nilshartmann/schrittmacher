@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import type { RepoInfo } from '../git/types';
 import type { ViewSearch } from '../server/store';
-import { GraphIcon, SidebarIcon } from './Icons';
+import { GraphIcon, NoteIcon, SidebarIcon } from './Icons';
 import { Timer } from './Timer';
 import { RepoMenu } from './ViewMenus';
 
@@ -23,6 +23,10 @@ interface HeaderProps {
   onFilesOpen: () => void;
   timerEnd: number | null;
   onTimerEnd: (end: number | null) => void;
+  notesOpen: boolean;
+  onNotesOpen: () => void;
+  /** Die Zahl aller Hinweise des Repos; sie steht neben dem Knopf, solange die Hinweise an sind. */
+  notesCount: number;
 }
 
 /**
@@ -65,6 +69,22 @@ export function Header(props: HeaderProps) {
         {props.where}
       </div>
       <div className="header-tools">
+        <button
+          type="button"
+          className="bar-tool bar-notes"
+          aria-pressed={props.notesOpen}
+          aria-label="Hinweise"
+          data-tip={
+            props.notesOpen
+              ? 'Hinweise ausschalten, etwa für den Vortrag'
+              : 'Hinweise zur Überarbeitung einschalten'
+          }
+          onClick={props.onNotesOpen}
+        >
+          <NoteIcon size={15} />
+          {props.notesOpen && props.notesCount > 0 && <span className="bar-count">{props.notesCount}</span>}
+        </button>
+        <span className="bar-separator" />
         <Timer end={props.timerEnd} onEnd={props.onTimerEnd} />
         <span className="bar-separator" />
         <div className="font-size" role="group" aria-label="Schriftgröße">

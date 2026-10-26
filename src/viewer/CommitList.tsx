@@ -4,7 +4,7 @@ import type { Graph, GraphRow } from '../git/graph';
 import { LOCAL } from '../git/repo';
 import type { Comparison } from '../git/repo';
 import type { Commit, Ref } from '../git/types';
-import { BranchIcon } from './Icons';
+import { BranchIcon, NoteIcon } from './Icons';
 
 /** Die Breite einer Spalte des Graphen und die Höhe einer Zeile in Pixeln. */
 const LANE = 14;
@@ -36,6 +36,8 @@ interface CommitListProps {
   onChoose: (comparison: Comparison) => void;
   height: number;
   onHeight: (height: number) => void;
+  /** Die Zahl der Hinweise je Commit; ein Commit mit Hinweisen zeigt sie hinter dem Titel. */
+  noted?: ReadonlyMap<string, number>;
 }
 
 /**
@@ -187,6 +189,7 @@ export function CommitList(props: CommitListProps) {
                   <td className="commit-step">{commit.step ?? ''}</td>
                   <td className="commit-title">
                     {commit.title}
+                    <NoteCount count={props.noted?.get(commit.sha) ?? 0} />
                     <RefBadges
                       refs={props.refs.filter((ref) => ref.sha === commit.sha)}
                       branch={props.branch}
@@ -328,5 +331,18 @@ function RefBadge({
       </span>
       {branchRef.name}
     </button>
+  );
+}
+
+/** Die Hinweise eines Commits als Sprechblase mit ihrer Zahl; ohne Hinweise nichts. */
+function NoteCount({ count }: { count: number }) {
+  if (count === 0) {
+    return null;
+  }
+  return (
+    <span className="commit-notes" data-tip={`${String(count)} ${count === 1 ? 'Hinweis' : 'Hinweise'}`}>
+      <NoteIcon size={12} />
+      {count}
+    </span>
   );
 }

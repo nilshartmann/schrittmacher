@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import type { KeyboardEvent, PointerEvent, ReactNode } from 'react';
 import type { DiffFile } from '../git/types';
 import { CopyToButton, HoverTools } from './HoverTools';
+import { NoteIcon } from './Icons';
 import type { CopyTarget } from './HoverTools';
 
 function nameOf(path: string): string {
@@ -177,7 +178,7 @@ export function FileList({
     </nav>
     {footer}
     </div>
-    <WidthSplitter width={width} onWidth={onWidth} />
+    <WidthSplitter width={width} onWidth={onWidth} limits={FILES_WIDTH} label="Breite der Dateiliste" />
     </>
   );
 }
@@ -201,21 +202,38 @@ function CheckNoneIcon() {
   );
 }
 
-/** Die Trennlinie rechts der Dateiliste. Ziehen ändert die Breite, ein Doppelklick stellt sie zurück. */
-function WidthSplitter({ width, onWidth }: { width: number; onWidth: (width: number) => void }) {
-  const drag = useRef<{ x: number; width: number } | null>(null);
+/**
+ * Die Trennlinie neben einer Spalte am Rand, etwa rechts der Dateiliste. Ziehen ändert die Breite,
+ * ein Doppelklick stellt sie zurück. Mit `end` steht die Spalte am rechten Rand und wird breiter,
+ * wenn die Linie nach links wandert. Dem Diff bleiben mindestens `limits.restMin` Pixel.
+ */
+export function WidthSplitter({
+  width,
+  onWidth,
+  limits,
+  label,
+  end = false,
+}: {
+  width: number;
+  onWidth: (width: number) => void;
+  limits: { min: number; start: number; restMin: number };
+  label: string;
+  end?: boolean;
+}) {
+  const drag = useRef<{ x: number; width: number; max: number } | null>(null);
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
     event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
-    drag.current = { x: event.clientX, width };
+    const diff = event.currentTarget.parentElement?.querySelector('.diff-column')?.clientWidth ?? 0;
+    drag.current = { x: event.clientX, width, max: width + diff - limits.restMin };
   };
   const onPointerMove = (event: PointerEvent<HTMLDivElement>) => {
     if (drag.current === null) {
       return;
     }
-    const body = event.currentTarget.parentElement?.clientWidth ?? 0;
-    const next = drag.current.width + event.clientX - drag.current.x;
-    onWidth(Math.round(Math.max(FILES_WIDTH.min, Math.min(body - FILES_WIDTH.restMin, next))));
+    const moved = (event.clientX - drag.current.x) * (end ? -1 : 1);
+    const next = Math.min(drag.current.max, drag.current.width + moved);
+    onWidth(Math.round(Math.max(limits.min, next)));
   };
   const onPointerEnd = () => {
     drag.current = null;
@@ -225,14 +243,14 @@ function WidthSplitter({ width, onWidth }: { width: number; onWidth: (width: num
       className="divider"
       role="separator"
       aria-orientation="vertical"
-      aria-label="Breite der Dateiliste"
+      aria-label={label}
       data-tip="Ziehen ändert die Breite, Doppelklick stellt sie zurück"
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerEnd}
       onPointerCancel={onPointerEnd}
       onDoubleClick={() => {
-        onWidth(FILES_WIDTH.start);
+        onWidth(limits.start);
       }}
     />
   );
@@ -259,6 +277,8 @@ interface FileBarProps {
   onWrap: (wrap: boolean) => void;
   showRemoved: boolean;
   onShowRemoved: (showRemoved: boolean) => void;
+  /** Legt einen Hinweis zur ganzen Datei an; ohne, etwa bei den lokalen Änderungen, fehlt der Knopf. */
+  onNote?: () => void;
 }
 
 /**
@@ -276,6 +296,20 @@ export function FileBar(props: FileBarProps) {
         <PathText path={file.path} />
       </code>
       <div className="file-tools">
+        {props.onNote !== undefined && (
+          <>
+            <button
+              type="button"
+              className="icon-button"
+              aria-label="Hinweis zur Datei"
+              data-tip="Hinweis zur ganzen Datei; für einzelne Zeilen diese im Diff markieren"
+              onClick={props.onNote}
+            >
+              <NoteIcon size={16} />
+            </button>
+            <span className="file-tools-separator" />
+          </>
+        )}
         {PRESETS.map((preset) => (
           <button
             key={preset.label}

@@ -159,3 +159,22 @@ export function StopwatchIcon() {
     </Outline>
   );
 }
+
+/** Eine Sprechblase: ein Hinweis zur Überarbeitung. */
+export function NoteIcon({ size = 14 }: { size?: number }) {
+  return (
+    <Outline size={size}>
+      <path d="M3.5 2.5h9c.8 0 1.5.7 1.5 1.5v6c0 .8-.7 1.5-1.5 1.5H8l-3 2.5v-2.5H3.5c-.8 0-1.5-.7-1.5-1.5V4c0-.8.7-1.5 1.5-1.5z" />
+      <path d="M5 5.5h6M5 8h4" />
+    </Outline>
+  );
+}
+
+/** Ein Papierkorb: einen Eintrag löschen. */
+export function TrashIcon() {
+  return (
+    <Outline size={13}>
+      <path d="M2.5 4h11M6.5 4V2.5h3V4M4 4l.7 9a1 1 0 0 0 1 .9h4.6a1 1 0 0 0 1-.9L12 4" />
+    </Outline>
+  );
+}
