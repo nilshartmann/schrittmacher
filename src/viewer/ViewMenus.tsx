@@ -253,9 +253,7 @@ function RepoList({
   onShow: (view: ViewSearch) => void;
 } & RootProps) {
   const current = info?.repoPath ?? null;
-  // Projekte öffnen Tabs und gibt es deshalb nur mit einer Tableiste.
   const tabActions = useContext(TabsContext);
-  const withTabs = tabActions !== null;
   // Mit Tableiste öffnet jede Wahl einen Tab ganz links, ohne sie ersetzt sie die Ansicht.
   const showView = (view: ViewSearch) => {
     close();
@@ -392,23 +390,21 @@ function RepoList({
           />
         </label>
       </div>
-      {withTabs && (
-        <div className="menu-projects">
-          <div
-            className={projectsAt === null ? 'menu-row' : 'menu-row menu-row-open'}
-            onMouseEnter={(event) => {
-              setProjectsAt(subAnchorOf(event.currentTarget));
-            }}
-            onClick={(event) => {
-              setProjectsAt(subAnchorOf(event.currentTarget));
-            }}
-          >
-            {/* Die Zeile öffnet das Untermenü beim Überfahren und beim Klick; der Eintrag selbst tut nichts. */}
-            <MenuItem main="Projekte" icon={<ProjectIcon />} aside="›" onChoose={() => {}} />
-          </div>
+      <div className="menu-projects">
+        <div
+          className={projectsAt === null ? 'menu-row' : 'menu-row menu-row-open'}
+          onMouseEnter={(event) => {
+            setProjectsAt(subAnchorOf(event.currentTarget));
+          }}
+          onClick={(event) => {
+            setProjectsAt(subAnchorOf(event.currentTarget));
+          }}
+        >
+          {/* Die Zeile öffnet das Untermenü beim Überfahren und beim Klick; der Eintrag selbst tut nichts. */}
+          <MenuItem main="Projekte" icon={<ProjectIcon />} aside="›" onChoose={() => {}} />
         </div>
-      )}
-      {projectsAt !== null && <ProjectOpenMenu anchor={projectsAt} onDone={close} />}
+      </div>
+      {projectsAt !== null && <ProjectOpenMenu anchor={projectsAt} onShow={onShow} onDone={close} />}
       {views.error !== null && <MenuNote error>{views.error}</MenuNote>}
       {error !== null && <MenuNote error>{error}</MenuNote>}
       {data === null && error === null && <MenuNote>Sucht Repos …</MenuNote>}

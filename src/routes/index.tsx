@@ -1,7 +1,9 @@
 import { createFileRoute, redirect } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 import {
+  changeProject,
   checkTabs,
+  listProjects,
   loadMissing,
   loadView,
   resolveView,
@@ -10,10 +12,11 @@ import {
   tabOf,
   takeTabRequest,
 } from '../server/repo.functions';
-import type { Missing } from '../server/repo.functions';
-import type { Project, Tab, ViewSearch } from '../server/store';
+import type { Missing, ProjectChange } from '../server/repo.functions';
+import type { Project, Projects, Tab, ViewSearch } from '../server/store';
 import { EmptyHeader } from '../viewer/Header';
 import { MissingView } from '../viewer/MissingView';
+import { ProjectBadge } from '../viewer/Projects';
 import { sameTab, TabBar, tabKey, TabsContext, withVisible } from '../viewer/Tabs';
 import { Tooltips } from '../viewer/Tooltips';
 import { Viewer } from '../viewer/Viewer';
@@ -45,6 +48,9 @@ export const Route = createFileRoute('/')({
     file: param(search.file),
   }),
   loaderDeps: ({ search }) => ({ worktree: search.worktree, branch: search.branch }),
+  // Ein früheres Ergebnis zu Worktree und Branch kennt veraltete Tabs, etwa nach dem Öffnen eines
+  // Projekts ohne Tableiste. Deshalb wird nichts davon aufgehoben.
+  gcTime: 0,
   // Ohne Worktree oder Branch ergänzt der Server die Ansicht, und die URL nennt sie danach ganz.
   // Fehlt der Ansicht Repo, Worktree oder Branch, bleibt ihr Tab offen und nennt den Grund.
   loader: async ({ deps }): Promise<LoadedView | MissingData | null> => {
@@ -123,7 +129,15 @@ function Opened({ data, search }: { data: LoadedView | MissingData; search: View
   const { show, open } = useOpen();
   const missing = 'missing' in data ? data : null;
   const view = 'missing' in data ? null : data;
-  const tabs = useTabs(data.tabs, missing?.tab ?? tabOfView(data as LoadedView), open, show);
+  const projects = useProjectState();
+  const tabs = useTabs(data.tabs, missing?.tab ?? tabOfView(data as LoadedView), open, show, () => {
+    // Ohne Tableiste gibt es kein aktives Projekt mehr.
+    if (projects.state?.active != null) {
+      void projects.change({ kind: 'leave' }).catch((error: unknown) => {
+        console.error('Das Projekt ließ sich nicht verlassen.', error);
+      });
+    }
+  });
   useTabRequests(tabs.openNew);
   useSaveView(view === null ? null : search);
 
@@ -138,6 +152,7 @@ function Opened({ data, search }: { data: LoadedView | MissingData; search: View
       onCloseOthers={tabs.closeOthers}
       onCloseAll={tabs.closeAll}
       onMove={tabs.move}
+      end={<ProjectBadge />}
     />
   );
   const { worktree, branch } = search;
@@ -151,7 +166,14 @@ function Opened({ data, search }: { data: LoadedView | MissingData; search: View
         close: tabs.close,
         closeOthers: tabs.closeOthers,
         closeAll: tabs.closeAll,
-        openProject: tabs.openProject,
+        openProject: (project: Project) => {
+          tabs.openProject(project);
+          void projects.change({ kind: 'open', name: project.name }).catch((error: unknown) => {
+            console.error('Das Projekt ließ sich nicht als geöffnet merken.', error);
+          });
+        },
+        projects: projects.state,
+        changeProject: projects.change,
       }}
     >
       {view === null ? (
@@ -178,6 +200,20 @@ function Opened({ data, search }: { data: LoadedView | MissingData; search: View
       )}
     </TabsContext.Provider>
   );
+}
+
+/** Die Projekte mit dem aktiven, geladen beim Öffnen der Seite, und Änderungen daran. */
+function useProjectState() {
+  const [state, setState] = useState<Projects | null>(null);
+  useEffect(() => {
+    listProjects().then(setState, (error: unknown) => {
+      console.error('Die Projekte ließen sich nicht laden.', error);
+    });
+  }, []);
+  const change = async (data: ProjectChange) => {
+    setState(await changeProject({ data }));
+  };
+  return { state, change };
 }
 
 /** Merkt sich die Ansicht, sobald die Wahl eine Weile steht; ohne Ansicht nichts. */
@@ -210,6 +246,7 @@ function useTabs(
   current: Tab,
   open: (target: ViewSearch) => Promise<void>,
   show: (view: ViewSearch) => void,
+  onAllClosed: () => void,
 ) {
   const [list, setList] = useState<Tab[]>(initial);
   const shown = useRef<Tab | null>(null);
@@ -303,20 +340,13 @@ function useTabs(
     closeAll: () => {
       void closeAll();
     },
-    openProject: (project: Project, replace: boolean) => {
+    /** Ersetzt die Tableiste durch die Tabs eines Projekts und macht den ersten aktiv. */
+    openProject: (project: Project) => {
       const [first] = project.tabs;
       if (first === undefined) {
         return;
       }
-      setList((tabs) => {
-        if (replace) {
-          return withVisible(project.tabs, first);
-        }
-        const added = project.tabs.filter((tab) => !tabs.some((other) => sameTab(other, tab)));
-        const active = shown.current;
-        const at = active === null ? -1 : tabs.findIndex((tab) => sameTab(tab, active));
-        return withVisible(at === -1 ? [...tabs, ...added] : tabs.toSpliced(at + 1, 0, ...added), first);
-      });
+      setList(withVisible(project.tabs, first));
       void openTab(first);
     },
     add: (target: ViewSearch) => {
@@ -352,6 +382,7 @@ function useTabs(
    * Ansicht ohne Tab, weil er sonst den ersten Tab wieder öffnen würde.
    */
   async function closeAll() {
+    onAllClosed();
     setList([]);
     saved.current = [];
     await saveTabs({ data: { tabs: [] } }).catch((error: unknown) => {

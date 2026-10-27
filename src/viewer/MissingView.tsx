@@ -55,7 +55,7 @@ export function MissingView({
               type="button"
               className="tool"
               onClick={() => {
-                void change({ kind: 'toggle', name: project.name, tab });
+                void change({ kind: 'remove', name: project.name, tab });
               }}
             >
               Aus „{project.name}“ entfernen

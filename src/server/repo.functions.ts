@@ -16,7 +16,7 @@ import type { OpenApp } from './apps';
 import { createNotes } from './notes';
 import { shared } from './shared';
 import { createStore, defaultStoreDir, expandHome, sameView } from './store';
-import type { JsonValue, Project, SavedView, Store, Tab, ViewSearch } from './store';
+import type { JsonValue, Projects, SavedView, Store, Tab, ViewSearch } from './store';
 
 /** Was der Server einmal beim Start einrichtet. */
 interface Setup {
@@ -149,7 +149,7 @@ async function complete(search: ViewSearch): Promise<ViewSearch | null> {
     if (tabs[0] !== undefined) {
       return { worktree: tabs[0].worktree, branch: tabs[0].branch };
     }
-    return first === null || views.length > 0 ? null : complete(first);
+    return first !== null && (await store.isFresh()) ? complete(first) : null;
   }
   const { worktreePath } = await access(search.worktree);
   const branch = search.branch ?? (await locate(worktreePath)).checkedOut ?? '';
@@ -770,43 +770,63 @@ export const loadMissing = createServerFn({ method: 'GET' })
     return { missing, tab, tabs: state.tabs };
   });
 
-/** Die Projekte, das zuletzt geöffnete zuerst. */
-export const listProjects = createServerFn({ method: 'GET' }).handler(
-  async () => (await (await server()).store.state()).projects,
-);
+/** Die Projekte, das zuletzt geöffnete zuerst, mit dem Namen des aktiven. */
+export const listProjects = createServerFn({ method: 'GET' }).handler(async (): Promise<Projects> => {
+  const { projects, active } = await (await server()).store.state();
+  return { projects, active };
+});
 
-/** Eine Änderung an den Projekten aus der Oberfläche. */
+/**
+ * Eine Änderung an den Projekten aus der Oberfläche. `create` legt aus der Tableiste ein Projekt
+ * an, `save` schreibt sie in eins, `open` macht es aktiv, `leave` beendet das aktive.
+ */
 export type ProjectChange =
   | { kind: 'create'; name: string; tabs: Tab[] }
-  | { kind: 'toggle'; name: string; tab: Tab }
+  | { kind: 'save'; name: string; tabs: Tab[] }
+  | { kind: 'remove'; name: string; tab: Tab }
   | { kind: 'rename'; name: string; to: string }
   | { kind: 'delete'; name: string }
-  | { kind: 'opened'; name: string };
+  | { kind: 'open'; name: string }
+  | { kind: 'leave' };
 
 function projectChangeOf(data: ProjectChange): ProjectChange {
+  if (data.kind === 'leave') {
+    return { kind: 'leave' };
+  }
   const name = text(data.name, 'name');
   switch (data.kind) {
     case 'create':
       return { kind: 'create', name: name.trim(), tabs: tabsOf(data.tabs) };
-    case 'toggle': {
+    case 'save':
+      return { kind: 'save', name, tabs: tabsOf(data.tabs) };
+    case 'remove': {
       const [tab] = tabsOf([data.tab]);
       if (tab === undefined) {
         throw new Error('Der Tab fehlt.');
       }
-      return { kind: 'toggle', name, tab };
+      return { kind: 'remove', name, tab };
     }
     case 'rename':
       return { kind: 'rename', name, to: text(data.to, 'to').trim() };
     case 'delete':
-    case 'opened':
+    case 'open':
       return { kind: data.kind, name };
     default:
       throw new Error('Diese Änderung an einem Projekt gibt es nicht.');
   }
 }
 
-/** Die Projekte nach der Änderung; ein neues und ein gerade geöffnetes stehen zuerst. */
-function changedProjects(projects: Project[], change: ProjectChange): Project[] {
+/** Tabs ohne doppelte, in ihrer Reihenfolge. */
+function uniqueTabs(tabs: Tab[]): Tab[] {
+  return tabs.filter((tab, at) => tabs.findIndex((other) => sameView(other, tab)) === at);
+}
+
+/** Die Projekte nach der Änderung; ein neues und ein geöffnetes stehen zuerst und sind aktiv. */
+function changedProjects(current: Projects, change: ProjectChange): Projects {
+  const { projects, active } = current;
+  if (change.kind === 'leave') {
+    return { projects, active: null };
+  }
   const project = projects.find((candidate) => candidate.name === change.name);
   const others = projects.filter((candidate) => candidate !== project);
   const free = (name: string) => {
@@ -822,34 +842,37 @@ function changedProjects(projects: Project[], change: ProjectChange): Project[] 
     if (project !== undefined) {
       throw new Error(`Ein Projekt „${change.name}“ gibt es schon.`);
     }
-    const tabs = change.tabs.filter((tab, at) => change.tabs.findIndex((other) => sameView(other, tab)) === at);
-    return [{ name: change.name, tabs }, ...projects];
+    return { projects: [{ name: change.name, tabs: uniqueTabs(change.tabs) }, ...projects], active: change.name };
   }
   if (project === undefined) {
     throw new Error(`Das Projekt „${change.name}“ gibt es nicht mehr.`);
   }
+  const replaced = (tabs: Tab[]) =>
+    projects.map((candidate) => (candidate === project ? { ...project, tabs } : candidate));
   switch (change.kind) {
-    case 'toggle': {
-      const tabs = project.tabs.some((tab) => sameView(tab, change.tab))
-        ? project.tabs.filter((tab) => !sameView(tab, change.tab))
-        : [...project.tabs, change.tab];
-      return projects.map((candidate) => (candidate === project ? { ...project, tabs } : candidate));
-    }
+    case 'save':
+      return { projects: replaced(uniqueTabs(change.tabs)), active };
+    case 'remove':
+      return { projects: replaced(project.tabs.filter((tab) => !sameView(tab, change.tab))), active };
     case 'rename':
       free(change.to);
-      return projects.map((candidate) => (candidate === project ? { ...project, name: change.to } : candidate));
+      return {
+        projects: projects.map((candidate) => (candidate === project ? { ...project, name: change.to } : candidate)),
+        active: active === project.name ? change.to : active,
+      };
     case 'delete':
-      return others;
-    case 'opened':
-      return [project, ...others];
+      return { projects: others, active: active === project.name ? null : active };
+    case 'open':
+      return { projects: [project, ...others], active: project.name };
   }
 }
 
 /** Ändert die Projekte und liefert sie danach. */
 export const changeProject = createServerFn({ method: 'POST' })
   .validator(projectChangeOf)
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<Projects> => {
     const { store } = await server();
-    await store.changeProjects((projects) => changedProjects(projects, data));
-    return (await store.state()).projects;
+    await store.changeProjects((current) => changedProjects(current, data));
+    const { projects, active } = await store.state();
+    return { projects, active };
   });

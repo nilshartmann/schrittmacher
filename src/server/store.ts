@@ -67,6 +67,14 @@ export interface State {
   excluded: string[];
   /** Die Projekte, das zuletzt geöffnete zuerst. */
   projects: Project[];
+  /** Der Name des aktiven Projekts, also des zuletzt geöffneten, solange seine Tableiste offen ist. */
+  active: string | null;
+}
+
+/** Die Projekte mit dem Namen des aktiven, wie sie die Oberfläche bekommt und ändert. */
+export interface Projects {
+  projects: Project[];
+  active: string | null;
 }
 
 /** So viele Ansichten merkt sich der Server. */
@@ -141,6 +149,7 @@ export function createStore(options: StoreOptions) {
         : {},
       excluded: Array.isArray(record.excluded) ? record.excluded.filter(isString) : [],
       projects: Array.isArray(record.projects) ? record.projects.filter(isProject) : [],
+      active: isString(record.active) ? record.active : null,
     };
   }
 
@@ -154,6 +163,8 @@ export function createStore(options: StoreOptions) {
     /** Die Wurzeln mit aufgelöstem `~`. */
     roots: async () => (await config()).roots.map(expandHome),
     state,
+    /** Ob es noch keinen Zustand gibt, also beim allerersten Start. */
+    isFresh: async () => (await readJson(stateFile)) === undefined,
     /** Merkt sich die Ansicht als die zuletzt geöffnete. */
     saveView: (view: SavedView) =>
       update((current) => ({
@@ -164,8 +175,8 @@ export function createStore(options: StoreOptions) {
     saveSettings: (settings: Record<string, JsonValue>) => update((current) => ({ ...current, settings })),
     saveExcluded: (excluded: string[]) => update((current) => ({ ...current, excluded })),
     /** Ändert die Projekte; scheitert `change`, bleibt der Zustand, wie er ist. */
-    changeProjects: (change: (projects: Project[]) => Project[]) =>
-      update((current) => ({ ...current, projects: change(current.projects) })),
+    changeProjects: (change: (current: Projects) => Projects) =>
+      update((current) => ({ ...current, ...change({ projects: current.projects, active: current.active }) })),
     saveHidden: (repoPath: string, hidden: string[]) =>
       update((current) => ({ ...current, hidden: { ...current.hidden, [repoPath]: hidden } })),
     addOpened: (repoPath: string) =>

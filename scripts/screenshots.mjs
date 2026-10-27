@@ -63,24 +63,16 @@ async function secondTab(page) {
   await page.locator('.tab[aria-selected="true"]', { hasText: 'live_coding' }).waitFor();
 }
 
-/** Öffnet das Untermenü „Projekt“ im Kontextmenü des aktiven Tabs. */
-async function projectMenu(page) {
-  await page.locator('.tab[aria-selected="true"]').click({ button: 'right' });
-  await page.locator('.menu-context .menu-row', { hasText: 'Projekt' }).hover();
-  await page.locator('.menu-sub-panel').waitFor();
-}
-
-/** Legt mit allen offenen Tabs das Projekt „W-JAX“ an, ohne `alone` vorher mit einem zweiten Tab. */
+/** Legt aus den offenen Tabs das Projekt „W-JAX“ an, ohne `alone` vorher mit einem zweiten Tab. */
 async function createProject(page, alone = false) {
   if (!alone) {
     await secondTab(page);
   }
-  await projectMenu(page);
-  await page.locator('.menu-sub-panel .menu-item', { hasText: 'Neues Projekt' }).click();
+  await projectsMenu(page);
+  await page.locator('.menu-sub-panel .menu-item', { hasText: 'Als neues Projekt speichern' }).click();
   await page.getByRole('textbox', { name: 'Name des Projekts' }).fill('W-JAX');
-  await page.getByRole('checkbox', { name: 'Alle offenen Tabs' }).check();
-  await page.getByRole('button', { name: 'Anlegen' }).click();
-  await page.locator('.menu-context').waitFor({ state: 'detached' });
+  await page.locator('.menu-sub-panel').getByRole('button', { name: 'Speichern', exact: true }).click();
+  await page.locator('.tabs-project').waitFor();
 }
 
 /** Öffnet das Untermenü „Projekte“ im Menü der Repos. */
@@ -367,17 +359,22 @@ const SHOTS = [
     '35-projekt-neu',
     async (page) => {
       await secondTab(page);
-      await projectMenu(page);
-      await page.locator('.menu-sub-panel .menu-item', { hasText: 'Neues Projekt' }).click();
+      await projectsMenu(page);
+      await page.locator('.menu-sub-panel .menu-item', { hasText: 'Als neues Projekt speichern' }).click();
       await page.getByRole('textbox', { name: 'Name des Projekts' }).fill('W-JAX');
-      await page.getByRole('checkbox', { name: 'Alle offenen Tabs' }).check();
     },
   ],
   [
-    '36-projekt-haken',
+    '36-projekt-geaendert',
     async (page) => {
       await createProject(page);
-      await projectMenu(page);
+      // Verschoben weicht die Tableiste vom Projekt ab.
+      const first = page.locator('.tab').first();
+      const second = page.locator('.tab').nth(1);
+      const box = await second.boundingBox();
+      await first.dragTo(second, { targetPosition: { x: box.width - 20, y: box.height / 2 } });
+      await page.locator('.tabs-project-changed').waitFor();
+      await page.locator('.tabs-project').click();
     },
   ],
   [
@@ -394,9 +391,11 @@ const SHOTS = [
     async (page) => {
       await createProject(page);
       await page.getByRole('button', { name: 'Tab schließen' }).first().click();
+      await page.locator('.tabs-project-changed').waitFor();
       await projectsMenu(page);
       await page.locator('.menu-sub-panel .menu-item', { hasText: 'W-JAX' }).click();
       await page.locator('.tab').nth(1).waitFor();
+      await page.locator('.tabs-project-changed').waitFor({ state: 'detached' });
     },
   ],
   [
@@ -413,10 +412,6 @@ const SHOTS = [
     async (page) => {
       await gotoChanged(page, (search) => search.set('branch', 'gibt-es-nicht'));
       await createProject(page, true);
-      // Zum anderen Tab und zurück, damit der fehlende sein Projekt kennt.
-      await page.locator('.tab:not(.tab-missing) .tab-label').first().click();
-      await page.locator('.diff').waitFor();
-      await page.locator('.tab-missing .tab-label').click();
       await page.getByRole('button', { name: 'Aus „W-JAX“ entfernen' }).waitFor();
     },
   ],
@@ -475,6 +470,19 @@ const SHOTS = [
       const box = await second.boundingBox();
       await first.dragTo(second, { targetPosition: { x: box.width - 20, y: box.height / 2 } });
       await page.locator('.tab').nth(1).filter({ hasText: 'schritte' }).waitFor();
+    },
+  ],
+  [
+    '46-projekt-ohne-tab',
+    async (page) => {
+      await createProject(page);
+      await page.locator('.tab[aria-selected="true"]').click({ button: 'right' });
+      await page.locator('.menu-context .menu-item', { hasText: 'Alle Tabs schließen' }).click();
+      await page.locator('.empty').waitFor();
+      await page.locator('.menu-projects .menu-row').hover();
+      await page.locator('.menu-sub-panel .menu-item', { hasText: 'W-JAX' }).click();
+      await page.locator('.tab').nth(1).waitFor();
+      await page.locator('.tabs-project').waitFor();
     },
   ],
 ];

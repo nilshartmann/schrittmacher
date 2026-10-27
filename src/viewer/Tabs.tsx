@@ -1,8 +1,8 @@
 import { createContext, useCallback, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { Tracking } from '../git/types';
-import type { Missing } from '../server/repo.functions';
-import type { Project, Tab, ViewSearch } from '../server/store';
+import type { Missing, ProjectChange } from '../server/repo.functions';
+import type { Project, Projects, Tab, ViewSearch } from '../server/store';
 import { HoverTools, MenuToolButton } from './HoverTools';
 import { BranchIcon, CloseIcon, WarningIcon } from './Icons';
 import { Menu, MenuItem, MenuWhere, TrackingBadge } from './Menu';
@@ -23,11 +23,12 @@ export interface TabActions {
   closeOthers: (kept: Tab) => void;
   /** Schließt alle Tabs; danach zeigt die Seite die Ansicht ohne Tab. */
   closeAll: () => void;
-  /**
-   * Öffnet die Tabs eines Projekts und macht seinen ersten aktiv. Mit `replace` schließen sich die
-   * übrigen Tabs, sonst kommen die fehlenden rechts neben dem aktiven dazu.
-   */
-  openProject: (project: Project, replace: boolean) => void;
+  /** Ersetzt die Tableiste durch die Tabs eines Projekts, macht den ersten aktiv und das Projekt zum aktiven. */
+  openProject: (project: Project) => void;
+  /** Die Projekte mit dem aktiven; `null`, solange sie laden. */
+  projects: Projects | null;
+  /** Ändert die Projekte; scheitert das, wirft es einen Fehler mit dem Grund. */
+  changeProject: (change: ProjectChange) => Promise<void>;
 }
 
 export const TabsContext = createContext<TabActions | null>(null);
@@ -87,6 +88,8 @@ interface TabBarProps {
   onCloseAll: () => void;
   /** Verschiebt einen Tab vor oder mit `after` hinter einen anderen. */
   onMove: (moved: Tab, target: Tab, after: boolean) => void;
+  /** Was rechts in der Tableiste steht, etwa das aktive Projekt. */
+  end?: ReactNode;
 }
 
 /**
@@ -110,6 +113,7 @@ export function TabBar({
   onCloseOthers,
   onCloseAll,
   onMove,
+  end,
 }: TabBarProps) {
   const rest = tabs.slice(SHOWN_TABS);
   // Der gezogene Tab und die Seite des Tabs unter dem Zeiger, an der er landen würde.
@@ -242,12 +246,12 @@ export function TabBar({
           )}
         </Menu>
       )}
+      {end}
       {context !== null && (
         <OpenInMenu
           worktree={context.tab.worktree}
           at={context.at}
           copies={[{ label: 'Pfad kopieren', text: context.tab.worktree }]}
-          project={{ tab: context.tab, tabs }}
           closing={{
             others:
               tabs.length > 1

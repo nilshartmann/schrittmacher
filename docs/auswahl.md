@@ -173,25 +173,24 @@ Tab, gewechselt wird über die Knöpfe der Kopfzeile.
 
 ## Projekte
 
-Festgelegt und umgesetzt am 27.10.2026.
+Festgelegt am 27.10.2026, umgebaut am selben Tag nach dem Vorbild der Perspektiven in Eclipse.
 
-Ein Projekt ist eine gespeicherte Sammlung von Tabs, etwa die Tabs für einen Vortrag aus mehreren
-Repos. Es speichert Worktree und Branch je Tab, keinen Vergleich und keine Datei. Ein Tab gehört zu
-einem Projekt, solange er eine Ansicht daraus zeigt. Wechselt er den Branch, bleibt das Projekt,
-wie es ist. Ein Tab kann in mehreren Projekten stehen.
+Ein Projekt ist ein Abbild der Tableiste: welche Tabs offen sind und in welcher Reihenfolge, je
+Tab mit Worktree und Branch, ohne Vergleich und Datei. Geändert wird es nur ausdrücklich.
 
-- Im Kontextmenü eines Tabs steht das Untermenü „Projekt“. Es listet alle Projekte, das zuletzt
-  geöffnete oben. Ein Haken zeigt, ob das Projekt den Tab enthält, und ein Klick nimmt ihn auf oder
-  entfernt ihn. Das Menü bleibt dabei offen.
-- Darunter legt „Neues Projekt …“ ein Projekt mit diesem Tab an. Mit dem Häkchen „Alle offenen
-  Tabs“ kommen alle Tabs der Tableiste hinein. Ein neues Projekt zählt als gerade geöffnet.
-- Im Menü der Repos steht oben das Untermenü „Projekte“ in derselben Reihenfolge. Ein Klick auf ein
-  Projekt öffnet genau seine Tabs und schließt alle anderen. Der Knopf rechts in der Zeile öffnet
-  die Tabs zusätzlich rechts neben dem aktiven, ohne schon offene doppelt. In beiden Fällen wird
-  der erste Tab des Projekts aktiv.
-- Beim Überfahren einer Zeile stehen neben diesem Knopf Umbenennen und Löschen. Beide fragen in der
-  Zeile nach.
-- Die Projekte speichert der Server in `state.json`.
+- Im Menü der Repos steht oben das Untermenü „Projekte“, das zuletzt geöffnete Projekt oben. Ein
+  Klick auf ein Projekt ersetzt die Tableiste durch seine Tabs und macht den ersten aktiv. Das
+  Projekt ist danach das aktive und hat im Untermenü einen Haken.
+- Beim Überfahren einer Zeile stehen dort Umbenennen und Löschen. Beide fragen in der Zeile nach.
+  Unter den Projekten speichert „Als neues Projekt speichern …“ die offenen Tabs als neues Projekt;
+  es ist danach das aktive.
+- Das aktive Projekt steht rechts in der Tableiste. Weichen Tabs oder Reihenfolge vom gespeicherten
+  Stand ab, steht ein Punkt hinter dem Namen. Das Menü dahinter bietet „„…“ speichern“,
+  „Zurücksetzen“ und „Als neues Projekt speichern …“. Speichern und Zurücksetzen sind ohne
+  Änderung ausgegraut.
+- Nach „Alle Tabs schließen“ gibt es kein aktives Projekt mehr. Auch ohne Tab lässt sich ein
+  Projekt über das Menü der Repos öffnen.
+- Die Projekte und den Namen des aktiven speichert der Server in `state.json`.
 
 ## Fehlende Ansichten
 

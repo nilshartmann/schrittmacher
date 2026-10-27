@@ -2,12 +2,10 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 import type { OpenApp } from '../server/apps';
 import { openWorktreeIn } from '../server/repo.functions';
-import type { Tab } from '../server/store';
 import { CopyIcon, CopyToIcon, CopyToMenu, subAnchorOf } from './HoverTools';
 import type { CopyTarget, SubAnchor } from './HoverTools';
-import { CloseIcon, FolderIcon, GitClientIcon, ProjectIcon, TerminalIcon } from './Icons';
+import { CloseIcon, FolderIcon, GitClientIcon, TerminalIcon } from './Icons';
 import { ContextMenu, MenuItem, MenuNote } from './Menu';
-import { ProjectToggleMenu } from './Projects';
 
 /** Die Programme im Kontextmenü, in der Reihenfolge, in der sie dort stehen. */
 const OPEN_ENTRIES: { app: OpenApp; label: string; icon: ReactNode }[] = [
@@ -27,8 +25,8 @@ export interface MenuCopyTo {
  * Terminal und ForkLift den Ordner dieser Datei, Fork bleibt beim Worktree. Das Menü schließt,
  * sobald das Programm gestartet ist; scheitert das, bleibt es mit der Meldung offen. Unter den
  * Programmen stehen die Einträge aus `copies`, die einen Text in die Zwischenablage legen, mit
- * `copyTo` ein Untermenü, das die Datei in einen anderen Tab kopiert, mit `project` eins, das den
- * Tab in Projekte aufnimmt, und mit `closing` das Schließen anderer und aller Tabs.
+ * `copyTo` ein Untermenü, das die Datei in einen anderen Tab kopiert, und mit `closing` das
+ * Schließen anderer und aller Tabs.
  */
 export function OpenInMenu({
   worktree,
@@ -36,7 +34,6 @@ export function OpenInMenu({
   at,
   copies = [],
   copyTo,
-  project,
   closing,
   onClose,
 }: {
@@ -45,14 +42,12 @@ export function OpenInMenu({
   at: { x: number; y: number };
   copies?: { label: string; text: string }[];
   copyTo?: MenuCopyTo;
-  /** Der Tab des Menüs und die offenen Tabs, für das Untermenü „Projekt“. */
-  project?: { tab: Tab; tabs: Tab[] };
   /** Das Schließen anderer und aller Tabs, im Menü eines Tabs; ohne `others` fehlt dieser Eintrag. */
   closing?: { others?: () => void; all: () => void };
   onClose: () => void;
 }) {
   const [error, setError] = useState<string | null>(null);
-  const [sub, setSub] = useState<{ kind: 'copy' | 'project'; anchor: SubAnchor } | null>(null);
+  const [sub, setSub] = useState<{ kind: 'copy'; anchor: SubAnchor } | null>(null);
   const closeSub = () => {
     setSub(null);
   };
@@ -68,7 +63,7 @@ export function OpenInMenu({
       setError(`Der Text ließ sich nicht kopieren: ${failure instanceof Error ? failure.message : String(failure)}`);
     });
   };
-  const openSub = (kind: 'copy' | 'project', row: HTMLElement) => {
+  const openSub = (kind: 'copy', row: HTMLElement) => {
     setSub({ kind, anchor: subAnchorOf(row) });
   };
   return (
@@ -119,25 +114,6 @@ export function OpenInMenu({
           onCopy={copyTo.onCopy}
           onDone={onClose}
         />
-      )}
-      {project !== undefined && (
-        <>
-          <div className="menu-rule" onMouseEnter={closeSub} />
-          <div
-            className={sub?.kind === 'project' ? 'menu-row menu-row-open' : 'menu-row'}
-            onMouseEnter={(event) => {
-              openSub('project', event.currentTarget);
-            }}
-            onClick={(event) => {
-              openSub('project', event.currentTarget);
-            }}
-          >
-            <MenuItem main="Projekt" icon={<ProjectIcon />} aside="›" onChoose={() => {}} />
-          </div>
-        </>
-      )}
-      {project !== undefined && sub?.kind === 'project' && (
-        <ProjectToggleMenu anchor={sub.anchor} tab={project.tab} tabs={project.tabs} onDone={onClose} />
       )}
       {closing !== undefined && (
         <>

@@ -880,15 +880,7 @@ a.menu-item {
   border-bottom: 1px solid var(--border-divider);
 }
 
-/* Ein neues Projekt: Name und Knopf, darunter die Wahl aller offenen Tabs */
-.menu-project-form {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 4px;
-}
-
-/* Umbenennen und Löschen eines Projekts stehen an der Stelle seiner Zeile. */
+/* Name eines neuen Projekts, Umbenennen und Löschen stehen an der Stelle ihrer Zeile. */
 .menu-project-edit {
   align-items: center;
   padding: 4px;
@@ -901,15 +893,6 @@ a.menu-item {
   padding-left: 6px;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.menu-checkbox {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding-left: 2px;
-  color: var(--text-secondary);
-  font-size: 12.5px;
 }
 
 /* Die Fußzeile des Menüs der Repos mit dem Feld für einen Pfad */
@@ -2406,6 +2389,48 @@ span.info-parent {
 .tabs-more[aria-expanded='true'] {
   background: var(--hover);
   color: var(--ink);
+}
+
+/* Das aktive Projekt ganz rechts in der Tableiste, mit einem Punkt bei Änderungen */
+.tabs > .menu:has(> .tabs-project) {
+  flex: none;
+  margin-left: auto;
+}
+
+.tabs-project {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: var(--tabs-height);
+  padding: 0 12px;
+  border: none;
+  border-left: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  color: var(--quiet);
+  font-size: var(--size-small);
+  cursor: pointer;
+}
+
+.tabs-project:hover,
+.tabs-project[aria-expanded='true'] {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+.tabs-project-name {
+  max-width: 180px;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tabs-project-changed {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--selected-focus);
 }
 
 /* Commit-Liste und Dateiliste nehmen mit dem Fokus die Pfeiltasten an; die Auswahl zeigt, welche. */
