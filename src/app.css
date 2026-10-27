@@ -16,6 +16,8 @@
   --selected-focus-ink: #ffffff;
   --accent: #3e5c9a;
   --accent-tint: #e8edf6;
+  /* Das Warnzeichen eines Tabs, dessen Ansicht es nicht mehr gibt */
+  --missing-ink: #c27c00;
 
   /* Die Farben des Diffs wie in Fork. */
   --diff-removed: #ffe4e4;
@@ -348,7 +350,7 @@ button.crumb:hover,
 }
 
 /* Der Eintrag, dessen Untermenü offen ist, bleibt hervorgehoben. */
-.menu-context .menu-row-open {
+.menu-row-open {
   background: var(--bg-hover);
 }
 
@@ -869,6 +871,45 @@ a.menu-item {
 
 .menu-form > .tool {
   flex: none;
+}
+
+/* Der Eintrag „Projekte“ oben im Menü der Repos, über der Liste */
+.menu-projects {
+  flex: none;
+  padding: 0 6px 4px;
+  border-bottom: 1px solid var(--border-divider);
+}
+
+/* Ein neues Projekt: Name und Knopf, darunter die Wahl aller offenen Tabs */
+.menu-project-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px;
+}
+
+/* Umbenennen und Löschen eines Projekts stehen an der Stelle seiner Zeile. */
+.menu-project-edit {
+  align-items: center;
+  padding: 4px;
+}
+
+.menu-confirm-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  padding-left: 6px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.menu-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 2px;
+  color: var(--text-secondary);
+  font-size: 12.5px;
 }
 
 /* Die Fußzeile des Menüs der Repos mit dem Feld für einen Pfad */
@@ -1762,6 +1803,45 @@ span.info-parent {
   color: var(--quiet);
 }
 
+/* Der Inhalt eines Tabs, dessen Ansicht sich nicht öffnen lässt */
+.missing {
+  max-width: 600px;
+  margin: 56px auto 0;
+  padding: 0 24px;
+}
+
+.missing-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+  color: var(--ink);
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.missing-title > svg {
+  color: var(--missing-ink);
+}
+
+.missing-message {
+  margin: 0 0 18px;
+  color: var(--quiet);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.missing-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.missing-error {
+  margin: 12px 0 0;
+  color: var(--diff-removed-ink);
+}
+
 /* Diff */
 
 .diff {
@@ -2138,6 +2218,18 @@ span.info-parent {
   text-overflow: ellipsis;
 }
 
+/* Ein Tab, dessen Ansicht es nicht mehr gibt: Warnzeichen vor dem Namen, Text kursiv */
+.tab-label > svg {
+  flex: none;
+  margin-right: 0.35em;
+  color: var(--missing-ink);
+}
+
+.tab-missing .tab-repo,
+.tab-missing .tab-where {
+  font-style: italic;
+}
+
 .tab-where {
   flex: none;
   max-width: calc(100% - 3em);
@@ -2260,8 +2352,8 @@ span.info-parent {
   color: var(--selected-focus-ink);
 }
 
-/* Das Menü zum Kopieren steht fest im Fenster, damit die Liste es nicht abschneidet. */
-.copy-to-panel {
+/* Ein Untermenü steht fest im Fenster, damit die Liste es nicht abschneidet. */
+.menu-sub-panel {
   position: fixed;
   cursor: default;
 }

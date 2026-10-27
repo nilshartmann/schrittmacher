@@ -143,8 +143,8 @@ Die Web-App aus dem Dock hat keine Tabs. Deshalb liegt wie in Fork eine eigene T
 der Kopfzeile. Jeder Tab ist eine Ansicht. Die Tabs dienen nur zum Lesen; ein Klick wechselt den
 Tab, gewechselt wird über die Knöpfe der Kopfzeile.
 
-- Es gibt eine einzige Tableiste, wie in Fork. Projekte, die je eigene Tabs hatten, gibt es seit
-  dem 25.10.2026 nicht mehr. Ein älterer Zustand bringt die Tabs aller Projekte in diese Tableiste.
+- Es gibt eine einzige Tableiste, wie in Fork. Eigene Tableisten je Projekt gab es bis zum
+  25.10.2026; die gespeicherten Projekte unter „Projekte“ ändern daran nichts.
 - Ein neuer Tab öffnet sich rechts neben dem aktiven. Über den Knopf im Menü wird er aktiv, mit
   ⌘-Klick oder der mittleren Maustaste bleibt er im Hintergrund.
 - Ein Wechsel von Repo, Worktree oder Branch in der Kopfzeile ersetzt die Ansicht des aktiven
@@ -159,6 +159,44 @@ Tab, gewechselt wird über die Knöpfe der Kopfzeile.
 - Die offenen Tabs speichert der Server in `state.json`.
 - Beim Start öffnet die App die zuletzt geöffnete Ansicht. Beim allerersten Start ist das Menü der
   Repos offen.
+- Lässt sich die Ansicht eines Tabs nicht öffnen, bleibt der Tab offen. Er zeigt vor dem Namen ein
+  Warnzeichen, und der Tooltip nennt den Grund (siehe „Fehlende Ansichten“).
+
+## Projekte
+
+Festgelegt und umgesetzt am 27.10.2026.
+
+Ein Projekt ist eine gespeicherte Sammlung von Tabs, etwa die Tabs für einen Vortrag aus mehreren
+Repos. Es speichert Worktree und Branch je Tab, keinen Vergleich und keine Datei. Ein Tab gehört zu
+einem Projekt, solange er eine Ansicht daraus zeigt. Wechselt er den Branch, bleibt das Projekt,
+wie es ist. Ein Tab kann in mehreren Projekten stehen.
+
+- Im Kontextmenü eines Tabs steht das Untermenü „Projekt“. Es listet alle Projekte, das zuletzt
+  geöffnete oben. Ein Haken zeigt, ob das Projekt den Tab enthält, und ein Klick nimmt ihn auf oder
+  entfernt ihn. Das Menü bleibt dabei offen.
+- Darunter legt „Neues Projekt …“ ein Projekt mit diesem Tab an. Mit dem Häkchen „Alle offenen
+  Tabs“ kommen alle Tabs der Tableiste hinein. Ein neues Projekt zählt als gerade geöffnet.
+- Im Menü der Repos steht oben das Untermenü „Projekte“ in derselben Reihenfolge. Ein Klick auf ein
+  Projekt öffnet genau seine Tabs und schließt alle anderen. Der Knopf rechts in der Zeile öffnet
+  die Tabs zusätzlich rechts neben dem aktiven, ohne schon offene doppelt. In beiden Fällen wird
+  der erste Tab des Projekts aktiv.
+- Beim Überfahren einer Zeile stehen neben diesem Knopf Umbenennen und Löschen. Beide fragen in der
+  Zeile nach.
+- Die Projekte speichert der Server in `state.json`.
+
+## Fehlende Ansichten
+
+Eine Ansicht lässt sich nicht öffnen, wenn ihr Repo, ihr Worktree oder ihr Branch fehlt. Ihr Tab
+zeigt statt der Commits den Grund:
+
+1. Das Repo fehlt, etwa weil es verschoben wurde oder eine Platte nicht eingehängt ist. Taucht es
+   wieder auf, zeigt der Tab beim nächsten Aktivieren wieder seinen Inhalt.
+2. Der Worktree fehlt, das Repo gibt es noch. Das erkennt der Server an einer gemerkten Ansicht.
+3. Der Branch fehlt, etwa weil er umbenannt wurde.
+
+Darunter steht je Projekt, das den Tab enthält, ein Knopf „Aus … entfernen“ und, außer beim letzten
+Tab, „Tab schließen“. Eine andere Ansicht wird über das Menü der Repos gewählt. Ein Tab ohne Branch
+zeigt weiter den ausgecheckten.
 
 ## Vergleich zweier Commits
 

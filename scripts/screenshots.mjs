@@ -55,6 +55,50 @@ async function openLocal(page) {
   await page.locator('.file', { hasText: 'NOTIZEN.md' }).waitFor();
 }
 
+/** Öffnet live_coding in einem zweiten Tab, damit es mehr als einen gibt. */
+async function secondTab(page) {
+  await whereMenu(page);
+  await branchItem(page, 'live_coding').first().hover();
+  await page.getByRole('button', { name: 'live_coding in neuem Tab öffnen' }).click();
+  await page.locator('.tab[aria-selected="true"]', { hasText: 'live_coding' }).waitFor();
+}
+
+/** Öffnet das Untermenü „Projekt“ im Kontextmenü des aktiven Tabs. */
+async function projectMenu(page) {
+  await page.locator('.tab[aria-selected="true"]').click({ button: 'right' });
+  await page.locator('.menu-context .menu-row', { hasText: 'Projekt' }).hover();
+  await page.locator('.menu-sub-panel').waitFor();
+}
+
+/** Legt mit allen offenen Tabs das Projekt „W-JAX“ an, ohne `alone` vorher mit einem zweiten Tab. */
+async function createProject(page, alone = false) {
+  if (!alone) {
+    await secondTab(page);
+  }
+  await projectMenu(page);
+  await page.locator('.menu-sub-panel .menu-item', { hasText: 'Neues Projekt' }).click();
+  await page.getByRole('textbox', { name: 'Name des Projekts' }).fill('W-JAX');
+  await page.getByRole('checkbox', { name: 'Alle offenen Tabs' }).check();
+  await page.getByRole('button', { name: 'Anlegen' }).click();
+  await page.locator('.menu-context').waitFor({ state: 'detached' });
+}
+
+/** Öffnet das Untermenü „Projekte“ im Menü der Repos. */
+async function projectsMenu(page) {
+  await page.getByRole('button', { name: 'Repo', exact: true }).click();
+  await page.locator('.menu-projects .menu-row').hover();
+  await page.locator('.menu-sub-panel').waitFor();
+}
+
+/** Zeigt die Ansicht mit einem anderen Worktree oder Branch als die geöffnete. */
+async function gotoChanged(page, change) {
+  const url = new globalThis.URL(page.url());
+  change(url.searchParams);
+  url.searchParams.delete('to');
+  await page.goto(url.toString());
+  await page.locator('.missing').waitFor();
+}
+
 /** Schiebt die Commit-Liste bis auf ihre kleinste Höhe zusammen. */
 const shrinkCommits = (page) => dragBy(page, '[aria-label="Höhe der Commit-Liste"]', 0, -400);
 
@@ -257,9 +301,9 @@ const SHOTS = [
       await page.locator('.tab-label', { hasText: 'schritte' }).click();
       await commit(page, '07').click();
       const row = page.locator('.file-list li', { hasText: 'LoanService' });
-      await row.hover();
-      await row.getByRole('button', { name: 'Kopieren nach …' }).click();
-      await page.locator('.copy-to-panel .menu-item').first().hover();
+      await row.click({ button: 'right' });
+      await page.locator('.menu-context .menu-row', { hasText: 'Kopieren nach' }).hover();
+      await page.locator('.menu-sub-panel .menu-item').first().hover();
     },
   ],
   [
@@ -273,10 +317,10 @@ const SHOTS = [
       await page.locator('.tab-label', { hasText: 'schritte' }).click();
       await commit(page, '07').click();
       const row = page.locator('.file-list li', { hasText: 'LoanService' });
-      await row.hover();
-      await row.getByRole('button', { name: 'Kopieren nach …' }).click();
-      await page.locator('.copy-to-panel .menu-item').first().click();
-      await page.locator('.copy-to-panel').waitFor({ state: 'detached' });
+      await row.click({ button: 'right' });
+      await page.locator('.menu-context .menu-row', { hasText: 'Kopieren nach' }).hover();
+      await page.locator('.menu-sub-panel .menu-item').first().click();
+      await page.locator('.menu-sub-panel').waitFor({ state: 'detached' });
       await page.locator('.tab-label', { hasText: 'live_coding' }).click();
       await page.locator('.commit-local').click();
       await page.locator('.file', { hasText: 'LoanService' }).click();
@@ -310,6 +354,71 @@ const SHOTS = [
     async (page) => {
       await page.getByRole('button', { name: 'Branches der Commit-Liste' }).click();
       await page.locator('.menu-item', { hasText: 'Datum des Autors' }).click();
+    },
+  ],
+  [
+    '35-projekt-neu',
+    async (page) => {
+      await secondTab(page);
+      await projectMenu(page);
+      await page.locator('.menu-sub-panel .menu-item', { hasText: 'Neues Projekt' }).click();
+      await page.getByRole('textbox', { name: 'Name des Projekts' }).fill('W-JAX');
+      await page.getByRole('checkbox', { name: 'Alle offenen Tabs' }).check();
+    },
+  ],
+  [
+    '36-projekt-haken',
+    async (page) => {
+      await createProject(page);
+      await projectMenu(page);
+    },
+  ],
+  [
+    '37-projekte-menue',
+    async (page) => {
+      await createProject(page);
+      await projectsMenu(page);
+      await page.locator('.menu-sub-panel .menu-row', { hasText: 'W-JAX' }).hover();
+      await page.waitForTimeout(700);
+    },
+  ],
+  [
+    '38-projekt-geoeffnet',
+    async (page) => {
+      await createProject(page);
+      await page.getByRole('button', { name: 'Tab schließen' }).first().click();
+      await projectsMenu(page);
+      await page.locator('.menu-sub-panel .menu-item', { hasText: 'W-JAX' }).click();
+      await page.locator('.tab').nth(1).waitFor();
+    },
+  ],
+  [
+    '39-projekt-loeschen',
+    async (page) => {
+      await createProject(page);
+      await projectsMenu(page);
+      await page.locator('.menu-sub-panel .menu-row', { hasText: 'W-JAX' }).hover();
+      await page.getByRole('button', { name: 'W-JAX löschen' }).click();
+    },
+  ],
+  [
+    '40-branch-fehlt',
+    async (page) => {
+      await gotoChanged(page, (search) => search.set('branch', 'gibt-es-nicht'));
+      await createProject(page, true);
+      // Zum anderen Tab und zurück, damit der fehlende sein Projekt kennt.
+      await page.locator('.tab:not(.tab-missing) .tab-label').first().click();
+      await page.locator('.diff').waitFor();
+      await page.locator('.tab-missing .tab-label').click();
+      await page.getByRole('button', { name: 'Aus „W-JAX“ entfernen' }).waitFor();
+    },
+  ],
+  [
+    '41-repo-fehlt',
+    async (page) => {
+      await gotoChanged(page, (search) => search.set('worktree', `${search.get('worktree')}-weg`));
+      await page.locator('.tab-missing').hover();
+      await page.waitForTimeout(700);
     },
   ],
 ];

@@ -1,9 +1,20 @@
 import { createFileRoute, redirect } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
-import { loadView, resolveView, saveTabs, saveView, tabOf, takeTabRequest } from '../server/repo.functions';
-import type { Tab, ViewSearch } from '../server/store';
+import {
+  checkTabs,
+  loadMissing,
+  loadView,
+  resolveView,
+  saveTabs,
+  saveView,
+  tabOf,
+  takeTabRequest,
+} from '../server/repo.functions';
+import type { Missing } from '../server/repo.functions';
+import type { Project, Tab, ViewSearch } from '../server/store';
 import { EmptyHeader } from '../viewer/Header';
-import { sameTab, TabBar, TabsContext, withVisible } from '../viewer/Tabs';
+import { MissingView } from '../viewer/MissingView';
+import { sameTab, TabBar, tabKey, TabsContext, withVisible } from '../viewer/Tabs';
 import { Tooltips } from '../viewer/Tooltips';
 import { Viewer } from '../viewer/Viewer';
 import type { LoadedView } from '../viewer/Viewer';
@@ -35,7 +46,8 @@ export const Route = createFileRoute('/')({
   }),
   loaderDeps: ({ search }) => ({ worktree: search.worktree, branch: search.branch }),
   // Ohne Worktree oder Branch ergänzt der Server die Ansicht, und die URL nennt sie danach ganz.
-  loader: async ({ deps }): Promise<LoadedView | null> => {
+  // Fehlt der Ansicht Repo, Worktree oder Branch, bleibt ihr Tab offen und nennt den Grund.
+  loader: async ({ deps }): Promise<LoadedView | MissingData | null> => {
     const { worktree, branch } = deps;
     if (worktree === undefined || branch === undefined) {
       const full = await resolveView({ data: { worktree, branch } });
@@ -44,10 +56,23 @@ export const Route = createFileRoute('/')({
       }
       throw redirect({ to: '/', search: full, replace: true });
     }
-    const view = await loadView({ data: { worktree, branch } });
+    let view: LoadedView;
+    try {
+      view = await loadView({ data: { worktree, branch } });
+    } catch (error) {
+      const missing = await loadMissing({ data: { worktree, branch } });
+      if (missing === null) {
+        throw error;
+      }
+      return missing;
+    }
     const shown = view.repo.info.branch ?? '';
     if (shown !== branch) {
-      // Den Branch gibt es nicht mehr; die Liste zeigt dann den ausgecheckten.
+      const missing = branch === '' ? null : await loadMissing({ data: { worktree, branch } });
+      if (missing !== null) {
+        return missing;
+      }
+      // Ohne Branch zeigt die Liste den ausgecheckten.
       throw redirect({ to: '/', search: { worktree, branch: shown }, replace: true });
     }
     return view;
@@ -55,6 +80,13 @@ export const Route = createFileRoute('/')({
   component: Index,
   errorComponent: ({ error }) => <NoView message={error instanceof Error ? error.message : String(error)} />,
 });
+
+/** Eine Ansicht, die sich nicht öffnen lässt, siehe `loadMissing`. */
+interface MissingData {
+  missing: Missing;
+  tab: Tab;
+  tabs: Tab[];
+}
 
 function useOpen() {
   const navigate = Route.useNavigate();
@@ -71,17 +103,75 @@ function useOpen() {
 }
 
 function Index() {
-  const view = Route.useLoaderData();
+  const data = Route.useLoaderData();
   const search = Route.useSearch();
-  return view === null ? <NoView /> : <OpenedView view={view} search={search} />;
+  return data === null ? <NoView /> : <Opened data={data} search={search} />;
 }
 
-function OpenedView({ view, search }: { view: LoadedView; search: ViewSearch }) {
+/** Der Tab einer geladenen Ansicht, mit den Namen von Repo und Worktree. */
+function tabOfView(view: LoadedView): Tab {
+  const { info } = view.repo;
+  return { worktree: info.worktreePath, branch: info.branch ?? '', repo: info.repo, worktreeName: info.worktree };
+}
+
+/**
+ * Die Tableiste mit der Ansicht des aktiven Tabs darunter, oder dem Grund, weshalb sie sich nicht
+ * öffnen lässt. Die Tabs leben hier, damit sie einen Wechsel zwischen beidem überstehen.
+ */
+function Opened({ data, search }: { data: LoadedView | MissingData; search: ViewSearch }) {
   const navigate = Route.useNavigate();
   const { show, open } = useOpen();
-  const { worktree, branch, to, from, file } = search;
+  const missing = 'missing' in data ? data : null;
+  const view = 'missing' in data ? null : data;
+  const tabs = useTabs(data.tabs, missing?.tab ?? tabOfView(data as LoadedView), open);
+  useTabRequests(tabs.openNew);
+  useSaveView(view === null ? null : search);
 
-  // Die Ansicht wird gemerkt, sobald die Wahl eine Weile steht.
+  const tabBar = (
+    <TabBar
+      tabs={tabs.list}
+      current={tabs.current}
+      tracking={view?.repo.refs.find((ref) => ref.kind === 'local' && ref.name === view.repo.info.branch)?.tracking}
+      missing={tabs.missing}
+      onChoose={tabs.choose}
+      onClose={tabs.close}
+    />
+  );
+  const { worktree, branch } = search;
+  return (
+    <TabsContext.Provider
+      value={{ tabs: tabs.list, add: tabs.add, show: tabs.openNew, close: tabs.close, openProject: tabs.openProject }}
+    >
+      {view === null ? (
+        <MissingView
+          missing={missing?.missing ?? { reason: 'other', message: '' }}
+          tab={tabs.current}
+          last={tabs.list.length <= 1}
+          tabs={tabBar}
+          onShow={show}
+          onClose={() => {
+            tabs.close(tabs.current);
+          }}
+        />
+      ) : (
+        <Viewer
+          view={view}
+          search={search}
+          onSearch={(change, replace) => {
+            void navigate({ to: '/', search: { worktree, branch, ...change }, replace });
+          }}
+          onOpen={open}
+          onShow={show}
+          tabs={tabBar}
+        />
+      )}
+    </TabsContext.Provider>
+  );
+}
+
+/** Merkt sich die Ansicht, sobald die Wahl eine Weile steht; ohne Ansicht nichts. */
+function useSaveView(search: ViewSearch | null) {
+  const { worktree, branch, to, from, file } = search ?? {};
   useEffect(() => {
     if (worktree === undefined || branch === undefined) {
       return;
@@ -95,34 +185,6 @@ function OpenedView({ view, search }: { view: LoadedView; search: ViewSearch }) 
       clearTimeout(timer);
     };
   }, [worktree, branch, to, from, file]);
-
-  const tabs = useTabs(view, open);
-  useTabRequests(tabs.openNew);
-
-  return (
-    <TabsContext.Provider value={{ tabs: tabs.list, add: tabs.add, show: tabs.openNew, close: tabs.close }}>
-      <Viewer
-        view={view}
-        search={search}
-        onSearch={(change, replace) => {
-          void navigate({ to: '/', search: { worktree, branch, ...change }, replace });
-        }}
-        onOpen={open}
-        onShow={show}
-        tabs={
-          <TabBar
-            tabs={tabs.list}
-            current={tabs.current}
-            tracking={
-              view.repo.refs.find((ref) => ref.kind === 'local' && ref.name === view.repo.info.branch)?.tracking
-            }
-            onChoose={tabs.choose}
-            onClose={tabs.close}
-          />
-        }
-      />
-    </TabsContext.Provider>
-  );
 }
 
 /**
@@ -132,17 +194,10 @@ function OpenedView({ view, search }: { view: LoadedView; search: ViewSearch }) 
  * Tab steht immer unter den sichtbaren, siehe `withVisible`. Der Server merkt sich die Tabs, damit
  * sie nach dem Neuladen wieder da sind.
  */
-function useTabs(view: LoadedView, open: (target: ViewSearch) => Promise<void>) {
-  const { info } = view.repo;
-  const current: Tab = {
-    worktree: info.worktreePath,
-    branch: info.branch ?? '',
-    repo: info.repo,
-    worktreeName: info.worktree,
-  };
-  const [list, setList] = useState<Tab[]>(view.tabs);
+function useTabs(initial: Tab[], current: Tab, open: (target: ViewSearch) => Promise<void>) {
+  const [list, setList] = useState<Tab[]>(initial);
   const shown = useRef<Tab | null>(null);
-  const saved = useRef(view.tabs);
+  const saved = useRef(initial);
   useEffect(() => {
     if (list === saved.current) {
       return;
@@ -164,11 +219,42 @@ function useTabs(view: LoadedView, open: (target: ViewSearch) => Promise<void>) 
     });
   }, [current.worktree, current.branch]);
 
+  // Geprüft wird, sobald sich die Tabs oder der aktive ändern; so fällt ein Repo auf, das wieder da ist.
+  const [missing, setMissing] = useState<ReadonlyMap<string, Missing>>(new Map());
+  const keys = list.map(tabKey).join('\0');
+  useEffect(() => {
+    let live = true;
+    checkTabs({ data: { tabs: list } }).then(
+      (found) => {
+        if (live) {
+          setMissing(new Map(list.flatMap((tab, at) => (found[at] == null ? [] : [[tabKey(tab), found[at]]]))));
+        }
+      },
+      (error: unknown) => {
+        console.error('Die Tabs ließen sich nicht prüfen.', error);
+      },
+    );
+    return () => {
+      live = false;
+    };
+  }, [keys, current.worktree, current.branch]);
+
+  /**
+   * Zeigt die Ansicht eines Tabs mit ihrem gemerkten Vergleich. Lässt sie sich nicht vervollständigen,
+   * etwa weil ihr Worktree fehlt, gilt sie, wie sie ist, und der Tab nennt den Grund.
+   */
+  const openTab = async (tab: Tab) => {
+    const target = { worktree: tab.worktree, branch: tab.branch };
+    const view = await resolveView({ data: target }).catch(() => null);
+    await open(view ?? target);
+  };
+
   return {
     list,
     current,
+    missing,
     choose: (tab: Tab) => {
-      void open({ worktree: tab.worktree, branch: tab.branch });
+      void openTab(tab);
     },
     close: (closed: { worktree: string; branch: string }) => {
       const at = list.findIndex((tab) => sameTab(tab, closed));
@@ -176,8 +262,24 @@ function useTabs(view: LoadedView, open: (target: ViewSearch) => Promise<void>) 
       setList(rest);
       const next = rest[Math.min(at, rest.length - 1)];
       if (sameTab(closed, current) && next !== undefined) {
-        void open({ worktree: next.worktree, branch: next.branch });
+        void openTab(next);
       }
+    },
+    openProject: (project: Project, replace: boolean) => {
+      const [first] = project.tabs;
+      if (first === undefined) {
+        return;
+      }
+      setList((tabs) => {
+        if (replace) {
+          return withVisible(project.tabs, first);
+        }
+        const added = project.tabs.filter((tab) => !tabs.some((other) => sameTab(other, tab)));
+        const active = shown.current;
+        const at = active === null ? -1 : tabs.findIndex((tab) => sameTab(tab, active));
+        return withVisible(at === -1 ? [...tabs, ...added] : tabs.toSpliced(at + 1, 0, ...added), first);
+      });
+      void openTab(first);
     },
     add: (target: ViewSearch) => {
       void tabOf({ data: target }).then((added) => {

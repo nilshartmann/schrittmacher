@@ -16,7 +16,7 @@ import type { OpenApp } from './apps';
 import { createNotes } from './notes';
 import { shared } from './shared';
 import { createStore, defaultStoreDir, expandHome, sameView } from './store';
-import type { JsonValue, SavedView, Store, Tab, ViewSearch } from './store';
+import type { JsonValue, Project, SavedView, Store, Tab, ViewSearch } from './store';
 
 /** Was der Server einmal beim Start einrichtet. */
 interface Setup {
@@ -639,22 +639,24 @@ export const saveSettings = createServerFn({ method: 'POST' })
 
 /** Merkt sich die Tabs der Tableiste. */
 export const saveTabs = createServerFn({ method: 'POST' })
-  .validator((data: { tabs: Tab[] }) => {
-    if (
-      !Array.isArray(data.tabs) ||
-      !data.tabs.every((tab) =>
-        [tab.worktree, tab.branch, tab.repo, tab.worktreeName].every((part) => typeof part === 'string'),
-      )
-    ) {
-      throw new Error('Die Tabs sind keine Liste von Ansichten.');
-    }
-    return {
-      tabs: data.tabs.map(({ worktree, branch, repo, worktreeName }) => ({ worktree, branch, repo, worktreeName })),
-    };
-  })
+  .validator((data: { tabs: Tab[] }) => ({ tabs: tabsOf(data.tabs) }))
   .handler(async ({ data }) => {
     await (await server()).store.saveTabs(data.tabs);
   });
+
+/** Eine Liste von Tabs aus der Oberfläche, nur mit den Teilen eines Tabs. */
+function tabsOf(value: unknown): Tab[] {
+  const isTab = (tab: unknown): tab is Tab =>
+    typeof tab === 'object' &&
+    tab !== null &&
+    ['worktree', 'branch', 'repo', 'worktreeName'].every(
+      (key) => typeof (tab as Record<string, unknown>)[key] === 'string',
+    );
+  if (!Array.isArray(value) || !value.every(isTab)) {
+    throw new Error('Die Tabs sind keine Liste von Ansichten.');
+  }
+  return value.map(({ worktree, branch, repo, worktreeName }) => ({ worktree, branch, repo, worktreeName }));
+}
 
 /** Merkt sich die Pfade, deren Repos das Menü der Repos nicht zeigt. */
 export const saveExcluded = createServerFn({ method: 'POST' })
@@ -679,4 +681,171 @@ export const saveHidden = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     const { repoPath } = await access(data.worktree);
     await (await server()).store.saveHidden(repoPath, data.hidden);
+  });
+
+/** Was einer Ansicht fehlt: das Repo, der Worktree oder der Branch; `other` für jeden anderen Grund. */
+export type MissingReason = 'repo' | 'worktree' | 'branch' | 'other';
+
+/** Eine Ansicht, die sich nicht öffnen lässt, mit dem Grund in Worten. */
+export interface Missing {
+  reason: MissingReason;
+  message: string;
+}
+
+function exists(path: string): Promise<boolean> {
+  return stat(path).then(
+    () => true,
+    () => false,
+  );
+}
+
+/**
+ * Was der Ansicht aus Worktree und Branch fehlt; `null`, wenn sich nichts findet. Fehlt der Ordner
+ * des Worktrees, sagt eine gemerkte Ansicht, zu welchem Repo er gehörte. Gibt es das Repo noch,
+ * fehlt nur der Worktree.
+ */
+async function missingOf(worktree: string, branch: string): Promise<Missing | null> {
+  if (!(await exists(worktree))) {
+    const { views } = await (await server()).store.state();
+    const repoPath = views.find((view) => view.worktree === worktree)?.repoPath;
+    if (repoPath !== undefined && repoPath !== worktree && (await exists(repoPath))) {
+      return {
+        reason: 'worktree',
+        message: `Den Worktree ${worktree} gibt es nicht mehr. Das Repo ${repoPath} ist noch da.`,
+      };
+    }
+    return {
+      reason: 'repo',
+      message: `Den Ordner ${worktree} gibt es nicht. Vielleicht wurde das Repo verschoben, oder die Platte, auf der es liegt, ist nicht eingehängt.`,
+    };
+  }
+  try {
+    const { source } = await access(worktree);
+    if (branch === '' || (await source.branches()).some((ref) => ref.name === branch)) {
+      return null;
+    }
+    return { reason: 'branch', message: `Den Branch ${branch} gibt es im Repo nicht mehr.` };
+  } catch (error) {
+    return { reason: 'other', message: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+/** Was den Ansichten der Tabs fehlt, in derselben Reihenfolge; `null` für eine, die sich öffnen lässt. */
+export const checkTabs = createServerFn({ method: 'POST' })
+  .validator((data: { tabs: Tab[] }) => ({ tabs: tabsOf(data.tabs) }))
+  .handler(({ data }) => Promise.all(data.tabs.map((tab) => missingOf(tab.worktree, tab.branch))));
+
+/**
+ * Eine Ansicht, die sich nicht öffnen lässt, mit dem Grund, ihrem Tab und den gemerkten Tabs;
+ * `null`, wenn ihr nichts fehlt. Die Namen des Tabs kommen zuerst aus einem gemerkten Tab oder
+ * Projekt, weil sie sich ohne den Ordner nicht mehr ermitteln lassen.
+ */
+export const loadMissing = createServerFn({ method: 'GET' })
+  .validator((data: { worktree: string; branch: string }) => ({
+    worktree: text(data.worktree, 'worktree'),
+    branch: text(data.branch, 'branch'),
+  }))
+  .handler(async ({ data }) => {
+    const missing = await missingOf(data.worktree, data.branch);
+    if (missing === null) {
+      return null;
+    }
+    const state = await (await server()).store.state();
+    const known = [...state.tabs, ...state.projects.flatMap((project) => project.tabs)].find((tab) =>
+      sameView(tab, data),
+    );
+    // Ohne gemerkten Tab gilt der Name des Repos, solange es den Ordner gibt, sonst der einer gemerkten Ansicht.
+    const repoPath = state.views.find((view) => view.worktree === data.worktree)?.repoPath;
+    const tab: Tab = known ??
+      (await tabFor(data.worktree, data.branch).catch(() => null)) ?? {
+        worktree: data.worktree,
+        branch: data.branch,
+        repo: nameOf(repoPath ?? data.worktree),
+        worktreeName: nameOf(data.worktree),
+      };
+    return { missing, tab, tabs: state.tabs };
+  });
+
+/** Die Projekte, das zuletzt geöffnete zuerst. */
+export const listProjects = createServerFn({ method: 'GET' }).handler(
+  async () => (await (await server()).store.state()).projects,
+);
+
+/** Eine Änderung an den Projekten aus der Oberfläche. */
+export type ProjectChange =
+  | { kind: 'create'; name: string; tabs: Tab[] }
+  | { kind: 'toggle'; name: string; tab: Tab }
+  | { kind: 'rename'; name: string; to: string }
+  | { kind: 'delete'; name: string }
+  | { kind: 'opened'; name: string };
+
+function projectChangeOf(data: ProjectChange): ProjectChange {
+  const name = text(data.name, 'name');
+  switch (data.kind) {
+    case 'create':
+      return { kind: 'create', name: name.trim(), tabs: tabsOf(data.tabs) };
+    case 'toggle': {
+      const [tab] = tabsOf([data.tab]);
+      if (tab === undefined) {
+        throw new Error('Der Tab fehlt.');
+      }
+      return { kind: 'toggle', name, tab };
+    }
+    case 'rename':
+      return { kind: 'rename', name, to: text(data.to, 'to').trim() };
+    case 'delete':
+    case 'opened':
+      return { kind: data.kind, name };
+    default:
+      throw new Error('Diese Änderung an einem Projekt gibt es nicht.');
+  }
+}
+
+/** Die Projekte nach der Änderung; ein neues und ein gerade geöffnetes stehen zuerst. */
+function changedProjects(projects: Project[], change: ProjectChange): Project[] {
+  const project = projects.find((candidate) => candidate.name === change.name);
+  const others = projects.filter((candidate) => candidate !== project);
+  const free = (name: string) => {
+    if (name === '') {
+      throw new Error('Das Projekt braucht einen Namen.');
+    }
+    if (others.some((candidate) => candidate.name === name)) {
+      throw new Error(`Ein Projekt „${name}“ gibt es schon.`);
+    }
+  };
+  if (change.kind === 'create') {
+    free(change.name);
+    if (project !== undefined) {
+      throw new Error(`Ein Projekt „${change.name}“ gibt es schon.`);
+    }
+    const tabs = change.tabs.filter((tab, at) => change.tabs.findIndex((other) => sameView(other, tab)) === at);
+    return [{ name: change.name, tabs }, ...projects];
+  }
+  if (project === undefined) {
+    throw new Error(`Das Projekt „${change.name}“ gibt es nicht mehr.`);
+  }
+  switch (change.kind) {
+    case 'toggle': {
+      const tabs = project.tabs.some((tab) => sameView(tab, change.tab))
+        ? project.tabs.filter((tab) => !sameView(tab, change.tab))
+        : [...project.tabs, change.tab];
+      return projects.map((candidate) => (candidate === project ? { ...project, tabs } : candidate));
+    }
+    case 'rename':
+      free(change.to);
+      return projects.map((candidate) => (candidate === project ? { ...project, name: change.to } : candidate));
+    case 'delete':
+      return others;
+    case 'opened':
+      return [project, ...others];
+  }
+}
+
+/** Ändert die Projekte und liefert sie danach. */
+export const changeProject = createServerFn({ method: 'POST' })
+  .validator(projectChangeOf)
+  .handler(async ({ data }) => {
+    const { store } = await server();
+    await store.changeProjects((projects) => changedProjects(projects, data));
+    return (await store.state()).projects;
   });

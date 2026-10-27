@@ -7,3 +7,5 @@
 - Das Symbol des Knopfs „Alle Branches“ ähnelt dem des Knopfs für den Branch daneben.
 - Für den Vortrag die Zusatzangaben ganz ausblenden können, wie die Hinweise, etwa die Zahl der
   Commits, die nicht auf dem Remote sind.
+- Worktrees verwalten, etwa einen fehlenden Worktree eines Tabs wieder anlegen. Dafür bräuchte es
+  `git worktree add` als weitere Ausnahme vom lesenden Zugriff.

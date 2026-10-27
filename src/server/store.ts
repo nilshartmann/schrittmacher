@@ -38,6 +38,13 @@ export interface Tab {
   worktreeName: string;
 }
 
+/** Eine gespeicherte Sammlung von Tabs, etwa die für einen Vortrag. */
+export interface Project {
+  name: string;
+  /** Die Tabs des Projekts in der Reihenfolge, in der sie sich öffnen. */
+  tabs: Tab[];
+}
+
 /** Die Konfiguration in `config.json`, von Hand gepflegt. */
 interface Config {
   /** Die Verzeichnisse, in denen nach Repos gesucht wird; `~` steht für das Home-Verzeichnis. */
@@ -58,6 +65,8 @@ export interface State {
   hidden: Record<string, string[]>;
   /** Die Pfade, deren Repos das Menü der Repos nicht zeigt, auch die Repos darunter. */
   excluded: string[];
+  /** Die Projekte, das zuletzt geöffnete zuerst. */
+  projects: Project[];
 }
 
 /** So viele Ansichten merkt sich der Server. */
@@ -120,16 +129,10 @@ export function createStore(options: StoreOptions) {
   async function state(): Promise<State> {
     const raw = await readJson(stateFile);
     const record = isRecord(raw) ? raw : {};
-    const { tabs, views } = Array.isArray(record.projects)
-      ? fromProjects(record.projects, record.project)
-      : {
-          tabs: Array.isArray(record.tabs) ? record.tabs.filter(isTab) : [],
-          views: Array.isArray(record.views) ? record.views.filter(isSavedView) : [],
-        };
     return {
       opened: Array.isArray(record.opened) ? record.opened.filter(isString) : [],
-      tabs,
-      views,
+      tabs: Array.isArray(record.tabs) ? record.tabs.filter(isTab) : [],
+      views: Array.isArray(record.views) ? record.views.filter(isSavedView) : [],
       settings: isRecord(record.settings) ? (record.settings as Record<string, JsonValue>) : {},
       hidden: isRecord(record.hidden)
         ? Object.fromEntries(
@@ -137,6 +140,7 @@ export function createStore(options: StoreOptions) {
           )
         : {},
       excluded: Array.isArray(record.excluded) ? record.excluded.filter(isString) : [],
+      projects: Array.isArray(record.projects) ? record.projects.filter(isProject) : [],
     };
   }
 
@@ -159,6 +163,9 @@ export function createStore(options: StoreOptions) {
     saveTabs: (tabs: Tab[]) => update((current) => ({ ...current, tabs })),
     saveSettings: (settings: Record<string, JsonValue>) => update((current) => ({ ...current, settings })),
     saveExcluded: (excluded: string[]) => update((current) => ({ ...current, excluded })),
+    /** Ändert die Projekte; scheitert `change`, bleibt der Zustand, wie er ist. */
+    changeProjects: (change: (projects: Project[]) => Project[]) =>
+      update((current) => ({ ...current, projects: change(current.projects) })),
     saveHidden: (repoPath: string, hidden: string[]) =>
       update((current) => ({ ...current, hidden: { ...current.hidden, [repoPath]: hidden } })),
     addOpened: (repoPath: string) =>
@@ -193,34 +200,6 @@ function isSavedView(value: unknown): value is SavedView {
   );
 }
 
-/**
- * Tabs und Ansichten aus einem Zustand mit Projekten, wie ihn ältere Fassungen geschrieben haben.
- * Die Tabs aller Projekte stehen danach in einer Tableiste, die des zuletzt aktiven Projekts zuerst;
- * ebenso die Ansichten.
- */
-function fromProjects(projects: unknown[], active: unknown): { tabs: Tab[]; views: SavedView[] } {
-  const records = projects.filter(isRecord);
-  const ordered = [
-    ...records.filter((project) => project.name === active),
-    ...records.filter((project) => project.name !== active),
-  ];
-  const tabs: Tab[] = [];
-  const views: SavedView[] = [];
-  for (const project of ordered) {
-    for (const tab of Array.isArray(project.tabs) ? project.tabs.filter(isTab) : []) {
-      if (!tabs.some((other) => sameView(other, tab))) {
-        tabs.push(tab);
-      }
-    }
-    for (const view of Array.isArray(project.views) ? project.views.filter(isSavedView) : []) {
-      if (!views.some((other) => sameView(other, view))) {
-        views.push(view);
-      }
-    }
-  }
-  return { tabs, views: views.slice(0, KEPT_VIEWS) };
-}
-
 function isTab(value: unknown): value is Tab {
   return (
     isRecord(value) &&
@@ -229,4 +208,8 @@ function isTab(value: unknown): value is Tab {
     isString(value.repo) &&
     isString(value.worktreeName)
   );
+}
+
+function isProject(value: unknown): value is Project {
+  return isRecord(value) && isString(value.name) && Array.isArray(value.tabs) && value.tabs.every(isTab);
 }

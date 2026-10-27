@@ -1,9 +1,10 @@
 import { createContext, useCallback, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { Tracking } from '../git/types';
-import type { Tab, ViewSearch } from '../server/store';
+import type { Missing } from '../server/repo.functions';
+import type { Project, Tab, ViewSearch } from '../server/store';
 import { HoverTools, MenuToolButton } from './HoverTools';
-import { BranchIcon, CloseIcon } from './Icons';
+import { BranchIcon, CloseIcon, WarningIcon } from './Icons';
 import { Menu, MenuItem, MenuWhere, TrackingBadge } from './Menu';
 import { OpenInMenu } from './OpenInMenu';
 
@@ -16,6 +17,11 @@ export interface TabActions {
   show: (target: ViewSearch) => Promise<void>;
   /** Schließt den Tab einer Ansicht; war er aktiv, wird sein Nachbar aktiv. */
   close: (target: { worktree: string; branch: string }) => void;
+  /**
+   * Öffnet die Tabs eines Projekts und macht seinen ersten aktiv. Mit `replace` schließen sich die
+   * übrigen Tabs, sonst kommen die fehlenden rechts neben dem aktiven dazu.
+   */
+  openProject: (project: Project, replace: boolean) => void;
 }
 
 export const TabsContext = createContext<TabActions | null>(null);
@@ -25,6 +31,11 @@ export const SHOWN_TABS = 4;
 
 export function sameTab(a: { worktree: string; branch: string }, b: { worktree: string; branch: string }): boolean {
   return a.worktree === b.worktree && a.branch === b.branch;
+}
+
+/** Ein Schlüssel für Worktree und Branch eines Tabs. */
+export function tabKey(tab: { worktree: string; branch: string }): string {
+  return `${tab.worktree}\n${tab.branch}`;
 }
 
 /**
@@ -62,6 +73,8 @@ interface TabBarProps {
   current: Tab;
   /** Der Abstand des Branches im aktiven Tab zum Remote, falls es ein lokaler mit Gegenstück ist. */
   tracking?: Tracking;
+  /** Was den Ansichten fehlt, je `tabKey`; ein Tab ohne Eintrag lässt sich öffnen. */
+  missing: ReadonlyMap<string, Missing>;
   onChoose: (tab: Tab) => void;
   onClose: (tab: Tab) => void;
 }
@@ -74,8 +87,9 @@ interface TabBarProps {
  * Menü, das den Worktree in einem anderen Programm öffnet oder seinen Pfad kopiert; ein
  * Rechtsklick auf den Tab öffnet dasselbe Menü. Der aktive Tab nennt den Abstand seines Branches
  * zum Remote. Die Tabs zeigen nur, was offen ist; gewechselt wird über die Knöpfe der Kopfzeile.
+ * Ein Tab, dessen Ansicht es nicht mehr gibt, zeigt ein Warnzeichen, und der Tooltip nennt den Grund.
  */
-export function TabBar({ tabs, current, tracking, onChoose, onClose }: TabBarProps) {
+export function TabBar({ tabs, current, tracking, missing, onChoose, onClose }: TabBarProps) {
   const rest = tabs.slice(SHOWN_TABS);
   const [context, setContext] = useState<{ tab: Tab; at: { x: number; y: number } } | null>(null);
   const closeContext = useCallback(() => {
@@ -85,10 +99,11 @@ export function TabBar({ tabs, current, tracking, onChoose, onClose }: TabBarPro
     <nav className="tabs" role="tablist" aria-label="Tabs">
       {tabs.slice(0, SHOWN_TABS).map((tab) => {
         const active = sameTab(tab, current);
+        const lost = missing.get(tabKey(tab));
         return (
           <div
-            key={`${tab.worktree}\n${tab.branch}`}
-            className="tab hover-tools-host"
+            key={tabKey(tab)}
+            className={lost === undefined ? 'tab hover-tools-host' : 'tab tab-missing hover-tools-host'}
             aria-selected={active}
             role="tab"
             onContextMenu={(event) => {
@@ -99,13 +114,14 @@ export function TabBar({ tabs, current, tracking, onChoose, onClose }: TabBarPro
             <button
               type="button"
               className="tab-label"
-              data-tip={tab.worktree}
+              data-tip={lost?.message ?? tab.worktree}
               onClick={() => {
                 if (!active) {
                   onChoose(tab);
                 }
               }}
             >
+              {lost !== undefined && <WarningIcon />}
               <span className="tab-repo">{tab.repo}</span>
               <span className="tab-where">· {whereOf(tab)}</span>
               {active && <TrackingBadge tracking={tracking} />}
@@ -141,11 +157,12 @@ export function TabBar({ tabs, current, tracking, onChoose, onClose }: TabBarPro
           {(close) => (
             <div className="menu-scroll">
               {rest.map((tab) => (
-                <div key={`${tab.worktree}\n${tab.branch}`} className="menu-row">
+                <div key={tabKey(tab)} className="menu-row">
                   <MenuItem
                     main={tab.repo}
                     sub={whereInMenu(tab)}
-                    tip={tab.worktree}
+                    icon={missing.has(tabKey(tab)) ? <WarningIcon /> : undefined}
+                    tip={missing.get(tabKey(tab))?.message ?? tab.worktree}
                     onChoose={() => {
                       close();
                       onChoose(tab);
@@ -170,6 +187,7 @@ export function TabBar({ tabs, current, tracking, onChoose, onClose }: TabBarPro
           worktree={context.tab.worktree}
           at={context.at}
           copies={[{ label: 'Pfad kopieren', text: context.tab.worktree }]}
+          project={{ tab: context.tab, tabs }}
           onClose={closeContext}
         />
       )}

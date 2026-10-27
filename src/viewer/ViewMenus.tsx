@@ -18,8 +18,12 @@ import {
   FetchIcon,
   FolderIcon,
   GraphIcon,
+  ProjectIcon,
   SearchIcon,
 } from './Icons';
+import { subAnchorOf } from './HoverTools';
+import type { SubAnchor } from './HoverTools';
+import { ProjectOpenMenu } from './Projects';
 import { Menu, MenuDivider, MenuItem, MenuNote, MenuSection, MenuWhere, NewTabButton, TrackingBadge } from './Menu';
 import { CloseButton, sameTab, TabsContext } from './Tabs';
 
@@ -249,6 +253,12 @@ function RepoList({
   onShow: (view: ViewSearch) => void;
 } & RootProps) {
   const current = info?.repoPath ?? null;
+  // Projekte öffnen Tabs und gibt es deshalb nur mit einer Tableiste.
+  const withTabs = useContext(TabsContext) !== null;
+  const [projectsAt, setProjectsAt] = useState<SubAnchor | null>(null);
+  const closeProjects = () => {
+    setProjectsAt(null);
+  };
   const { data, error } = useLoaded(() => listRepos());
   const views = useLoaded(() => listViews());
   const [filter, setFilter] = useState('');
@@ -355,7 +365,7 @@ function RepoList({
   };
   return (
     <>
-      <div className="menu-filter">
+      <div className="menu-filter" onMouseEnter={closeProjects}>
         <label className="menu-search">
           <SearchIcon />
           <input
@@ -370,11 +380,28 @@ function RepoList({
           />
         </label>
       </div>
+      {withTabs && (
+        <div className="menu-projects">
+          <div
+            className={projectsAt === null ? 'menu-row' : 'menu-row menu-row-open'}
+            onMouseEnter={(event) => {
+              setProjectsAt(subAnchorOf(event.currentTarget));
+            }}
+            onClick={(event) => {
+              setProjectsAt(subAnchorOf(event.currentTarget));
+            }}
+          >
+            {/* Die Zeile öffnet das Untermenü beim Überfahren und beim Klick; der Eintrag selbst tut nichts. */}
+            <MenuItem main="Projekte" icon={<ProjectIcon />} aside="›" onChoose={() => {}} />
+          </div>
+        </div>
+      )}
+      {projectsAt !== null && <ProjectOpenMenu anchor={projectsAt} onDone={close} />}
       {views.error !== null && <MenuNote error>{views.error}</MenuNote>}
       {error !== null && <MenuNote error>{error}</MenuNote>}
       {data === null && error === null && <MenuNote>Sucht Repos …</MenuNote>}
       {data !== null && (
-        <div className="menu-scroll">
+        <div className="menu-scroll" onMouseEnter={closeProjects}>
           {sections.map((section) => (
             <Fragment key={section.title}>
               <MenuDivider>{section.title}</MenuDivider>
@@ -435,7 +462,7 @@ function RepoList({
           )}
         </div>
       )}
-      <form className="menu-form menu-footer" onSubmit={onSubmit}>
+      <form className="menu-form menu-footer" onSubmit={onSubmit} onMouseEnter={closeProjects}>
         <input
           className="menu-input"
           type="text"

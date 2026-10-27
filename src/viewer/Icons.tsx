@@ -220,3 +220,43 @@ export function TrashIcon() {
     </Outline>
   );
 }
+
+/** Zwei Karten hintereinander: ein Projekt, also eine Sammlung von Tabs. */
+export function ProjectIcon() {
+  return (
+    <Outline size={14}>
+      <rect x="2" y="5" width="10" height="8.5" rx="1.5" />
+      <path d="M4.5 2.5h8a1.5 1.5 0 0 1 1.5 1.5v6.5" />
+    </Outline>
+  );
+}
+
+/** Ein Bleistift: einen Namen ändern. */
+export function PencilIcon() {
+  return (
+    <Outline size={13}>
+      <path d="M10.5 2.5l3 3-8 8H2.5v-3z M9 4l3 3" />
+    </Outline>
+  );
+}
+
+/** Ein Dreieck mit Ausrufezeichen: eine Ansicht, die es nicht mehr gibt. */
+export function WarningIcon({ size = 13 }: { size?: number }) {
+  return (
+    <Outline size={size}>
+      <path d="M8 2.25 14.25 13.25H1.75z" />
+      <line x1="8" y1="6.5" x2="8" y2="9.5" />
+      <circle cx="8" cy="11.4" r="0.4" fill="currentColor" />
+    </Outline>
+  );
+}
+
+/** Ein Plus: etwas Neues anlegen. */
+export function PlusIcon() {
+  return (
+    <Outline size={13}>
+      <line x1="8" y1="3" x2="8" y2="13" />
+      <line x1="3" y1="8" x2="13" y2="8" />
+    </Outline>
+  );
+}
