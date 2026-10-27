@@ -5,7 +5,7 @@ import { LOCAL_GROUP, REMOTES_GROUP, hiddenBy, refPath, remoteGroup, remoteOf } 
 import type { Hidden } from '../git/hidden';
 import type { Ref, RepoInfo, Worktree } from '../git/types';
 import { fetchRemote, lastFetch, listRepos, listViews, openRepo, saveExcluded } from '../server/repo.functions';
-import type { ProjectChoice, RepoChoice } from '../server/repo.functions';
+import type { FolderChoice, RepoChoice } from '../server/repo.functions';
 import type { SavedView, Tab, ViewSearch } from '../server/store';
 import { WORKSHOP_BRANCHES, scopeRefs, shownRef } from '../git/scope';
 import type { BranchScope } from '../git/scope';
@@ -103,7 +103,7 @@ export function WhereMenus({
   );
 }
 
-/** Die Wurzel, deren Projekte das Menü der Repos zeigt; `null` für alle. */
+/** Die Wurzel, deren Ordner das Menü der Repos zeigt; `null` für alle. */
 interface RootProps {
   root: string | null;
   onRoot: (root: string | null) => void;
@@ -200,15 +200,15 @@ function isCurrentView(view: SavedView, info: RepoInfo | null): boolean {
   return info !== null && view.worktree === info.worktreePath && view.branch === (info.branch ?? '');
 }
 
-/** So viele zuletzt geänderte Projekte stehen über den übrigen. */
-const RECENT_PROJECTS = 10;
+/** So viele zuletzt geänderte Ordner stehen über den übrigen. */
+const RECENT_FOLDERS = 10;
 
-/** Die `count` zuletzt geänderten Projekte und die übrigen, beide nach Name sortiert. */
-function splitByChange(projects: ProjectChoice[], count: number): { recent: ProjectChoice[]; rest: ProjectChoice[] } {
-  const recent = new Set(projects.toSorted((a, b) => b.changed - a.changed).slice(0, count));
+/** Die `count` zuletzt geänderten Ordner und die übrigen, beide nach Name sortiert. */
+function splitByChange(folders: FolderChoice[], count: number): { recent: FolderChoice[]; rest: FolderChoice[] } {
+  const recent = new Set(folders.toSorted((a, b) => b.changed - a.changed).slice(0, count));
   return {
-    recent: projects.filter((project) => recent.has(project)),
-    rest: projects.filter((project) => !recent.has(project)),
+    recent: folders.filter((folder) => recent.has(folder)),
+    rest: folders.filter((folder) => !recent.has(folder)),
   };
 }
 
@@ -278,12 +278,12 @@ function RepoList({
     });
   };
   const isExcluded = (path: string) => excluded.some((entry) => path === entry || path.startsWith(`${entry}/`));
-  // Passt das Projekt, bleiben alle seine Repos; sonst nur die passenden darunter.
-  const filtered = (project: ProjectChoice): ProjectChoice | null => {
-    if (isExcluded(project.path)) {
+  // Passt der Ordner, bleiben alle seine Repos; sonst nur die passenden darunter.
+  const filtered = (folder: FolderChoice): FolderChoice | null => {
+    if (isExcluded(folder.path)) {
       return null;
     }
-    const kept = { ...project, children: project.children.filter((child) => !isExcluded(child.path)) };
+    const kept = { ...folder, children: folder.children.filter((child) => !isExcluded(child.path)) };
     if (kept.repo === null && kept.children.length === 0) {
       return null;
     }
@@ -332,17 +332,17 @@ function RepoList({
   );
   const items = (entries: RepoChoice[], home: string): ReactNode =>
     entries.filter((entry) => matches(entry) && !isExcluded(entry.path)).map((entry) => item(entry, entry.name, home));
-  const projects = (list: ProjectChoice[], home: string, initiallyOpen: boolean): ReactNode =>
-    list.map((project) => {
-      const shown = filtered(project);
+  const folders = (list: FolderChoice[], home: string, initiallyOpen: boolean): ReactNode =>
+    list.map((folder) => {
+      const shown = filtered(folder);
       return (
         shown !== null && (
-          <ProjectItems
-            key={project.path}
-            project={shown}
+          <FolderItems
+            key={folder.path}
+            folder={shown}
             initiallyOpen={initiallyOpen}
             item={(entry, main, row) => item(entry, main, home, row)}
-            exclude={excludeButton(project.path, project.name)}
+            exclude={excludeButton(folder.path, folder.name)}
           />
         )
       );
@@ -402,8 +402,8 @@ function RepoList({
             // Eine Wurzel, die nicht mehr in der Konfiguration steht, gilt wie keine Wahl.
             const root = chosenRoot !== null && data.roots.includes(chosenRoot) ? chosenRoot : null;
             const { recent, rest } = splitByChange(
-              data.projects.filter((project) => (root === null || project.root === root) && filtered(project) !== null),
-              RECENT_PROJECTS,
+              data.folders.filter((folder) => (root === null || folder.root === root) && filtered(folder) !== null),
+              RECENT_FOLDERS,
             );
             const where = (root === null ? data.roots : [root]).map((path) => short(path, data.home)).join(', ');
             return (
@@ -412,9 +412,9 @@ function RepoList({
                   <MenuDivider>Zuletzt geändert</MenuDivider>
                   {data.roots.length > 1 && <RootSwitch roots={data.roots} root={root} onRoot={onRoot} />}
                 </div>
-                {projects(recent, data.home, true)}
+                {folders(recent, data.home, true)}
                 {rest.length > 0 && <MenuDivider>Weitere in {where}</MenuDivider>}
-                {projects(rest, data.home, false)}
+                {folders(rest, data.home, false)}
                 {recent.length === 0 && (
                   <MenuNote>{filter.trim() === '' ? `Keine Repos in ${where} gefunden.` : 'Keine Treffer'}</MenuNote>
                 )}
@@ -458,50 +458,50 @@ function RepoList({
 /** Wie eine Repo-Zeile im Menü der Repos aussieht und was ihr X ausschließt. */
 interface RowOptions {
   className?: string;
-  /** Das Dreieck eines Projekts, das selbst ein Repo ist. */
+  /** Das Dreieck eines Ordners, der selbst ein Repo ist. */
   fold?: ReactNode;
   /** Der Pfad, den das X ausschließt; ohne ihn der des Repos. */
   exclude?: string;
 }
 
 /**
- * Ein Projekt mit seinen Repos. Hat es nur eins, steht es als einzelne Zeile da. Sonst klappt das
- * Dreieck links die Repos darunter auf und zu. Ist der Ordner des Projekts selbst ein Repo, öffnet
- * ein Klick auf seinen Namen dieses Repo. Das X in der Zeile des Projekts schließt das ganze
- * Projekt aus.
+ * Ein Ordner mit seinen Repos. Hat er nur eins, steht er als einzelne Zeile da. Sonst klappt das
+ * Dreieck links die Repos darunter auf und zu. Ist der Ordner selbst ein Repo, öffnet
+ * ein Klick auf seinen Namen dieses Repo. Das X in der Zeile des Ordners schließt den ganzen
+ * Ordner aus.
  */
-function ProjectItems({
-  project,
+function FolderItems({
+  folder,
   initiallyOpen,
   item,
   exclude,
 }: {
-  project: ProjectChoice;
+  folder: FolderChoice;
   initiallyOpen: boolean;
   item: (entry: RepoChoice, main: string, row?: RowOptions) => ReactNode;
-  /** Das X, das das ganze Projekt ausschließt. */
+  /** Das X, das den ganzen Ordner ausschließt. */
   exclude: ReactNode;
 }) {
   const [open, setOpen] = useState(initiallyOpen);
   const toggle = () => {
     setOpen((before) => !before);
   };
-  const [only, ...more] = project.repo === null ? project.children : [project.repo, ...project.children];
+  const [only, ...more] = folder.repo === null ? folder.children : [folder.repo, ...folder.children];
   if (only !== undefined && more.length === 0) {
-    return item(only, only === project.repo ? project.name : `${project.name}/${only.name}`, {
-      exclude: project.path,
+    return item(only, only === folder.repo ? folder.name : `${folder.name}/${only.name}`, {
+      exclude: folder.path,
     });
   }
   return (
     <>
-      {project.repo === null ? (
+      {folder.repo === null ? (
         <div className="menu-row menu-excludable">
-          <Toggle name={project.name} count={project.children.length} open={open} onToggle={toggle} />
+          <Toggle name={folder.name} count={folder.children.length} open={open} onToggle={toggle} />
           {exclude}
         </div>
       ) : (
-        item(project.repo, project.name, {
-          className: 'menu-project',
+        item(folder.repo, folder.name, {
+          className: 'menu-repo-folder',
           fold: (
             <button
               type="button"
@@ -516,7 +516,7 @@ function ProjectItems({
           ),
         })
       )}
-      {open && <div className="menu-children">{project.children.map((child) => item(child, child.name))}</div>}
+      {open && <div className="menu-children">{folder.children.map((child) => item(child, child.name))}</div>}
     </>
   );
 }

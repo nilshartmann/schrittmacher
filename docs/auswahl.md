@@ -19,28 +19,28 @@ zwingend gebraucht.
 - Ein Worktree wird über `--git-common-dir` seinem Repo zugeordnet und erscheint nicht als eigenes
   Repo.
 - Im Menü stehen oben die zuletzt geöffneten Ansichten (siehe „Ansichten“). Darunter folgen die
-  gefundenen Repos nach Projekt und zuletzt die über das Textfeld geöffneten. Das Suchfeld filtert
+  gefundenen Repos nach Ordner und zuletzt die über das Textfeld geöffneten. Das Suchfeld filtert
   alle Abschnitte.
 - Liegt eine Wurzel in einer anderen, etwa `~/develop/javascript` in `~/develop`, gehört ein Repo
   zur tieferen.
-- Ein Projekt ist ein Ordner direkt unter einer Wurzel, etwa `~/develop/tanstack-ai-talk`. Die
-  Repos darin stehen eingerückt darunter, mit ihrem Pfad relativ zum Projekt. Ist der Ordner selbst
-  ein Repo, öffnet ein Klick auf das Projekt dieses Repo, und ein Dreieck links klappt die Repos
-  darunter auf und zu. Ein Projekt mit nur einem Repo steht als einzelne Zeile da.
-- Die zehn zuletzt geänderten Projekte stehen oben und sind aufgeklappt. Darunter stehen die
+- Gruppiert wird nach dem Ordner direkt unter einer Wurzel, etwa `~/develop/tanstack-ai-talk`.
+  Die Repos darin stehen eingerückt darunter, mit ihrem Pfad relativ zum Ordner. Ist der Ordner
+  selbst ein Repo, öffnet ein Klick auf ihn dieses Repo, und ein Dreieck links klappt die Repos
+  darunter auf und zu. Ein Ordner mit nur einem Repo steht als einzelne Zeile da.
+- Die zehn zuletzt geänderten Ordner stehen oben und sind aufgeklappt. Darunter stehen die
   übrigen eingeklappt. Beide Abschnitte sind nach Name sortiert.
 - Bei mehr als einer Wurzel steht neben „Zuletzt geändert“ ein Umschalter mit einer Wahl je
   Wurzel und einer für alle, etwa „develop | javascript | Beide“. Er gilt für beide Abschnitte der
-  Projekte; die zehn zuletzt geänderten werden je Wahl ermittelt. Die Ansichten oben und die über
+  Ordner; die zehn zuletzt geänderten werden je Wahl ermittelt. Die Ansichten oben und die über
   das Textfeld geöffneten Repos zeigt das Menü unabhängig davon. Die Wahl wird mit den übrigen
   Einstellungen gespeichert.
 - Als Änderung gilt das Änderungsdatum eines Ordners wie im Finder. Es ändert sich, wenn im Ordner
-  eine Datei angelegt, gelöscht oder umbenannt wird. Für ein Projekt zählt das jüngste Datum aus
-  seinem Ordner und den Ordnern seiner Repos.
+  eine Datei angelegt, gelöscht oder umbenannt wird. Für einen Ordner zählt das jüngste Datum aus
+  ihm selbst und den Ordnern seiner Repos.
 - Beim Überfahren einer Repo-Zeile erscheint rechts ein X. Es schließt das Repo aus dem Menü aus,
-  in der Zeile eines Projekts das ganze Projekt. Ein ausgeschlossenes Repo fehlt in allen
+  in der Zeile eines Ordners den ganzen Ordner. Ein ausgeschlossenes Repo fehlt in allen
   Abschnitten, auch mit seinen zuletzt geöffneten Ansichten, außer der offenen. Unter „Zuletzt
-  geändert“ rückt das nächste Projekt nach.
+  geändert“ rückt der nächste Ordner nach.
 - Am Ende der Liste steht eine eingeklappte Zeile „Ausgeschlossene Repos“. Aufgeklappt zeigt sie
   die ausgeschlossenen Pfade. Ein Klick auf einen öffnet das Repo trotzdem, der Pfeil daneben
   nimmt den Ausschluss zurück. Gemerkt wird die Liste in `state.json`.

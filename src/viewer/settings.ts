@@ -43,7 +43,7 @@ export interface Settings {
    * Timer ein Neuladen der Web-App übersteht.
    */
   timerEnd: number | null;
-  /** Die Wurzel, deren Projekte das Menü der Repos zeigt, wie in `config.json`; `null` für alle. */
+  /** Die Wurzel, deren Ordner das Menü der Repos zeigt, wie in `config.json`; `null` für alle. */
   root: string | null;
 }
 

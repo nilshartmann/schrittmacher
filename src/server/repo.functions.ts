@@ -6,9 +6,9 @@ import { buildDemoRepo, DEMO_BASE } from '../git/demoGit';
 import { DEMO_REPO } from '../git/demoRepo';
 import { gitSource, locate } from '../git/gitRepo';
 import type { Comparison, RepoSource } from '../git/repo';
-import { changedAt, findRepos, projectsOf } from '../git/repos';
+import { changedAt, findRepos, foldersOf } from '../git/repos';
 import { branchScopeOf } from '../git/scope';
-import type { RepoEntry, RepoProject } from '../git/repos';
+import type { RepoEntry, RepoFolder } from '../git/repos';
 import type { SyncAction } from '../git/types';
 import { noteInputOf } from '../notes/notes';
 import { isOpenApp, openIn } from './apps';
@@ -470,20 +470,20 @@ function searchOf(view: SavedView): ViewSearch {
   return search;
 }
 
-/** Ein Projekt in der Auswahl, mit den Ansichten, die ein Klick auf seine Repos öffnet. */
-export interface ProjectChoice {
+/** Ein Ordner in der Auswahl, mit den Ansichten, die ein Klick auf seine Repos öffnet. */
+export interface FolderChoice {
   name: string;
   path: string;
-  /** Die Wurzel, unter der das Projekt liegt, wie in `roots`. */
+  /** Die Wurzel, unter der der Ordner liegt, wie in `roots`. */
   root: string;
   repo: RepoChoice | null;
   children: RepoChoice[];
-  /** Wann das Projekt zuletzt geändert wurde, siehe `changedAt`. */
+  /** Wann der Ordner zuletzt geändert wurde, siehe `changedAt`. */
   changed: number;
 }
 
 /**
- * Die gefundenen Repos in ihren Projekten, mit dem Datum ihrer letzten Änderung, und die über den
+ * Die gefundenen Repos in ihren Ordnern, mit dem Datum ihrer letzten Änderung, und die über den
  * Pfad geöffneten Repos, dazu die Wurzeln und das Home-Verzeichnis, damit die Oberfläche Pfade mit `~` kürzen kann. Jedes
  * Repo nennt die Ansicht, die ein Klick öffnet: seine zuletzt geöffnete, sonst sein erster
  * Worktree. So kann die Oberfläche jedes Repo als Link zeigen, der sich auch in einem neuen Tab
@@ -512,20 +512,20 @@ export const listRepos = createServerFn({ method: 'GET' }).handler(async () => {
     rest.forEach((entry) => shown.add(entry.path));
     return rest;
   };
-  const projectChoiceOf = async (project: RepoProject): Promise<ProjectChoice> => ({
-    ...project,
-    root: roots[realRoots.indexOf(project.root)] ?? project.root,
-    repo: project.repo === null ? null : choiceOf(project.repo),
-    children: project.children.map(choiceOf),
-    changed: await changedAt(project),
+  const folderChoiceOf = async (folder: RepoFolder): Promise<FolderChoice> => ({
+    ...folder,
+    root: roots[realRoots.indexOf(folder.root)] ?? folder.root,
+    repo: folder.repo === null ? null : choiceOf(folder.repo),
+    children: folder.children.map(choiceOf),
+    changed: await changedAt(folder),
   });
-  const projects = await Promise.all(projectsOf(unshown(await findRepos(realRoots)), realRoots).map(projectChoiceOf));
+  const folders = await Promise.all(foldersOf(unshown(await findRepos(realRoots)), realRoots).map(folderChoiceOf));
   // Über das Pfadfeld geöffnete Repos außerhalb der Wurzeln findet die Suche nicht.
   const opened = unshown(
     state.opened.map((path) => ({ name: nameOf(path), path })).sort((a, b) => a.name.localeCompare(b.name)),
   );
   return {
-    projects,
+    folders,
     opened: opened.map(choiceOf),
     excluded: state.excluded,
     roots,

@@ -54,52 +54,52 @@ export async function findRepos(roots: string[]): Promise<RepoEntry[]> {
  * Ein Ordner direkt unter einer Wurzel, etwa `~/develop/tanstack-ai-talk`, mit den Repos darin.
  * Der Ordner kann selbst ein Repo sein.
  */
-export interface RepoProject {
+export interface RepoFolder {
   name: string;
   path: string;
-  /** Die Wurzel, unter der das Projekt liegt. */
+  /** Die Wurzel, unter der der Ordner liegt. */
   root: string;
-  /** Das Repo im Ordner des Projekts selbst, falls er eins ist. */
+  /** Das Repo im Ordner selbst, falls er eins ist. */
   repo: RepoEntry | null;
-  /** Die Repos darunter, nach Name; ihr Name ist der Pfad relativ zum Projekt. */
+  /** Die Repos darunter, nach Name; ihr Name ist der Pfad relativ zum Ordner. */
   children: RepoEntry[];
 }
 
 /**
- * Ordnet die Repos ihren Projekten unter den Wurzeln zu, nach Name sortiert. Liegt eine Wurzel in
+ * Ordnet die Repos ihren Ordnern unter den Wurzeln zu, nach Name sortiert. Liegt eine Wurzel in
  * einer anderen, etwa `~/develop/javascript` in `~/develop`, gilt für ein Repo die tiefere.
  */
-export function projectsOf(entries: RepoEntry[], roots: string[]): RepoProject[] {
+export function foldersOf(entries: RepoEntry[], roots: string[]): RepoFolder[] {
   const deepestFirst = [...roots].sort((a, b) => b.length - a.length);
-  const projects = new Map<string, RepoProject>();
+  const folders = new Map<string, RepoFolder>();
   for (const entry of entries) {
     const root =
       deepestFirst.find((candidate) => entry.path === candidate || entry.path.startsWith(candidate + sep)) ??
       entry.path;
     const first = relative(root, entry.path).split(sep)[0] ?? '';
     const path = first === '' ? entry.path : join(root, first);
-    const project = projects.get(path) ?? { name: basename(path), path, root, repo: null, children: [] };
-    projects.set(path, project);
+    const folder = folders.get(path) ?? { name: basename(path), path, root, repo: null, children: [] };
+    folders.set(path, folder);
     if (entry.path === path) {
-      project.repo = entry;
+      folder.repo = entry;
     } else {
-      project.children.push({ name: relative(path, entry.path), path: entry.path });
+      folder.children.push({ name: relative(path, entry.path), path: entry.path });
     }
   }
   const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name);
-  return [...projects.values()]
-    .map((project) => ({ ...project, children: project.children.sort(byName) }))
+  return [...folders.values()]
+    .map((folder) => ({ ...folder, children: folder.children.sort(byName) }))
     .sort(byName);
 }
 
 /**
- * Wann ein Projekt zuletzt geändert wurde, in Millisekunden seit 1970. Als Änderung gilt das
+ * Wann ein Ordner zuletzt geändert wurde, in Millisekunden seit 1970. Als Änderung gilt das
  * Änderungsdatum eines Ordners wie im Finder: Es ändert sich, wenn darin eine Datei angelegt,
- * gelöscht oder umbenannt wird. Es zählt das jüngste Datum aus dem Ordner des Projekts und denen
+ * gelöscht oder umbenannt wird. Es zählt das jüngste Datum aus dem Ordner selbst und denen
  * seiner Repos. Ein Ordner, der sich nicht lesen lässt, zählt als der älteste.
  */
-export async function changedAt(project: RepoProject): Promise<number> {
-  const paths = [project.path, ...project.children.map((child) => child.path)];
+export async function changedAt(folder: RepoFolder): Promise<number> {
+  const paths = [folder.path, ...folder.children.map((child) => child.path)];
   const times = await Promise.all(paths.map((path) => stat(path).then((info) => info.mtimeMs, () => 0)));
   return Math.max(...times);
 }
