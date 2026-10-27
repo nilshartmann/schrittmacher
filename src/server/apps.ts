@@ -31,3 +31,16 @@ export function openIn(app: OpenApp, path: string): Promise<void> {
     });
   });
 }
+
+/** Öffnet eine Adresse mit `open` im Standardbrowser des Macs, nicht in der Web-App aus Safari. */
+export function openInBrowser(url: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    execFile('open', [url], (error, _stdout, stderr) => {
+      if (error !== null) {
+        reject(new Error(`Der Browser ließ sich nicht öffnen: ${stderr.trim() || error.message}`));
+        return;
+      }
+      resolve();
+    });
+  });
+}

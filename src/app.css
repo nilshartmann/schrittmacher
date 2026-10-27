@@ -3059,3 +3059,16 @@ span.info-parent {
   gap: 8px;
   margin-top: 14px;
 }
+
+/* Der Dialog für einen Gist nimmt die Stile des Dialogs für Merge und Reset, das Feld ist so breit wie er. */
+.gist-dialog {
+  width: min(460px, calc(100vw - 32px));
+}
+
+.gist-dialog .menu-input {
+  margin-top: 4px;
+}
+
+.gist-dialog p {
+  overflow-wrap: anywhere;
+}

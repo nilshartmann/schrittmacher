@@ -4,6 +4,8 @@ import type { OpenApp } from '../server/apps';
 import { openWorktreeIn } from '../server/repo.functions';
 import { CopyIcon, CopyToIcon, CopyToMenu, subAnchorOf } from './HoverTools';
 import type { CopyTarget, SubAnchor } from './HoverTools';
+import { GistDialog } from './GistMenu';
+import type { GistCopy, GistRequest } from './GistMenu';
 import { CloseIcon, FolderIcon, GitClientIcon, TerminalIcon } from './Icons';
 import { ContextMenu, MenuItem, MenuNote } from './Menu';
 
@@ -18,6 +20,8 @@ const OPEN_ENTRIES: { app: OpenApp; label: string; icon: ReactNode }[] = [
 export interface MenuCopyTo {
   load: () => Promise<CopyTarget[]>;
   onCopy: (target: string) => Promise<void>;
+  /** Die Gists des Repos als weitere Ziele, siehe `docs/gist.md`. */
+  gists?: GistCopy;
 }
 
 /**
@@ -25,7 +29,8 @@ export interface MenuCopyTo {
  * Terminal und ForkLift den Ordner dieser Datei, Fork bleibt beim Worktree. Das Menü schließt,
  * sobald das Programm gestartet ist; scheitert das, bleibt es mit der Meldung offen. Unter den
  * Programmen stehen die Einträge aus `copies`, die einen Text in die Zwischenablage legen, mit
- * `copyTo` ein Untermenü, das die Datei in einen anderen Tab kopiert, und mit `closing` das
+ * `copyTo` ein Untermenü, das die Datei in einen anderen Tab oder einen Gist kopiert; für einen Gist
+ * tritt ein Dialog an die Stelle des Menüs. Mit `closing` folgt das
  * Schließen anderer und aller Tabs.
  */
 export function OpenInMenu({
@@ -48,6 +53,7 @@ export function OpenInMenu({
 }) {
   const [error, setError] = useState<string | null>(null);
   const [sub, setSub] = useState<{ kind: 'copy'; anchor: SubAnchor } | null>(null);
+  const [gist, setGist] = useState<GistRequest | null>(null);
   const closeSub = () => {
     setSub(null);
   };
@@ -66,6 +72,9 @@ export function OpenInMenu({
   const openSub = (kind: 'copy', row: HTMLElement) => {
     setSub({ kind, anchor: subAnchorOf(row) });
   };
+  if (gist !== null && copyTo?.gists !== undefined) {
+    return <GistDialog gists={copyTo.gists} request={gist} onClose={onClose} />;
+  }
   return (
     <ContextMenu at={at} label={path === undefined ? 'Worktree öffnen' : 'Datei'} onClose={onClose}>
       {OPEN_ENTRIES.map(({ app, label, icon }) => (
@@ -112,6 +121,8 @@ export function OpenInMenu({
           label="Kopieren nach"
           load={copyTo.load}
           onCopy={copyTo.onCopy}
+          gists={copyTo.gists}
+          onGist={setGist}
           onDone={onClose}
         />
       )}

@@ -45,6 +45,12 @@ export interface Project {
   tabs: Tab[];
 }
 
+/** Ein Gist, in den sich Dateien kopieren lassen, mit seiner Beschreibung bei GitHub. */
+export interface SavedGist {
+  id: string;
+  description: string;
+}
+
 /** Die Konfiguration in `config.json`, von Hand gepflegt. */
 interface Config {
   /** Die Verzeichnisse, in denen nach Repos gesucht wird; `~` steht für das Home-Verzeichnis. */
@@ -69,6 +75,8 @@ export interface State {
   projects: Project[];
   /** Der Name des aktiven Projekts, also des zuletzt geöffneten, solange seine Tableiste offen ist. */
   active: string | null;
+  /** Die Gists je Repo, der zuletzt angelegte oder eingetragene zuerst. */
+  gists: Record<string, SavedGist[]>;
 }
 
 /** Die Projekte mit dem Namen des aktiven, wie sie die Oberfläche bekommt und ändert. */
@@ -150,6 +158,11 @@ export function createStore(options: StoreOptions) {
       excluded: Array.isArray(record.excluded) ? record.excluded.filter(isString) : [],
       projects: Array.isArray(record.projects) ? record.projects.filter(isProject) : [],
       active: isString(record.active) ? record.active : null,
+      gists: isRecord(record.gists)
+        ? Object.fromEntries(
+            Object.entries(record.gists).map(([repo, list]) => [repo, Array.isArray(list) ? list.filter(isSavedGist) : []]),
+          )
+        : {},
     };
   }
 
@@ -179,6 +192,24 @@ export function createStore(options: StoreOptions) {
       update((current) => ({ ...current, ...change({ projects: current.projects, active: current.active }) })),
     saveHidden: (repoPath: string, hidden: string[]) =>
       update((current) => ({ ...current, hidden: { ...current.hidden, [repoPath]: hidden } })),
+    /** Nimmt den Gist als ersten in die Liste des Repos auf, auch wenn er schon darin steht. */
+    addGist: (repoPath: string, gist: SavedGist) =>
+      update((current) => ({
+        ...current,
+        gists: {
+          ...current.gists,
+          [repoPath]: [gist, ...(current.gists[repoPath] ?? []).filter((other) => other.id !== gist.id)],
+        },
+      })),
+    /** Ändert die Beschreibung eines Gists in der Liste des Repos, ohne ihn nach vorn zu holen. */
+    describeGist: (repoPath: string, gist: SavedGist) =>
+      update((current) => ({
+        ...current,
+        gists: {
+          ...current.gists,
+          [repoPath]: (current.gists[repoPath] ?? []).map((other) => (other.id === gist.id ? gist : other)),
+        },
+      })),
     addOpened: (repoPath: string) =>
       update((current) =>
         current.opened.includes(repoPath) ? current : { ...current, opened: [...current.opened, repoPath] },
@@ -219,6 +250,10 @@ function isTab(value: unknown): value is Tab {
     isString(value.repo) &&
     isString(value.worktreeName)
   );
+}
+
+function isSavedGist(value: unknown): value is SavedGist {
+  return isRecord(value) && isString(value.id) && isString(value.description);
 }
 
 function isProject(value: unknown): value is Project {

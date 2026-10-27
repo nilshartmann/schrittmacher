@@ -9,7 +9,17 @@ import { rangesOf, splitRows, unifiedRows } from '../diff/rows';
 import type { Extent } from '../diff/rows';
 import { isHidden } from '../git/hidden';
 import { scopeRefs, shownRef } from '../git/scope';
-import { compareCommits, copyFile, copyTargets, pushBranch } from '../server/repo.functions';
+import {
+  addRepoGist,
+  checkGist,
+  compareCommits,
+  copyFile,
+  copyTargets,
+  copyToGist,
+  createRepoGist,
+  pushBranch,
+  repoGists,
+} from '../server/repo.functions';
 import type { CopyPlace } from '../server/repo.functions';
 import type { Tab, ViewSearch } from '../server/store';
 import { CommitList } from './CommitList';
@@ -486,6 +496,15 @@ export function Viewer({ view, search, onSearch, onOpen, onShow, tabs }: ViewerP
                           target: { worktree: targetWorktree, branch: targetBranch },
                         },
                       });
+                    },
+                    gists: {
+                      load: () => repoGists({ data: { worktree } }),
+                      check: (path, id) => checkGist({ data: { worktree, id, path } }),
+                      upload: (path, id) =>
+                        copyToGist({ data: { worktree, revision: loaded.comparison.to, path, id } }),
+                      create: (path, description) =>
+                        createRepoGist({ data: { worktree, revision: loaded.comparison.to, path, description } }),
+                      add: (gist) => addRepoGist({ data: { worktree, gist } }),
                     },
                   }
             }

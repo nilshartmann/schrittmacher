@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { KeyboardEvent, PointerEvent, ReactNode } from 'react';
 import type { DiffFile } from '../git/types';
+import type { SavedGist } from '../server/store';
+import type { GistCheck } from './GistMenu';
 import { HoverTools, MenuToolButton } from './HoverTools';
 import { NoteIcon } from './Icons';
 import type { CopyTarget } from './HoverTools';
@@ -36,7 +38,22 @@ function PathText({ path }: { path: string }) {
 
 /** Das Kopieren nach `copyTo` für eine Datei, wie es das Menü braucht. */
 function copyToFor(copyTo: CopyTo, path: string): MenuCopyTo {
-  return { load: copyTo.load, onCopy: (target) => copyTo.onCopy(path, target) };
+  const { gists } = copyTo;
+  return {
+    load: copyTo.load,
+    onCopy: (target) => copyTo.onCopy(path, target),
+    gists:
+      gists === undefined
+        ? undefined
+        : {
+            name: nameOf(path),
+            load: gists.load,
+            check: (id) => gists.check(path, id),
+            upload: (id) => gists.upload(path, id),
+            create: (description) => gists.create(path, description),
+            add: gists.add,
+          },
+  };
 }
 
 /** Die Grenzen der Breite der Dateiliste in Pixeln; der Rest bleibt mindestens für den Diff. */
@@ -52,6 +69,14 @@ export interface Selection {
 export interface CopyTo {
   load: () => Promise<CopyTarget[]>;
   onCopy: (path: string, target: string) => Promise<void>;
+  /** Die Gists des Repos als weitere Ziele, für jede Datei mit ihrem Pfad. */
+  gists?: {
+    load: () => Promise<SavedGist[]>;
+    check: (path: string, id: string) => Promise<GistCheck>;
+    upload: (path: string, id: string) => Promise<void>;
+    create: (path: string, description: string) => Promise<string>;
+    add: (gist: string) => Promise<string>;
+  };
 }
 
 /**

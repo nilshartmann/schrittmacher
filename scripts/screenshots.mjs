@@ -485,6 +485,36 @@ const SHOTS = [
       await page.locator('.tabs-project').waitFor();
     },
   ],
+  // Der Abschnitt „Gists“ kommt ohne GitHub aus, solange kein Gist eingetragen ist.
+  [
+    '47-gists',
+    async (page) => {
+      await commit(page, '07').click();
+      await page.locator('.file-list li', { hasText: 'LoanService' }).click({ button: 'right' });
+      await page.locator('.menu-context .menu-row', { hasText: 'Kopieren nach' }).hover();
+      await page.locator('.menu-sub-panel .menu-item', { hasText: 'Neuer Gist' }).hover();
+    },
+  ],
+  [
+    '48-neuer-gist',
+    async (page) => {
+      await commit(page, '07').click();
+      await page.locator('.file-list li', { hasText: 'LoanService' }).click({ button: 'right' });
+      await page.locator('.menu-context .menu-row', { hasText: 'Kopieren nach' }).hover();
+      await page.locator('.menu-sub-panel .menu-item', { hasText: 'Neuer Gist' }).click();
+      await page.getByRole('textbox', { name: 'Beschreibung des Gists' }).fill('Workshop, Probe');
+    },
+  ],
+  [
+    '49-gist-eintragen',
+    async (page) => {
+      await commit(page, '07').click();
+      await page.locator('.file-list li', { hasText: 'LoanService' }).click({ button: 'right' });
+      await page.locator('.menu-context .menu-row', { hasText: 'Kopieren nach' }).hover();
+      await page.locator('.menu-sub-panel .menu-item', { hasText: 'Gist eintragen' }).click();
+      await page.getByRole('textbox', { name: 'URL oder Kennung des Gists' }).fill('https://gist.github.com/');
+    },
+  ],
 ];
 
 await mkdir('screenshots', { recursive: true });

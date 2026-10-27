@@ -1,5 +1,7 @@
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
+import { GistSection } from './GistMenu';
+import type { GistCopy, GistRequest } from './GistMenu';
 
 /** Die Breite eines Untermenüs wie `CopyToMenu` und sein Abstand zum Rand des Fensters, in Pixeln. */
 const PANEL = { width: 360, margin: 12 };
@@ -68,19 +70,23 @@ export interface CopyTarget {
 /**
  * Das Untermenü mit den Zielen zum Kopieren, seitlich neben dem Eintrag `anchor`. Die Ziele lädt `load` beim Öffnen,
  * in Abschnitten nach `section`; die Wahl eines Ziels ruft `onCopy`, danach `onDone`. Ein Fehler
- * steht im Menü.
+ * steht im Menü. Mit `gists` folgt der Abschnitt „Gists“, dessen Dialoge `onGist` öffnet.
  */
 export function CopyToMenu({
   anchor,
   label,
   load,
   onCopy,
+  gists,
+  onGist,
   onDone,
 }: {
   anchor: SubAnchor;
   label: string;
   load: () => Promise<CopyTarget[]>;
   onCopy: (key: string) => Promise<void>;
+  gists?: GistCopy;
+  onGist?: (request: GistRequest) => void;
   onDone: () => void;
 }) {
   const [targets, setTargets] = useState<CopyTarget[] | null>(null);
@@ -127,6 +133,7 @@ export function CopyToMenu({
         </Fragment>
       ))}
       {state?.kind === 'failed' && <p className="menu-note menu-error">{state.message}</p>}
+      {gists !== undefined && onGist !== undefined && <GistSection gists={gists} onRequest={onGist} onDone={onDone} />}
     </SubPanel>
   );
 }

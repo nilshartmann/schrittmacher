@@ -11,12 +11,13 @@ import { branchScopeOf } from '../git/scope';
 import type { RepoEntry, RepoFolder } from '../git/repos';
 import type { SyncAction } from '../git/types';
 import { noteInputOf } from '../notes/notes';
-import { isOpenApp, openIn } from './apps';
+import { isOpenApp, openIn, openInBrowser } from './apps';
 import type { OpenApp } from './apps';
+import { createGist, gistIdOf, gistUrl, gistNameOf, gistTextOf, readGist, writeToGist } from './gist';
 import { createNotes } from './notes';
 import { shared } from './shared';
 import { createStore, defaultStoreDir, expandHome, sameView } from './store';
-import type { JsonValue, Projects, SavedView, Store, Tab, ViewSearch } from './store';
+import type { JsonValue, Projects, SavedGist, SavedView, Store, Tab, ViewSearch } from './store';
 
 /** Was der Server einmal beim Start einrichtet. */
 interface Setup {
@@ -335,6 +336,86 @@ export const copyFile = createServerFn({ method: 'POST' })
     const [from, to] = await Promise.all([access(data.worktree), access(data.target.worktree)]);
     const content = await from.source.content(data.revision, data.path);
     await to.source.write(data.target.branch, data.path, content);
+  });
+
+/** Die Gists des Repos, in die sich Dateien kopieren lassen, siehe `docs/gist.md`. */
+export const repoGists = createServerFn({ method: 'GET' })
+  .validator((data: { worktree: string }) => ({ worktree: text(data.worktree, 'worktree') }))
+  .handler(async ({ data }): Promise<SavedGist[]> => {
+    const [{ repoPath }, { store }] = await Promise.all([access(data.worktree), server()]);
+    return (await store.state()).gists[repoPath] ?? [];
+  });
+
+/**
+ * Was das Kopieren der Datei in den Gist bewirkt, für die Bestätigung: ihr Name dort und ob sie
+ * eine vorhandene ersetzt. Die Beschreibung des Gists wird dabei in der Liste nachgeführt.
+ */
+export const checkGist = createServerFn({ method: 'GET' })
+  .validator((data: { worktree: string; id: string; path: string }) => ({
+    worktree: text(data.worktree, 'worktree'),
+    id: gistIdOf(text(data.id, 'id')),
+    path: text(data.path, 'path'),
+  }))
+  .handler(async ({ data }) => {
+    const [{ repoPath }, { store }, gist] = await Promise.all([access(data.worktree), server(), readGist(data.id)]);
+    await store.describeGist(repoPath, { id: gist.id, description: gist.description });
+    const name = gistNameOf(data.path);
+    return { name, description: gist.description, url: gist.url, replaces: gist.files.includes(name) };
+  });
+
+/** Kopiert eine Datei aus dem Vergleich in den Gist, gelesen wie bei `copyFile`. */
+export const copyToGist = createServerFn({ method: 'POST' })
+  .validator((data: { worktree: string; revision: string; path: string; id: string }) => ({
+    worktree: text(data.worktree, 'worktree'),
+    revision: text(data.revision, 'revision'),
+    path: text(data.path, 'path'),
+    id: gistIdOf(text(data.id, 'id')),
+  }))
+  .handler(async ({ data }) => {
+    const { source } = await access(data.worktree);
+    const content = gistTextOf(data.path, await source.content(data.revision, data.path));
+    await writeToGist(data.id, gistNameOf(data.path), content);
+  });
+
+/**
+ * Legt einen secret Gist mit der Datei aus dem Vergleich an und nimmt ihn als ersten in die Liste
+ * des Repos auf. Liefert seine URL.
+ */
+export const createRepoGist = createServerFn({ method: 'POST' })
+  .validator((data: { worktree: string; revision: string; path: string; description: string }) => ({
+    worktree: text(data.worktree, 'worktree'),
+    revision: text(data.revision, 'revision'),
+    path: text(data.path, 'path'),
+    description: text(data.description, 'description').trim(),
+  }))
+  .handler(async ({ data }) => {
+    const [{ source, repoPath }, { store }] = await Promise.all([access(data.worktree), server()]);
+    const content = gistTextOf(data.path, await source.content(data.revision, data.path));
+    const gist = await createGist(data.description, gistNameOf(data.path), content);
+    await store.addGist(repoPath, { id: gist.id, description: gist.description });
+    return gist.url;
+  });
+
+/**
+ * Nimmt einen vorhandenen Gist über seine URL oder Kennung als ersten in die Liste des Repos auf.
+ * Liefert seine Kennung.
+ */
+export const addRepoGist = createServerFn({ method: 'POST' })
+  .validator((data: { worktree: string; gist: string }) => ({
+    worktree: text(data.worktree, 'worktree'),
+    id: gistIdOf(text(data.gist, 'gist')),
+  }))
+  .handler(async ({ data }) => {
+    const [{ repoPath }, { store }, gist] = await Promise.all([access(data.worktree), server(), readGist(data.id)]);
+    await store.addGist(repoPath, { id: gist.id, description: gist.description });
+    return gist.id;
+  });
+
+/** Öffnet den Gist im Standardbrowser des Macs. */
+export const openGist = createServerFn({ method: 'POST' })
+  .validator((data: { id: string }) => ({ id: gistIdOf(text(data.id, 'id')) }))
+  .handler(async ({ data }) => {
+    await openInBrowser(gistUrl(data.id));
   });
 
 /**
