@@ -15,6 +15,8 @@ export interface TabActions {
   add: (target: ViewSearch) => void;
   /** Öffnet eine Ansicht in einem neuen Tab und macht ihn aktiv; ist sie schon offen, wird ihr Tab aktiv. */
   show: (target: ViewSearch) => Promise<void>;
+  /** Wie `show`, aber der neue Tab steht ganz links, etwa nach einer Wahl im Menü der Repos. */
+  showFirst: (target: ViewSearch) => Promise<void>;
   /** Schließt den Tab einer Ansicht; war er aktiv, wird sein Nachbar aktiv. */
   close: (target: { worktree: string; branch: string }) => void;
   /**

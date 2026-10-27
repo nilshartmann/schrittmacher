@@ -254,7 +254,17 @@ function RepoList({
 } & RootProps) {
   const current = info?.repoPath ?? null;
   // Projekte öffnen Tabs und gibt es deshalb nur mit einer Tableiste.
-  const withTabs = useContext(TabsContext) !== null;
+  const tabActions = useContext(TabsContext);
+  const withTabs = tabActions !== null;
+  // Mit Tableiste öffnet jede Wahl einen Tab ganz links, ohne sie ersetzt sie die Ansicht.
+  const showView = (view: ViewSearch) => {
+    close();
+    if (tabActions === null) {
+      onShow(view);
+    } else {
+      void tabActions.showFirst(view);
+    }
+  };
   const [projectsAt, setProjectsAt] = useState<SubAnchor | null>(null);
   const closeProjects = () => {
     setProjectsAt(null);
@@ -270,7 +280,7 @@ function RepoList({
       if (view === null) {
         throw new Error('Für dieses Repo gibt es keine Ansicht.');
       }
-      onShow(view);
+      showView(view);
     });
   };
   const matching = (...texts: string[]) => {
@@ -333,8 +343,10 @@ function RepoList({
         main={main}
         sub={short(entry.path, home)}
         current={entry.path === current}
-        link={entry.view}
-        onChoose={close}
+        newTab={entry.view}
+        onChoose={() => {
+          showView(entry.view);
+        }}
       />
       {row.fold}
       {excludeButton(row.exclude ?? entry.path, main)}
@@ -417,8 +429,10 @@ function RepoList({
                     }
                     tip={view.worktree}
                     current={isCurrentView(view, info)}
-                    link={view.search}
-                    onChoose={close}
+                    newTab={view.search}
+                    onChoose={() => {
+                      showView(view.search);
+                    }}
                   />
                   {!isCurrentView(view, info) && excludeButton(view.repoPath, view.repo)}
                 </div>

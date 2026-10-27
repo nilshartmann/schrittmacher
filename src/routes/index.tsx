@@ -140,7 +140,14 @@ function Opened({ data, search }: { data: LoadedView | MissingData; search: View
   const { worktree, branch } = search;
   return (
     <TabsContext.Provider
-      value={{ tabs: tabs.list, add: tabs.add, show: tabs.openNew, close: tabs.close, openProject: tabs.openProject }}
+      value={{
+        tabs: tabs.list,
+        add: tabs.add,
+        show: tabs.openNew,
+        showFirst: tabs.openFirst,
+        close: tabs.close,
+        openProject: tabs.openProject,
+      }}
     >
       {view === null ? (
         <MissingView
@@ -299,13 +306,24 @@ function useTabs(initial: Tab[], current: Tab, open: (target: ViewSearch) => Pro
         await open(target);
       }
     },
+    /** Wie `openNew`, aber ein neuer Tab steht ganz links. */
+    openFirst: async (target: ViewSearch) => {
+      const added = await tabOf({ data: target });
+      if (added !== null) {
+        insert(added, true);
+        await open(target);
+      }
+    },
   };
 
-  /** Setzt einen Tab rechts neben den aktiven, wenn er noch fehlt. */
-  function insert(added: Tab) {
+  /** Setzt einen Tab rechts neben den aktiven oder mit `first` ganz links, wenn er noch fehlt. */
+  function insert(added: Tab, first = false) {
     setList((tabs) => {
       if (tabs.some((tab) => sameTab(tab, added))) {
         return tabs;
+      }
+      if (first) {
+        return [added, ...tabs];
       }
       const active = shown.current;
       const at = active === null ? -1 : tabs.findIndex((tab) => sameTab(tab, active));

@@ -147,8 +147,12 @@ Tab, gewechselt wird über die Knöpfe der Kopfzeile.
   25.10.2026; die gespeicherten Projekte unter „Projekte“ ändern daran nichts.
 - Ein neuer Tab öffnet sich rechts neben dem aktiven. Über den Knopf im Menü wird er aktiv, mit
   ⌘-Klick oder der mittleren Maustaste bleibt er im Hintergrund.
-- Ein Wechsel von Repo, Worktree oder Branch in der Kopfzeile ersetzt die Ansicht des aktiven
-  Tabs. Ist die neue Ansicht schon in einem anderen Tab offen, wird dieser aktiv.
+- Eine Wahl im Menü der Repos öffnet die Ansicht in einem neuen Tab ganz links und macht ihn aktiv.
+  Das gilt auch für den Pfad aus dem Textfeld. Ist die Ansicht schon in einem Tab offen, wird
+  dieser aktiv. Mit ⌘-Klick oder der mittleren Maustaste öffnet sie sich im Hintergrund rechts
+  neben dem aktiven Tab.
+- Ein Wechsel von Worktree oder Branch in der Kopfzeile ersetzt die Ansicht des aktiven Tabs. Ist
+  die neue Ansicht schon in einem anderen Tab offen, wird dieser aktiv.
 - Ein Tab öffnet seine Ansicht mit dem gemerkten Vergleich und der gemerkten Datei.
 - Das Schließen-Kreuz steht am aktiven Tab und erscheint beim Überfahren der anderen. Der letzte
   Tab lässt sich nicht schließen.

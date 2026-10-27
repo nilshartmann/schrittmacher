@@ -90,6 +90,13 @@ async function projectsMenu(page) {
   await page.locator('.menu-sub-panel').waitFor();
 }
 
+/** Eine zuletzt geöffnete Ansicht im Menü der Repos, gefunden über den Chip ihres Branches. */
+const viewItem = (page, branch) =>
+  page
+    .locator('.menu-panel-repos .menu-item')
+    .filter({ has: page.locator('.menu-chip', { hasText: new RegExp(`^${branch}$`) }) })
+    .first();
+
 /** Zeigt die Ansicht mit einem anderen Worktree oder Branch als die geöffnete. */
 async function gotoChanged(page, change) {
   const url = new globalThis.URL(page.url());
@@ -419,6 +426,23 @@ const SHOTS = [
       await gotoChanged(page, (search) => search.set('worktree', `${search.get('worktree')}-weg`));
       await page.locator('.tab-missing').hover();
       await page.waitForTimeout(700);
+    },
+  ],
+  [
+    '42-repo-neuer-tab-links',
+    async (page) => {
+      // Der Tab wechselt auf main; schritte bleibt als zuletzt geöffnete Ansicht im Menü der Repos.
+      await whereMenu(page);
+      await branchItem(page, 'main').first().click();
+      await page.locator('.tab[aria-selected="true"]', { hasText: 'main' }).waitFor();
+      await page.waitForTimeout(SETTLE);
+      await page.getByRole('button', { name: 'Repo', exact: true }).click();
+      await viewItem(page, 'schritte').click();
+      await page.locator('.tab').nth(1).waitFor();
+      // Eine Wahl, deren Tab schon offen ist, macht ihn nur aktiv.
+      await page.getByRole('button', { name: 'Repo', exact: true }).click();
+      await viewItem(page, 'main').click();
+      await page.locator('.tab[aria-selected="true"]', { hasText: 'main' }).waitFor();
     },
   ],
 ];
