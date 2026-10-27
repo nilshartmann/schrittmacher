@@ -31,6 +31,16 @@ if ! running; then
     sleep 0.5
     waited=$((waited + 1))
   done
+  # Nach einem Neustart zeigt die Web-App manchmal `dispatcher.useContext`; die Ursache ist offen.
+  cat <<'EOF'
+schrittmacher: Falls die Web-App „null is not an object (evaluating 'dispatcher.useContext')“
+zeigt, vor dem Neuladen bitte:
+  1. In Safari im Menü „Entwickler“ unter dem Mac „Schrittmacher“ wählen
+  2. Im Webinformationen-Fenster den Tab „Netzwerk“ öffnen und nach „react“ filtern
+  3. Ein Bildschirmfoto der Liste an Claude schicken
+Fehlt das Menü „Entwickler“: In Safari unter Einstellungen › Erweitert
+„Funktionen für Webentwickler anzeigen“ einschalten.
+EOF
 fi
 if [ -n "$app" ]; then
   open -a "$app"

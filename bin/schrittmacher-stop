@@ -1,12 +1,19 @@
 #!/bin/sh
-# Beendet den Server von Schrittmacher, egal ob ihn `schrittmacher-start` oder `pnpm dev…` gestartet
-# hat. Beendet wird nur ein Vite-Prozess auf dem Port, damit nichts Fremdes getroffen wird.
+# Beendet die Web-App und den Server von Schrittmacher, egal ob ihn `schrittmacher-start` oder
+# `pnpm dev…` gestartet hat. Beendet wird nur ein Vite-Prozess auf dem Port, damit nichts Fremdes
+# getroffen wird. Safari selbst bleibt offen, weil die Web-App eine eigene App ist.
 #
 #   SCHRITTMACHER_URL  der Server, sonst http://127.0.0.1:5310; daraus stammt der Port
+#   SCHRITTMACHER_APP  die Web-App, sonst Schrittmacher; leer, um sie offen zu lassen
 set -eu
 
 url="${SCHRITTMACHER_URL:-http://127.0.0.1:5310}"
+app="${SCHRITTMACHER_APP-Schrittmacher}"
 port="$(printf '%s\n' "$url" | sed -E 's#^[a-z]+://[^/:]+:([0-9]+).*$#\1#')"
+
+if [ -n "$app" ]; then
+  osascript -e "if application \"$app\" is running then tell application \"$app\" to quit"
+fi
 
 pids="$(lsof -ti "tcp:$port" -sTCP:LISTEN || true)"
 if [ -z "$pids" ]; then

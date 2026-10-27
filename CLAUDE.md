@@ -22,8 +22,9 @@ Der ursprüngliche Auftrag steht in `docs/auftrag-klick-dummy.md`, offene Punkte
 - `schrittmacher-start` (`bin/schrittmacher-start`, verlinkt nach `~/.local/bin`): startet
   `pnpm dev:echt` im Hintergrund, falls unter Port 5310 nichts antwortet, und holt die Web-App nach
   vorn; die Ausgabe des Servers steht in `$TMPDIR/schrittmacher-server.log`
-- `schrittmacher-stop` (`bin/schrittmacher-stop`, verlinkt nach `~/.local/bin`): beendet den
-  Vite-Server auf Port 5310, egal wie er gestartet wurde
+- `schrittmacher-stop` (`bin/schrittmacher-stop`, verlinkt nach `~/.local/bin`): beendet die
+  Web-App und den Vite-Server auf Port 5310, egal wie er gestartet wurde; die Web-App bleibt offen
+  mit leerem `SCHRITTMACHER_APP`
 - `pnpm typecheck`: Typprüfung, vor jedem Commit
 - `pnpm screenshots`: Screenshots mit WebKit in der Fenstergröße unter Sidecar, gegen den Server
   mit Testdaten (anderer Server mit `URL=…`)
