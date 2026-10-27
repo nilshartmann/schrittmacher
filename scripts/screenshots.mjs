@@ -445,6 +445,26 @@ const SHOTS = [
       await page.locator('.tab[aria-selected="true"]', { hasText: 'main' }).waitFor();
     },
   ],
+  [
+    '43-tabs-schliessen',
+    async (page) => {
+      await secondTab(page);
+      await page.locator('.tab[aria-selected="true"]').click({ button: 'right' });
+      await page.locator('.menu-context .menu-row', { hasText: 'Andere Tabs' }).hover();
+    },
+  ],
+  [
+    '44-alle-geschlossen',
+    async (page) => {
+      await secondTab(page);
+      await page.locator('.tab[aria-selected="true"]').click({ button: 'right' });
+      await page.locator('.menu-context .menu-item', { hasText: 'Alle Tabs schließen' }).click();
+      await page.locator('.empty').waitFor();
+      // Nach dem Neuladen bleibt die Seite ohne Tab.
+      await page.reload();
+      await page.locator('.empty').waitFor();
+    },
+  ],
 ];
 
 await mkdir('screenshots', { recursive: true });

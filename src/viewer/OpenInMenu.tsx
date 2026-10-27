@@ -5,7 +5,7 @@ import { openWorktreeIn } from '../server/repo.functions';
 import type { Tab } from '../server/store';
 import { CopyIcon, CopyToIcon, CopyToMenu, subAnchorOf } from './HoverTools';
 import type { CopyTarget, SubAnchor } from './HoverTools';
-import { FolderIcon, GitClientIcon, ProjectIcon, TerminalIcon } from './Icons';
+import { CloseIcon, FolderIcon, GitClientIcon, ProjectIcon, TerminalIcon } from './Icons';
 import { ContextMenu, MenuItem, MenuNote } from './Menu';
 import { ProjectToggleMenu } from './Projects';
 
@@ -27,8 +27,8 @@ export interface MenuCopyTo {
  * Terminal und ForkLift den Ordner dieser Datei, Fork bleibt beim Worktree. Das Menü schließt,
  * sobald das Programm gestartet ist; scheitert das, bleibt es mit der Meldung offen. Unter den
  * Programmen stehen die Einträge aus `copies`, die einen Text in die Zwischenablage legen, mit
- * `copyTo` ein Untermenü, das die Datei in einen anderen Tab kopiert, und mit `project` eins, das
- * den Tab in Projekte aufnimmt.
+ * `copyTo` ein Untermenü, das die Datei in einen anderen Tab kopiert, mit `project` eins, das den
+ * Tab in Projekte aufnimmt, und mit `closing` das Schließen anderer und aller Tabs.
  */
 export function OpenInMenu({
   worktree,
@@ -37,6 +37,7 @@ export function OpenInMenu({
   copies = [],
   copyTo,
   project,
+  closing,
   onClose,
 }: {
   worktree: string;
@@ -46,6 +47,8 @@ export function OpenInMenu({
   copyTo?: MenuCopyTo;
   /** Der Tab des Menüs und die offenen Tabs, für das Untermenü „Projekt“. */
   project?: { tab: Tab; tabs: Tab[] };
+  /** Das Schließen anderer und aller Tabs, im Menü eines Tabs; ohne `others` fehlt dieser Eintrag. */
+  closing?: { others?: () => void; all: () => void };
   onClose: () => void;
 }) {
   const [error, setError] = useState<string | null>(null);
@@ -135,6 +138,29 @@ export function OpenInMenu({
       )}
       {project !== undefined && sub?.kind === 'project' && (
         <ProjectToggleMenu anchor={sub.anchor} tab={project.tab} tabs={project.tabs} onDone={onClose} />
+      )}
+      {closing !== undefined && (
+        <>
+          <div className="menu-rule" onMouseEnter={closeSub} />
+          {[
+            { label: 'Andere Tabs schließen', act: closing.others },
+            { label: 'Alle Tabs schließen', act: closing.all },
+          ].map(
+            ({ label, act }) =>
+              act !== undefined && (
+                <div key={label} className="menu-row" onMouseEnter={closeSub}>
+                  <MenuItem
+                    main={label}
+                    icon={<CloseIcon />}
+                    onChoose={() => {
+                      onClose();
+                      act();
+                    }}
+                  />
+                </div>
+              ),
+          )}
+        </>
       )}
       {error !== null && <MenuNote error>{error}</MenuNote>}
     </ContextMenu>

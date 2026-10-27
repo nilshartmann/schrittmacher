@@ -154,8 +154,11 @@ Tab, gewechselt wird über die Knöpfe der Kopfzeile.
 - Ein Wechsel von Worktree oder Branch in der Kopfzeile ersetzt die Ansicht des aktiven Tabs. Ist
   die neue Ansicht schon in einem anderen Tab offen, wird dieser aktiv.
 - Ein Tab öffnet seine Ansicht mit dem gemerkten Vergleich und der gemerkten Datei.
-- Das Schließen-Kreuz steht am aktiven Tab und erscheint beim Überfahren der anderen. Der letzte
-  Tab lässt sich nicht schließen.
+- Das Schließen-Kreuz steht am aktiven Tab und erscheint beim Überfahren der anderen. Auch der
+  letzte Tab lässt sich schließen.
+- Das Kontextmenü eines Tabs bietet „Andere Tabs schließen“ und „Alle Tabs schließen“. Ohne Tab
+  zeigt die Seite den Zustand wie beim allerersten Start, mit offenem Menü der Repos. Er bleibt
+  auch nach dem Neuladen.
 - Die Beschriftung nennt Repo, Worktree und Branch. Zuerst wird der Name des Repos gekürzt. Alle
   Tabs sind gleich breit, auch der aktive.
 - Das Kommando `schrittmacher <pfad>` öffnet den Worktree zum Pfad in einem neuen Tab und macht
@@ -198,9 +201,9 @@ zeigt statt der Commits den Grund:
 2. Der Worktree fehlt, das Repo gibt es noch. Das erkennt der Server an einer gemerkten Ansicht.
 3. Der Branch fehlt, etwa weil er umbenannt wurde.
 
-Darunter steht je Projekt, das den Tab enthält, ein Knopf „Aus … entfernen“ und, außer beim letzten
-Tab, „Tab schließen“. Eine andere Ansicht wird über das Menü der Repos gewählt. Ein Tab ohne Branch
-zeigt weiter den ausgecheckten.
+Darunter steht je Projekt, das den Tab enthält, ein Knopf „Aus … entfernen“ und „Tab schließen“.
+Eine andere Ansicht wird über das Menü der Repos gewählt. Ein Tab ohne Branch zeigt weiter den
+ausgecheckten.
 
 ## Vergleich zweier Commits
 

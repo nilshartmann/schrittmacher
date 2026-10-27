@@ -16,21 +16,18 @@ const TITLES: Record<MissingReason, string> = {
 
 /**
  * Der Inhalt eines Tabs, dessen Ansicht sich nicht öffnen lässt: der Grund und Knöpfe, die den Tab
- * aus seinen Projekten entfernen oder ihn schließen. Der letzte Tab lässt sich nicht schließen. Über
- * das Menü der Repos lässt sich eine andere Ansicht wählen.
+ * aus seinen Projekten entfernen oder ihn schließen. Über das Menü der Repos lässt sich eine andere
+ * Ansicht wählen.
  */
 export function MissingView({
   missing,
   tab,
-  last,
   tabs,
   onShow,
   onClose,
 }: {
   missing: Missing;
   tab: Tab;
-  /** Ob es der letzte Tab ist. */
-  last: boolean;
   tabs: ReactNode;
   onShow: (view: ViewSearch) => void;
   onClose: () => void;
@@ -64,11 +61,9 @@ export function MissingView({
               Aus „{project.name}“ entfernen
             </button>
           ))}
-          {!last && (
-            <button type="button" className="tool" onClick={onClose}>
-              Tab schließen
-            </button>
-          )}
+          <button type="button" className="tool" onClick={onClose}>
+            Tab schließen
+          </button>
         </div>
         {error !== null && <p className="missing-error">{error}</p>}
       </div>

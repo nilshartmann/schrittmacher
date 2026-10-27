@@ -123,7 +123,7 @@ function Opened({ data, search }: { data: LoadedView | MissingData; search: View
   const { show, open } = useOpen();
   const missing = 'missing' in data ? data : null;
   const view = 'missing' in data ? null : data;
-  const tabs = useTabs(data.tabs, missing?.tab ?? tabOfView(data as LoadedView), open);
+  const tabs = useTabs(data.tabs, missing?.tab ?? tabOfView(data as LoadedView), open, show);
   useTabRequests(tabs.openNew);
   useSaveView(view === null ? null : search);
 
@@ -135,6 +135,8 @@ function Opened({ data, search }: { data: LoadedView | MissingData; search: View
       missing={tabs.missing}
       onChoose={tabs.choose}
       onClose={tabs.close}
+      onCloseOthers={tabs.closeOthers}
+      onCloseAll={tabs.closeAll}
     />
   );
   const { worktree, branch } = search;
@@ -146,6 +148,8 @@ function Opened({ data, search }: { data: LoadedView | MissingData; search: View
         show: tabs.openNew,
         showFirst: tabs.openFirst,
         close: tabs.close,
+        closeOthers: tabs.closeOthers,
+        closeAll: tabs.closeAll,
         openProject: tabs.openProject,
       }}
     >
@@ -153,7 +157,6 @@ function Opened({ data, search }: { data: LoadedView | MissingData; search: View
         <MissingView
           missing={missing?.missing ?? { reason: 'other', message: '' }}
           tab={tabs.current}
-          last={tabs.list.length <= 1}
           tabs={tabBar}
           onShow={show}
           onClose={() => {
@@ -201,7 +204,12 @@ function useSaveView(search: ViewSearch | null) {
  * Tab steht immer unter den sichtbaren, siehe `withVisible`. Der Server merkt sich die Tabs, damit
  * sie nach dem Neuladen wieder da sind.
  */
-function useTabs(initial: Tab[], current: Tab, open: (target: ViewSearch) => Promise<void>) {
+function useTabs(
+  initial: Tab[],
+  current: Tab,
+  open: (target: ViewSearch) => Promise<void>,
+  show: (view: ViewSearch) => void,
+) {
   const [list, setList] = useState<Tab[]>(initial);
   const shown = useRef<Tab | null>(null);
   const saved = useRef(initial);
@@ -266,11 +274,25 @@ function useTabs(initial: Tab[], current: Tab, open: (target: ViewSearch) => Pro
     close: (closed: { worktree: string; branch: string }) => {
       const at = list.findIndex((tab) => sameTab(tab, closed));
       const rest = list.filter((tab) => !sameTab(tab, closed));
+      if (rest.length === 0) {
+        void closeAll();
+        return;
+      }
       setList(rest);
       const next = rest[Math.min(at, rest.length - 1)];
       if (sameTab(closed, current) && next !== undefined) {
         void openTab(next);
       }
+    },
+    /** Schließt alle Tabs außer dem einen und macht ihn aktiv. */
+    closeOthers: (kept: Tab) => {
+      setList([kept]);
+      if (!sameTab(kept, current)) {
+        void openTab(kept);
+      }
+    },
+    closeAll: () => {
+      void closeAll();
     },
     openProject: (project: Project, replace: boolean) => {
       const [first] = project.tabs;
@@ -315,6 +337,19 @@ function useTabs(initial: Tab[], current: Tab, open: (target: ViewSearch) => Pro
       }
     },
   };
+
+  /**
+   * Schließt alle Tabs. Erst wenn der Server die leere Tableiste kennt, wechselt die Seite zur
+   * Ansicht ohne Tab, weil er sonst den ersten Tab wieder öffnen würde.
+   */
+  async function closeAll() {
+    setList([]);
+    saved.current = [];
+    await saveTabs({ data: { tabs: [] } }).catch((error: unknown) => {
+      console.error('Die Tabs ließen sich nicht merken.', error);
+    });
+    show({});
+  }
 
   /** Setzt einen Tab rechts neben den aktiven oder mit `first` ganz links, wenn er noch fehlt. */
   function insert(added: Tab, first = false) {
@@ -371,14 +406,18 @@ function useTabRequests(openNew: (target: ViewSearch) => Promise<void>) {
   }, []);
 }
 
-/** Ohne Ansicht, beim allerersten Start oder wenn sie sich nicht öffnen lässt. */
+/** Ohne Ansicht: beim allerersten Start, ohne offenen Tab oder wenn sie sich nicht öffnen lässt. */
 function NoView({ message }: { message?: string }) {
   const { show } = useOpen();
+  // Auch ohne Tab öffnet das Kommando `schrittmacher <pfad>` einen.
+  useTabRequests(async (target) => {
+    show(target);
+  });
   return (
     <div className="app">
       <nav className="tabs" aria-label="Tabs" />
       <EmptyHeader onShow={show} />
-      <p className="empty">{message ?? 'Noch ist kein Repo geöffnet.'}</p>
+      <p className="empty">{message ?? 'Es ist kein Tab offen.'}</p>
       <Tooltips />
     </div>
   );

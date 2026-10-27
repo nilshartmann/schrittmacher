@@ -19,6 +19,10 @@ export interface TabActions {
   showFirst: (target: ViewSearch) => Promise<void>;
   /** Schließt den Tab einer Ansicht; war er aktiv, wird sein Nachbar aktiv. */
   close: (target: { worktree: string; branch: string }) => void;
+  /** Schließt alle Tabs außer diesem und macht ihn aktiv. */
+  closeOthers: (kept: Tab) => void;
+  /** Schließt alle Tabs; danach zeigt die Seite die Ansicht ohne Tab. */
+  closeAll: () => void;
   /**
    * Öffnet die Tabs eines Projekts und macht seinen ersten aktiv. Mit `replace` schließen sich die
    * übrigen Tabs, sonst kommen die fehlenden rechts neben dem aktiven dazu.
@@ -79,19 +83,21 @@ interface TabBarProps {
   missing: ReadonlyMap<string, Missing>;
   onChoose: (tab: Tab) => void;
   onClose: (tab: Tab) => void;
+  onCloseOthers: (tab: Tab) => void;
+  onCloseAll: () => void;
 }
 
 /**
  * Die Tabs ganz oben wie in Fork, weil die Web-App aus dem Dock keine eigenen hat. Die Tabs stehen
  * über der Kopfzeile, weil der Tab bestimmt, was darunter steht. Jeder Tab ist eine Ansicht; die Tabs teilen sich die Breite und
  * sind gleich breit, ob aktiv oder nicht. Sind es mehr als `SHOWN_TABS`, stehen die übrigen im
- * Menü rechts. Mit nur einem Tab fehlt das Schließen. Über einem Tab erscheint ein Knopf mit einem
- * Menü, das den Worktree in einem anderen Programm öffnet oder seinen Pfad kopiert; ein
+ * Menü rechts. Über einem Tab erscheint ein Knopf mit einem Menü, das den Worktree in einem anderen
+ * Programm öffnet, seinen Pfad kopiert oder andere oder alle Tabs schließt; ein
  * Rechtsklick auf den Tab öffnet dasselbe Menü. Der aktive Tab nennt den Abstand seines Branches
  * zum Remote. Die Tabs zeigen nur, was offen ist; gewechselt wird über die Knöpfe der Kopfzeile.
  * Ein Tab, dessen Ansicht es nicht mehr gibt, zeigt ein Warnzeichen, und der Tooltip nennt den Grund.
  */
-export function TabBar({ tabs, current, tracking, missing, onChoose, onClose }: TabBarProps) {
+export function TabBar({ tabs, current, tracking, missing, onChoose, onClose, onCloseOthers, onCloseAll }: TabBarProps) {
   const rest = tabs.slice(SHOWN_TABS);
   const [context, setContext] = useState<{ tab: Tab; at: { x: number; y: number } } | null>(null);
   const closeContext = useCallback(() => {
@@ -137,14 +143,12 @@ export function TabBar({ tabs, current, tracking, missing, onChoose, onClose }: 
                 }}
               />
             </HoverTools>
-            {tabs.length > 1 && (
-              <CloseButton
-                className="tab-close"
-                onClose={() => {
-                  onClose(tab);
-                }}
-              />
-            )}
+            <CloseButton
+              className="tab-close"
+              onClose={() => {
+                onClose(tab);
+              }}
+            />
           </div>
         );
       })}
@@ -190,6 +194,15 @@ export function TabBar({ tabs, current, tracking, missing, onChoose, onClose }: 
           at={context.at}
           copies={[{ label: 'Pfad kopieren', text: context.tab.worktree }]}
           project={{ tab: context.tab, tabs }}
+          closing={{
+            others:
+              tabs.length > 1
+                ? () => {
+                    onCloseOthers(context.tab);
+                  }
+                : undefined,
+            all: onCloseAll,
+          }}
           onClose={closeContext}
         />
       )}

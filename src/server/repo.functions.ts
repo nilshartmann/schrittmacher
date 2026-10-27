@@ -129,14 +129,15 @@ function hasPosition(search: ViewSearch): boolean {
 /**
  * Die vollständige Ansicht zu einer Wahl, ohne Branch mit dem ausgecheckten. Ohne Vergleich und
  * Datei gilt, was sich die Ansicht gemerkt hat. Ohne Worktree gilt die zuletzt geöffnete Ansicht,
- * die noch einen Tab hat, dann der erste Tab und dann die zuletzt geöffnete. Gibt es nichts davon,
- * gilt die Ansicht für den ersten Start.
+ * die noch einen Tab hat, dann der erste Tab. Lässt sich keiner vervollständigen, gilt der erste
+ * Tab, wie er ist, damit er den Grund zeigt. Ohne Tabs gibt es keine Ansicht, außer beim
+ * allerersten Start: Dann gilt die Ansicht für den ersten Start.
  */
 async function complete(search: ViewSearch): Promise<ViewSearch | null> {
   const { store, first } = await server();
   if (search.worktree === undefined) {
     const { tabs, views } = await store.state();
-    const candidates = [views.find((view) => tabs.some((tab) => sameView(tab, view))), tabs[0], views[0]];
+    const candidates = [views.find((view) => tabs.some((tab) => sameView(tab, view))), tabs[0]];
     for (const candidate of candidates) {
       if (candidate !== undefined) {
         const resolved = await complete({ worktree: candidate.worktree, branch: candidate.branch }).catch(() => null);
@@ -145,7 +146,10 @@ async function complete(search: ViewSearch): Promise<ViewSearch | null> {
         }
       }
     }
-    return first === null ? null : complete(first);
+    if (tabs[0] !== undefined) {
+      return { worktree: tabs[0].worktree, branch: tabs[0].branch };
+    }
+    return first === null || views.length > 0 ? null : complete(first);
   }
   const { worktreePath } = await access(search.worktree);
   const branch = search.branch ?? (await locate(worktreePath)).checkedOut ?? '';
