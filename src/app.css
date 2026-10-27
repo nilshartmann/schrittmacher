@@ -2218,6 +2218,19 @@ span.info-parent {
   text-overflow: ellipsis;
 }
 
+/* Beim Verschieben: der gezogene Tab blass, eine Linie an der Stelle, an der er landet */
+.tab-dragging {
+  opacity: 0.45;
+}
+
+.tab-drop-before {
+  box-shadow: inset 3px 0 0 var(--selected-focus);
+}
+
+.tab-drop-after {
+  box-shadow: inset -3px 0 0 var(--selected-focus);
+}
+
 /* Ein Tab, dessen Ansicht es nicht mehr gibt: Warnzeichen vor dem Namen, Text kursiv */
 .tab-label > svg {
   flex: none;

@@ -137,6 +137,7 @@ function Opened({ data, search }: { data: LoadedView | MissingData; search: View
       onClose={tabs.close}
       onCloseOthers={tabs.closeOthers}
       onCloseAll={tabs.closeAll}
+      onMove={tabs.move}
     />
   );
   const { worktree, branch } = search;
@@ -283,6 +284,14 @@ function useTabs(
       if (sameTab(closed, current) && next !== undefined) {
         void openTab(next);
       }
+    },
+    /** Verschiebt einen Tab vor oder mit `after` hinter einen anderen. */
+    move: (moved: Tab, target: Tab, after: boolean) => {
+      setList((tabs) => {
+        const rest = tabs.filter((tab) => !sameTab(tab, moved));
+        const at = rest.findIndex((tab) => sameTab(tab, target));
+        return at === -1 ? tabs : withVisible(rest.toSpliced(after ? at + 1 : at, 0, moved), current);
+      });
     },
     /** Schließt alle Tabs außer dem einen und macht ihn aktiv. */
     closeOthers: (kept: Tab) => {

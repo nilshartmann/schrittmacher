@@ -85,6 +85,8 @@ interface TabBarProps {
   onClose: (tab: Tab) => void;
   onCloseOthers: (tab: Tab) => void;
   onCloseAll: () => void;
+  /** Verschiebt einen Tab vor oder mit `after` hinter einen anderen. */
+  onMove: (moved: Tab, target: Tab, after: boolean) => void;
 }
 
 /**
@@ -94,11 +96,29 @@ interface TabBarProps {
  * Menü rechts. Über einem Tab erscheint ein Knopf mit einem Menü, das den Worktree in einem anderen
  * Programm öffnet, seinen Pfad kopiert oder andere oder alle Tabs schließt; ein
  * Rechtsklick auf den Tab öffnet dasselbe Menü. Der aktive Tab nennt den Abstand seines Branches
- * zum Remote. Die Tabs zeigen nur, was offen ist; gewechselt wird über die Knöpfe der Kopfzeile.
+ * zum Remote. Die sichtbaren Tabs lassen sich verschieben; eine Linie zeigt, wo der gezogene
+ * landet. Die Tabs zeigen nur, was offen ist; gewechselt wird über die Knöpfe der Kopfzeile.
  * Ein Tab, dessen Ansicht es nicht mehr gibt, zeigt ein Warnzeichen, und der Tooltip nennt den Grund.
  */
-export function TabBar({ tabs, current, tracking, missing, onChoose, onClose, onCloseOthers, onCloseAll }: TabBarProps) {
+export function TabBar({
+  tabs,
+  current,
+  tracking,
+  missing,
+  onChoose,
+  onClose,
+  onCloseOthers,
+  onCloseAll,
+  onMove,
+}: TabBarProps) {
   const rest = tabs.slice(SHOWN_TABS);
+  // Der gezogene Tab und die Seite des Tabs unter dem Zeiger, an der er landen würde.
+  const [dragged, setDragged] = useState<Tab | null>(null);
+  const [drop, setDrop] = useState<{ key: string; after: boolean } | null>(null);
+  const endDrag = () => {
+    setDragged(null);
+    setDrop(null);
+  };
   const [context, setContext] = useState<{ tab: Tab; at: { x: number; y: number } } | null>(null);
   const closeContext = useCallback(() => {
     setContext(null);
@@ -108,12 +128,46 @@ export function TabBar({ tabs, current, tracking, missing, onChoose, onClose, on
       {tabs.slice(0, SHOWN_TABS).map((tab) => {
         const active = sameTab(tab, current);
         const lost = missing.get(tabKey(tab));
+        const target = drop?.key === tabKey(tab) && dragged !== null && !sameTab(dragged, tab);
+        const classes = [
+          'tab',
+          'hover-tools-host',
+          lost === undefined ? '' : 'tab-missing',
+          dragged !== null && sameTab(dragged, tab) ? 'tab-dragging' : '',
+          target ? (drop.after ? 'tab-drop-after' : 'tab-drop-before') : '',
+        ];
         return (
           <div
             key={tabKey(tab)}
-            className={lost === undefined ? 'tab hover-tools-host' : 'tab tab-missing hover-tools-host'}
+            className={classes.filter((name) => name !== '').join(' ')}
             aria-selected={active}
             role="tab"
+            draggable
+            onDragStart={(event) => {
+              // Safari zieht nur mit Daten; der Pfad ist dafür so gut wie jeder Text.
+              event.dataTransfer.setData('text/plain', tab.worktree);
+              event.dataTransfer.effectAllowed = 'move';
+              setDragged(tab);
+            }}
+            onDragOver={(event) => {
+              if (dragged === null) {
+                return;
+              }
+              event.preventDefault();
+              const box = event.currentTarget.getBoundingClientRect();
+              const after = event.clientX > box.left + box.width / 2;
+              if (drop?.key !== tabKey(tab) || drop.after !== after) {
+                setDrop({ key: tabKey(tab), after });
+              }
+            }}
+            onDrop={(event) => {
+              event.preventDefault();
+              if (dragged !== null && drop !== null && !sameTab(dragged, tab)) {
+                onMove(dragged, tab, drop.after);
+              }
+              endDrag();
+            }}
+            onDragEnd={endDrag}
             onContextMenu={(event) => {
               event.preventDefault();
               setContext({ tab, at: { x: event.clientX, y: event.clientY } });

@@ -465,6 +465,18 @@ const SHOTS = [
       await page.locator('.empty').waitFor();
     },
   ],
+  [
+    '45-tab-verschoben',
+    async (page) => {
+      await secondTab(page);
+      // schritte steht links; nach dem Ziehen hinter live_coding steht es rechts.
+      const first = page.locator('.tab').first();
+      const second = page.locator('.tab').nth(1);
+      const box = await second.boundingBox();
+      await first.dragTo(second, { targetPosition: { x: box.width - 20, y: box.height / 2 } });
+      await page.locator('.tab').nth(1).filter({ hasText: 'schritte' }).waitFor();
+    },
+  ],
 ];
 
 await mkdir('screenshots', { recursive: true });

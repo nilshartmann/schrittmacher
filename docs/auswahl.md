@@ -154,6 +154,8 @@ Tab, gewechselt wird über die Knöpfe der Kopfzeile.
 - Ein Wechsel von Worktree oder Branch in der Kopfzeile ersetzt die Ansicht des aktiven Tabs. Ist
   die neue Ansicht schon in einem anderen Tab offen, wird dieser aktiv.
 - Ein Tab öffnet seine Ansicht mit dem gemerkten Vergleich und der gemerkten Datei.
+- Die sichtbaren Tabs lassen sich mit der Maus verschieben. Eine Linie zeigt, wo der gezogene Tab
+  landet. Die Tabs im Menü „Weitere Tabs“ bleiben, wo sie sind.
 - Das Schließen-Kreuz steht am aktiven Tab und erscheint beim Überfahren der anderen. Auch der
   letzte Tab lässt sich schließen.
 - Das Kontextmenü eines Tabs bietet „Andere Tabs schließen“ und „Alle Tabs schließen“. Ohne Tab
