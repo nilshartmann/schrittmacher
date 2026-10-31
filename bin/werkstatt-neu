@@ -1,0 +1,115 @@
+#!/bin/bash
+# Legt eine neue Werkstatt aus der Vorlage an: ein privates Repo `<org>/<slug>-werkstatt` mit dem
+# Branch `werkstatt` als Standard-Branch, ohne Historie, mit dem Inhalt der Vorlage. Fragt Art,
+# Titel, Datum, Slug, Organisation und Ordner ab, zeigt eine Zusammenfassung und legt erst nach
+# Bestätigung an. Zum Schluss öffnet es das Repo in Schrittmacher. Was danach ansteht, steht im
+# neuen Repo unter „Als Nächstes“ in WORKSHOP.md.
+#
+#   WERKSTATT_VORLAGE  das Repo der Vorlage, sonst ~/develop/werkstatt-vorlage; kopiert wird HEAD
+#   WERKSTATT_ORIGIN   ein vorhandenes Remote statt eines neuen Repos auf GitHub, etwa zum Testen
+#   SCHRITTMACHER_APP  wie bei `schrittmacher`; leer, um die Web-App nicht zu öffnen
+set -euo pipefail
+
+vorlage="${WERKSTATT_VORLAGE:-$HOME/develop/werkstatt-vorlage}"
+origin="${WERKSTATT_ORIGIN:-}"
+
+fail() {
+  echo "werkstatt-neu: $*" >&2
+  exit 1
+}
+
+# Fragt mit Vorgabe; eine leere Eingabe nimmt die Vorgabe.
+ask() {
+  local answer
+  read -r -p "$1${2:+ [$2]}: " answer
+  echo "${answer:-${2:-}}"
+}
+
+# Wie `slugify` der Homepage in einfach: Umlaute umschreiben, alles andere als Bindestrich.
+slugify() {
+  printf '%s' "$1" | perl -CS -pe '
+    s/ä/ae/g; s/ö/oe/g; s/ü/ue/g; s/Ä/Ae/g; s/Ö/Oe/g; s/Ü/Ue/g; s/ß/ss/g;
+    $_ = lc; s/[^a-z0-9]+/-/g; s/^-+|-+$//g;'
+}
+
+git -C "$vorlage" rev-parse --verify -q HEAD >/dev/null || fail "Die Vorlage $vorlage ist kein Repo mit Commit."
+if [ -n "$(git -C "$vorlage" status --porcelain)" ]; then
+  echo "werkstatt-neu: In der Vorlage liegen ungespeicherte Änderungen; kopiert wird der letzte Commit."
+fi
+if [ -z "$origin" ]; then
+  command -v gh >/dev/null || fail "Das Programm gh fehlt. Installiere es mit „brew install gh“."
+fi
+
+echo "Neue Werkstatt aus $vorlage"
+echo
+art="$(ask 'Art: (w)orkshop oder (v)ortrag' w)"
+case "$art" in
+  w | workshop | Workshop) art=Workshop ;;
+  v | vortrag | Vortrag | t | talk) art=Vortrag ;;
+  *) fail "Unbekannte Art „$art“, erwartet w oder v." ;;
+esac
+titel="$(ask 'Titel, wie er in der README stehen soll')"
+[ -n "$titel" ] || fail "Ohne Titel geht es nicht."
+datum="$(ask 'Datum der Veranstaltung, etwa 2026-11-02 oder 2026-11' "$(date +%Y-%m)")"
+# Ein abschließendes „Workshop“, „Vortrag“ oder „Talk“ im Titel gehört nicht in den Slug.
+vorschlag="$(slugify "$datum $titel" | perl -pe 's/-(workshop|vortrag|talk)$//')"
+slug="$(slugify "$(ask 'Slug, nennt Datum und Thema' "$vorschlag")")"
+[ -n "$slug" ] || fail "Der Slug ist leer."
+org="$(ask 'GitHub-Organisation oder -Nutzer' nilshartmann-workshops)"
+ordner="$(ask 'Ordner, in den geklont wird' "$HOME/develop")"
+ordner="${ordner/#\~/$HOME}"
+repo="$org/$slug-werkstatt"
+ziel="$ordner/$slug-werkstatt"
+[ ! -e "$ziel" ] || fail "Den Ordner $ziel gibt es schon."
+
+echo
+echo "So wird angelegt:"
+echo "  Art           $art"
+echo "  Titel         $titel"
+echo "  Slug          $slug"
+echo "  Repo          $repo, privat${origin:+ (statt GitHub: $origin)}"
+echo "  Teilnehmer    $org/$slug, entsteht erst kurz vor der Veranstaltung"
+echo "  Ordner        $ziel"
+echo
+[ "$(ask 'Anlegen? (j/n)' j)" = j ] || fail "Abgebrochen, nichts angelegt."
+
+if [ -z "$origin" ]; then
+  gh repo create "$repo" --private --description "$titel: Werkstatt mit Planung und Schritten" >/dev/null
+  origin="git@github.com:$repo.git"
+fi
+mkdir -p "$ordner"
+git init -q -b werkstatt "$ziel"
+cd "$ziel"
+git remote add origin "$origin"
+git -C "$vorlage" archive --format=tar HEAD | tar xf -
+
+# Platzhalter einsetzen; die Werte gehen über die Umgebung, damit Sonderzeichen im Titel nichts stören.
+export W_TITEL="$titel" W_SLUG="$slug" W_ORG="$org" W_DATUM="$(date +%Y-%m-%d)" W_ART="$art"
+find . -name '*.md' -not -path './.git/*' -print0 | xargs -0 perl -CSD -pi -e '
+  s/<titel>/$ENV{W_TITEL}/g; s/<slug>/$ENV{W_SLUG}/g; s/<org>/$ENV{W_ORG}/g; s/<datum>/$ENV{W_DATUM}/g;
+  s/^\| Art \| Workshop oder Vortrag \|$/| Art | $ENV{W_ART} |/;'
+# Der Hinweis auf die Vorlage oben in CLAUDE.md, samt Leerzeile danach.
+perl -CSD -0pi -e 's/^> \*\*Vorlage\.\*\*[^\n]*\n\n//m' CLAUDE.md
+rm ANLEGEN.md
+if [ "$art" = Vortrag ]; then
+  rm -r beispiele/zielrepo/README-workshop.md beispiele/zielrepo/AUFGABEN
+else
+  rm beispiele/zielrepo/README-talk.md
+fi
+
+git add -A
+git commit -q -m "Werkstatt aus der Vorlage"
+git push -q -u origin werkstatt
+if [ -z "${WERKSTATT_ORIGIN:-}" ]; then
+  gh repo edit "$repo" --default-branch werkstatt >/dev/null
+fi
+./bin/worktrees.sh >/dev/null
+
+echo
+echo "Angelegt: $ziel"
+if command -v schrittmacher >/dev/null; then
+  schrittmacher "$ziel" || true
+fi
+echo
+echo "Weiter geht es im neuen Repo, dort steht in WORKSHOP.md unter „Als Nächstes“, was ansteht:"
+echo "  cd $ziel && claude"

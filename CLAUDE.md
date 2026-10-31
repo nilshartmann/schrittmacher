@@ -25,6 +25,9 @@ Der ursprüngliche Auftrag steht in `docs/auftrag-klick-dummy.md`, offene Punkte
 - `schrittmacher-stop` (`bin/schrittmacher-stop`, verlinkt nach `~/.local/bin`): beendet die
   Web-App und den Vite-Server auf Port 5310, egal wie er gestartet wurde; die Web-App bleibt offen
   mit leerem `SCHRITTMACHER_APP`
+- `werkstatt-neu` (`bin/werkstatt-neu`, verlinkt nach `~/.local/bin`): legt interaktiv eine neue
+  Werkstatt aus `~/develop/werkstatt-vorlage` an, als Repo `<org>/<slug>-werkstatt` mit dem
+  Branch `werkstatt`, und öffnet sie in Schrittmacher; Ablauf in `ANLEGEN.md` der Vorlage
 - `pnpm typecheck`: Typprüfung, vor jedem Commit
 - `pnpm screenshots`: Screenshots mit WebKit in der Fenstergröße unter Sidecar, gegen den Server
   mit Testdaten (anderer Server mit `URL=…`)
