@@ -4,9 +4,18 @@ import type { FormEvent, ReactNode } from 'react';
 import { LOCAL_GROUP, REMOTES_GROUP, hiddenBy, refPath, remoteGroup, remoteOf } from '../git/hidden';
 import type { Hidden } from '../git/hidden';
 import type { Ref, RepoInfo, Worktree } from '../git/types';
-import { fetchRemote, lastFetch, listRepos, listViews, openRepo, saveExcluded } from '../server/repo.functions';
+import {
+  fetchRemote,
+  lastFetch,
+  listRepos,
+  listViews,
+  openRepo,
+  repoShortlinks,
+  saveExcluded,
+  unassignShortlink,
+} from '../server/repo.functions';
 import type { FolderChoice, RepoChoice } from '../server/repo.functions';
-import type { SavedView, Tab, ViewSearch } from '../server/store';
+import type { SavedShortlink, SavedView, Tab, ViewSearch } from '../server/store';
 import { WORKSHOP_BRANCHES, scopeRefs, shownRef } from '../git/scope';
 import type { BranchScope } from '../git/scope';
 import {
@@ -19,11 +28,14 @@ import {
   FolderIcon,
   GraphIcon,
   ProjectIcon,
+  QrIcon,
   SearchIcon,
+  TrashIcon,
 } from './Icons';
-import { subAnchorOf } from './HoverTools';
+import { CopyIcon, subAnchorOf } from './HoverTools';
 import type { SubAnchor } from './HoverTools';
 import { ProjectOpenMenu } from './Projects';
+import { copyQr, ShortlinkDialog } from './ShortlinkDialog';
 import { Menu, MenuDivider, MenuItem, MenuNote, MenuSection, MenuWhere, NewTabButton, TrackingBadge } from './Menu';
 import { CloseButton, sameTab, TabsContext } from './Tabs';
 
@@ -132,26 +144,131 @@ export function RepoMenu({
   const [ownRoot, setOwnRoot] = useState<string | null>(null);
   const root = chosen.onRoot === undefined ? ownRoot : (chosen.root ?? null);
   const onRoot = chosen.onRoot ?? setOwnRoot;
+  // Der Dialog steht neben dem Menü, weil das Menü sich beim Öffnen des Dialogs schließt. Mit
+  // `initial` beginnt er mit dem QR-Code eines zugeordneten Kurzlinks.
+  const [shortlink, setShortlink] = useState<{ initial: SavedShortlink | null } | null>(null);
   return (
-    <Menu
-      button={
-        info === null ? (
-          <span className="crumb-repo">Repo wählen</span>
-        ) : (
-          <>
-            <FolderIcon />
-            <ChevronIcon open size={8} />
-          </>
-        )
-      }
-      label="Repo"
-      tip={info === null ? 'Repo wählen' : `Repo wechseln: ${info.repo}`}
-      className={info === null ? 'crumb' : 'bar-tool bar-menu'}
-      panelClassName="menu-panel-repos"
-      initiallyOpen={initiallyOpen}
-    >
-      {(close) => <RepoList info={info} close={close} onShow={onShow} root={root} onRoot={onRoot} />}
-    </Menu>
+    <>
+      <Menu
+        button={
+          info === null ? (
+            <span className="crumb-repo">Repo wählen</span>
+          ) : (
+            <>
+              <FolderIcon />
+              <ChevronIcon open size={8} />
+            </>
+          )
+        }
+        label="Repo"
+        tip={info === null ? 'Repo wählen' : `Repo wechseln: ${info.repo}`}
+        className={info === null ? 'crumb' : 'bar-tool bar-menu'}
+        panelClassName="menu-panel-repos"
+        initiallyOpen={initiallyOpen}
+      >
+        {(close) => (
+          <RepoList
+            info={info}
+            close={close}
+            onShow={onShow}
+            onShortlink={(initial) => {
+              setShortlink({ initial });
+            }}
+            root={root}
+            onRoot={onRoot}
+          />
+        )}
+      </Menu>
+      {shortlink !== null && (
+        <ShortlinkDialog
+          worktree={info?.worktreePath ?? null}
+          initial={shortlink.initial}
+          onClose={() => {
+            setShortlink(null);
+          }}
+        />
+      )}
+    </>
+  );
+}
+
+/**
+ * Die Kurzlinks, die dem Repo zugeordnet sind, unter „Kurzlink anlegen …“. Beim Überfahren hat
+ * jeder Knöpfe, die den Kurzlink oder seinen QR-Code kopieren und die Zuordnung lösen. Ein Klick
+ * zeigt den QR-Code im Dialog.
+ */
+function ShortlinkRows({
+  worktree,
+  onOpen,
+  onDone,
+  onEnter,
+}: {
+  worktree: string;
+  onOpen: (link: SavedShortlink) => void;
+  onDone: () => void;
+  onEnter: () => void;
+}) {
+  const loaded = useLoaded(() => repoShortlinks({ data: { worktree } }));
+  const [removed, setRemoved] = useState<string[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const links = (loaded.data ?? []).filter((link) => !removed.includes(link.url));
+  const failed = (what: string) => (failure: unknown) => {
+    setError(`${what}: ${messageOf(failure)}`);
+  };
+  return (
+    <>
+      {links.map((link) => (
+        <div key={link.url} className="menu-row" onMouseEnter={onEnter}>
+          <MenuItem
+            main={link.url.replace(/^https?:\/\//, '')}
+            sub={link.target.replace(/^https?:\/\//, '')}
+            tip="QR-Code zeigen"
+            onChoose={() => {
+              onOpen(link);
+            }}
+          />
+          <span className="menu-actions">
+            <button
+              type="button"
+              className="menu-action"
+              aria-label="Kurzlink kopieren"
+              data-tip="Kurzlink kopieren"
+              onClick={() => {
+                navigator.clipboard.writeText(link.url).then(onDone, failed('Der Kurzlink ließ sich nicht kopieren'));
+              }}
+            >
+              <CopyIcon />
+            </button>
+            <button
+              type="button"
+              className="menu-action"
+              aria-label="QR-Code als Bild kopieren"
+              data-tip="QR-Code als Bild kopieren"
+              onClick={() => {
+                copyQr(link.url).then(onDone, failed('Der QR-Code ließ sich nicht kopieren'));
+              }}
+            >
+              <QrIcon />
+            </button>
+            <button
+              type="button"
+              className="menu-action"
+              aria-label="Zuordnung zum Repo lösen"
+              data-tip="Zuordnung zum Repo lösen, der Kurzlink bleibt"
+              onClick={() => {
+                unassignShortlink({ data: { worktree, url: link.url } }).then(() => {
+                  setRemoved((current) => [...current, link.url]);
+                }, failed('Die Zuordnung ließ sich nicht lösen'));
+              }}
+            >
+              <TrashIcon />
+            </button>
+          </span>
+        </div>
+      ))}
+      {loaded.error !== null && <MenuNote error>{loaded.error}</MenuNote>}
+      {error !== null && <MenuNote error>{error}</MenuNote>}
+    </>
   );
 }
 
@@ -245,12 +362,15 @@ function RepoList({
   info,
   close,
   onShow,
+  onShortlink,
   root: chosenRoot,
   onRoot,
 }: {
   info: RepoInfo | null;
   close: () => void;
   onShow: (view: ViewSearch) => void;
+  /** Öffnet den Dialog „Kurzlink anlegen“, siehe `docs/kurzlink.md`; mit einem Kurzlink dessen QR-Code. */
+  onShortlink: (initial: SavedShortlink | null) => void;
 } & RootProps) {
   const current = info?.repoPath ?? null;
   const tabActions = useContext(TabsContext);
@@ -403,6 +523,28 @@ function RepoList({
           {/* Die Zeile öffnet das Untermenü beim Überfahren und beim Klick; der Eintrag selbst tut nichts. */}
           <MenuItem main="Projekte" icon={<ProjectIcon />} aside="›" onChoose={() => {}} />
         </div>
+        <div className="menu-row" onMouseEnter={closeProjects}>
+          <MenuItem
+            main="Kurzlink anlegen …"
+            icon={<QrIcon />}
+            tip="Kurzlink mit QR-Code für einen Vortrag"
+            onChoose={() => {
+              close();
+              onShortlink(null);
+            }}
+          />
+        </div>
+        {info !== null && (
+          <ShortlinkRows
+            worktree={info.worktreePath}
+            onOpen={(link) => {
+              close();
+              onShortlink(link);
+            }}
+            onDone={close}
+            onEnter={closeProjects}
+          />
+        )}
       </div>
       {projectsAt !== null && <ProjectOpenMenu anchor={projectsAt} onShow={onShow} onDone={close} />}
       {views.error !== null && <MenuNote error>{views.error}</MenuNote>}

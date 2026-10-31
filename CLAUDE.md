@@ -39,7 +39,9 @@ Frag vor jeder Bibliothek, die über TanStack, React, Vite und Lezer hinausgeht.
   (`docs/commit.md`), der Fetch aus dem Branch-Menü (immer mit `--prune`), Merge und harter Reset
   eines Branches mit seinem Branch auf dem Remote (Abstand im Badge) und das Kopieren einer Datei in
   den Worktree eines anderen Tabs. Nach außen schreibt außerdem das Hochladen einer Datei in einen
-  Gist des Repos über `gh api` (`docs/gist.md`).
+  Gist des Repos über `gh api` (`docs/gist.md`). Für einen Kurzlink (`docs/kurzlink.md`) holt
+  Schrittmacher im Redirect-Repo den Stand per Fast-Forward, committet dort nur `_redirects` und
+  pusht; den QR-Code legt es im Worktree `werkstatt` ab und committet nur diese Datei.
 - Fenstergröße zum Prüfen: 1194 × 764 pt (Sidecar abzüglich Menü- und Titelleiste der Web-App)
 - Bedienung mit Maus oder Trackpad des MacBooks, nicht mit dem Pencil; mit dem Finger wird nur
   gescrollt.

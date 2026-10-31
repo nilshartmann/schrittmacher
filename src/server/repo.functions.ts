@@ -15,9 +15,11 @@ import { isOpenApp, openIn, openInBrowser } from './apps';
 import type { OpenApp } from './apps';
 import { createGist, gistIdOf, gistUrl, gistNameOf, gistTextOf, readGist, writeToGist } from './gist';
 import { createNotes } from './notes';
+import { addRedirect, checkPath, checkUrl, isLive, qrSvg, readDomain, readTalks, saveQr, werkstattOf } from './shortlink';
+import type { ShortlinkData, ShortlinkDomain } from './shortlink';
 import { shared } from './shared';
 import { createStore, defaultStoreDir, expandHome, sameView } from './store';
-import type { JsonValue, Projects, SavedGist, SavedView, Store, Tab, ViewSearch } from './store';
+import type { JsonValue, Projects, SavedGist, SavedShortlink, SavedView, Store, Tab, ViewSearch } from './store';
 
 /** Was der Server einmal beim Start einrichtet. */
 interface Setup {
@@ -416,6 +418,156 @@ export const openGist = createServerFn({ method: 'POST' })
   .validator((data: { id: string }) => ({ id: gistIdOf(text(data.id, 'id')) }))
   .handler(async ({ data }) => {
     await openInBrowser(gistUrl(data.id));
+  });
+
+/** Eine Adresse mit `http` oder `https`; der Server fragt nur solche ab. */
+function webUrl(value: unknown, name: string): string {
+  const url = text(value, name).trim();
+  if (!/^https?:\/\/[^\s]+$/.test(url)) {
+    throw new Error(`„${url}“ ist keine Adresse mit http oder https.`);
+  }
+  return url;
+}
+
+/** Das Redirect-Repo zur Domain, nur aus denen in `config.json`. */
+async function domainRepo(domain: string): Promise<ShortlinkDomain> {
+  const { store } = await server();
+  const domains = await Promise.all((await store.shortlinks()).redirects.map(readDomain));
+  const found = domains.find((candidate) => candidate.domain === domain);
+  if (found === undefined) {
+    throw new Error(`Für ${domain} steht kein Redirect-Repo in config.json.`);
+  }
+  return found;
+}
+
+/**
+ * Was der Dialog „Kurzlink anlegen“ braucht, siehe `docs/kurzlink.md`: die Veranstaltungen der
+ * Homepage, die Domains mit ihren Kurzlinks und ob das Repo des Worktrees einen Worktree
+ * `werkstatt` für den QR-Code hat. Eine Quelle, die fehlt oder scheitert, steht in `problems`.
+ */
+export const shortlinkData = createServerFn({ method: 'GET' })
+  .validator((data: { worktree: string | null }) => ({
+    worktree: data.worktree === null ? null : text(data.worktree, 'worktree'),
+  }))
+  .handler(async ({ data }): Promise<ShortlinkData> => {
+    const { store } = await server();
+    const config = await store.shortlinks();
+    const problems: string[] = [];
+    const failed = (failure: unknown) => {
+      problems.push(failure instanceof Error ? failure.message : String(failure));
+    };
+    if (config.homepage === null) {
+      problems.push('In config.json fehlt „homepage“, der Pfad zum Repo der Homepage.');
+    }
+    if (config.redirects.length === 0) {
+      problems.push('In config.json fehlt „redirects“, die Pfade der Redirect-Repos.');
+    }
+    const repoPath = data.worktree === null ? null : await access(data.worktree).then((found) => found.repoPath, () => null);
+    const [talks, domains, werkstatt] = await Promise.all([
+      config.homepage === null ? [] : readTalks(config.homepage).catch((failure: unknown) => (failed(failure), [])),
+      Promise.all(config.redirects.map((path) => readDomain(path).catch((failure: unknown) => (failed(failure), null)))),
+      repoPath === null ? null : werkstattOf(repoPath).catch(() => null),
+    ]);
+    return {
+      talks,
+      domains: domains
+        .filter((domain) => domain !== null)
+        .map(({ domain, baseUrl, redirects }) => ({ domain, baseUrl, redirects })),
+      werkstatt: werkstatt !== null,
+      assigned: repoPath === null ? [] : ((await store.state()).shortlinks[repoPath] ?? []),
+      problems,
+    };
+  });
+
+/** Der Status, mit dem das Ziel eines Kurzlinks antwortet; `null` ohne Antwort. */
+export const checkShortlinkTarget = createServerFn({ method: 'GET' })
+  .validator((data: { url: string }) => ({ url: webUrl(data.url, 'url') }))
+  .handler(({ data }) => checkUrl(data.url));
+
+/**
+ * Trägt den Kurzlink im Redirect-Repo der Domain ein und pusht, siehe `addRedirect`. Mit einem
+ * Worktree wird er dessen Repo zugeordnet.
+ */
+export const createShortlink = createServerFn({ method: 'POST' })
+  .validator((data: { worktree: string | null; domain: string; path: string; target: string }) => ({
+    worktree: data.worktree === null ? null : text(data.worktree, 'worktree'),
+    domain: text(data.domain, 'domain'),
+    path: checkPath(text(data.path, 'path')),
+    target: webUrl(data.target, 'target'),
+  }))
+  .handler(async ({ data }) => {
+    const domain = await domainRepo(data.domain);
+    await addRedirect(domain.repoPath, data.path, data.target);
+    const url = `${domain.baseUrl}/${data.path}`;
+    if (data.worktree !== null) {
+      const [{ repoPath }, { store }] = await Promise.all([access(data.worktree), server()]);
+      await store.addShortlink(repoPath, { url, target: data.target });
+    }
+    return url;
+  });
+
+/** Die Kurzlinks, die dem Repo des Worktrees zugeordnet sind, für das Repo-Menü. */
+export const repoShortlinks = createServerFn({ method: 'GET' })
+  .validator((data: { worktree: string }) => ({ worktree: text(data.worktree, 'worktree') }))
+  .handler(async ({ data }): Promise<SavedShortlink[]> => {
+    const [{ repoPath }, { store }] = await Promise.all([access(data.worktree), server()]);
+    return (await store.state()).shortlinks[repoPath] ?? [];
+  });
+
+/** Ordnet einen vorhandenen Kurzlink dem Repo des Worktrees zu. */
+export const assignShortlink = createServerFn({ method: 'POST' })
+  .validator((data: { worktree: string; url: string; target: string }) => ({
+    worktree: text(data.worktree, 'worktree'),
+    url: webUrl(data.url, 'url'),
+    target: webUrl(data.target, 'target'),
+  }))
+  .handler(async ({ data }) => {
+    const [{ repoPath }, { store }] = await Promise.all([access(data.worktree), server()]);
+    await store.addShortlink(repoPath, { url: data.url, target: data.target });
+  });
+
+/** Löst die Zuordnung eines Kurzlinks zum Repo des Worktrees. */
+export const unassignShortlink = createServerFn({ method: 'POST' })
+  .validator((data: { worktree: string; url: string }) => ({
+    worktree: text(data.worktree, 'worktree'),
+    url: webUrl(data.url, 'url'),
+  }))
+  .handler(async ({ data }) => {
+    const [{ repoPath }, { store }] = await Promise.all([access(data.worktree), server()]);
+    await store.removeShortlink(repoPath, data.url);
+  });
+
+/** Ob Netlify den Kurzlink schon ausliefert, also auf das Ziel weiterleitet. */
+export const shortlinkLive = createServerFn({ method: 'GET' })
+  .validator((data: { url: string; target: string }) => ({
+    url: webUrl(data.url, 'url'),
+    target: webUrl(data.target, 'target'),
+  }))
+  .handler(({ data }) => isLive(data.url, data.target));
+
+/** Der QR-Code für einen Kurzlink als SVG. */
+export const shortlinkQr = createServerFn({ method: 'GET' })
+  .validator((data: { url: string }) => ({ url: webUrl(data.url, 'url') }))
+  .handler(({ data }) => qrSvg(data.url));
+
+/**
+ * Legt den QR-Code des Kurzlinks im Worktree `werkstatt` des Repos ab und committet nur diese
+ * Datei. Liefert den Pfad der Datei im Worktree.
+ */
+export const saveShortlinkQr = createServerFn({ method: 'POST' })
+  .validator((data: { worktree: string; url: string }) => ({
+    worktree: text(data.worktree, 'worktree'),
+    url: webUrl(data.url, 'url'),
+  }))
+  .handler(async ({ data }) => {
+    const { repoPath } = await access(data.worktree);
+    const werkstatt = await werkstattOf(repoPath);
+    if (werkstatt === null) {
+      throw new Error('Das Repo hat keinen Worktree mit dem Branch werkstatt.');
+    }
+    const url = new URL(data.url);
+    const path = checkPath(url.pathname);
+    return saveQr(werkstatt, path, await qrSvg(data.url), `QR-Code für ${url.host}/${path}`);
   });
 
 /**

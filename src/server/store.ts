@@ -51,10 +51,27 @@ export interface SavedGist {
   description: string;
 }
 
+/** Ein Kurzlink, der einem Repo zugeordnet ist, siehe `docs/kurzlink.md`. */
+export interface SavedShortlink {
+  /** Der Kurzlink, etwa `https://spring.schule/wjax-2026`. */
+  url: string;
+  target: string;
+}
+
 /** Die Konfiguration in `config.json`, von Hand gepflegt. */
 interface Config {
   /** Die Verzeichnisse, in denen nach Repos gesucht wird; `~` steht für das Home-Verzeichnis. */
   roots: string[];
+  /** Das Repo der Homepage mit den Veranstaltungen, siehe `docs/kurzlink.md`. */
+  homepage?: string;
+  /** Die Redirect-Repos für Kurzlinks, eins je Domain. */
+  redirects?: string[];
+}
+
+/** Woher der Dialog „Kurzlink anlegen“ Veranstaltungen und Domains nimmt, mit aufgelöstem `~`. */
+export interface ShortlinkConfig {
+  homepage: string | null;
+  redirects: string[];
 }
 
 /** Der Zustand in `state.json`, vom Server geschrieben. */
@@ -77,6 +94,8 @@ export interface State {
   active: string | null;
   /** Die Gists je Repo, der zuletzt angelegte oder eingetragene zuerst. */
   gists: Record<string, SavedGist[]>;
+  /** Die Kurzlinks je Repo, der zuletzt angelegte oder zugeordnete zuerst. */
+  shortlinks: Record<string, SavedShortlink[]>;
 }
 
 /** Die Projekte mit dem Namen des aktiven, wie sie die Oberfläche bekommt und ändert. */
@@ -138,8 +157,12 @@ export function createStore(options: StoreOptions) {
       await writeJson(configFile, created);
       return created;
     }
-    const roots = isRecord(raw) && Array.isArray(raw.roots) ? raw.roots.filter(isString) : [];
-    return { roots };
+    const record = isRecord(raw) ? raw : {};
+    return {
+      roots: Array.isArray(record.roots) ? record.roots.filter(isString) : [],
+      homepage: isString(record.homepage) ? record.homepage : undefined,
+      redirects: Array.isArray(record.redirects) ? record.redirects.filter(isString) : undefined,
+    };
   }
 
   async function state(): Promise<State> {
@@ -163,6 +186,14 @@ export function createStore(options: StoreOptions) {
             Object.entries(record.gists).map(([repo, list]) => [repo, Array.isArray(list) ? list.filter(isSavedGist) : []]),
           )
         : {},
+      shortlinks: isRecord(record.shortlinks)
+        ? Object.fromEntries(
+            Object.entries(record.shortlinks).map(([repo, list]) => [
+              repo,
+              Array.isArray(list) ? list.filter(isSavedShortlink) : [],
+            ]),
+          )
+        : {},
     };
   }
 
@@ -175,6 +206,10 @@ export function createStore(options: StoreOptions) {
   return {
     /** Die Wurzeln mit aufgelöstem `~`. */
     roots: async () => (await config()).roots.map(expandHome),
+    shortlinks: async (): Promise<ShortlinkConfig> => {
+      const { homepage, redirects } = await config();
+      return { homepage: homepage === undefined ? null : expandHome(homepage), redirects: (redirects ?? []).map(expandHome) };
+    },
     state,
     /** Ob es noch keinen Zustand gibt, also beim allerersten Start. */
     isFresh: async () => (await readJson(stateFile)) === undefined,
@@ -208,6 +243,24 @@ export function createStore(options: StoreOptions) {
         gists: {
           ...current.gists,
           [repoPath]: (current.gists[repoPath] ?? []).map((other) => (other.id === gist.id ? gist : other)),
+        },
+      })),
+    /** Ordnet den Kurzlink dem Repo zu, als ersten, auch wenn er schon zugeordnet ist. */
+    addShortlink: (repoPath: string, shortlink: SavedShortlink) =>
+      update((current) => ({
+        ...current,
+        shortlinks: {
+          ...current.shortlinks,
+          [repoPath]: [shortlink, ...(current.shortlinks[repoPath] ?? []).filter((other) => other.url !== shortlink.url)],
+        },
+      })),
+    /** Löst die Zuordnung; der Kurzlink selbst bleibt im Redirect-Repo. */
+    removeShortlink: (repoPath: string, url: string) =>
+      update((current) => ({
+        ...current,
+        shortlinks: {
+          ...current.shortlinks,
+          [repoPath]: (current.shortlinks[repoPath] ?? []).filter((other) => other.url !== url),
         },
       })),
     addOpened: (repoPath: string) =>
@@ -254,6 +307,10 @@ function isTab(value: unknown): value is Tab {
 
 function isSavedGist(value: unknown): value is SavedGist {
   return isRecord(value) && isString(value.id) && isString(value.description);
+}
+
+function isSavedShortlink(value: unknown): value is SavedShortlink {
+  return isRecord(value) && isString(value.url) && isString(value.target);
 }
 
 function isProject(value: unknown): value is Project {

@@ -260,3 +260,15 @@ export function PlusIcon() {
     </Outline>
   );
 }
+
+/** Ein QR-Code: drei Quadrate in den Ecken und Punkte daneben, für den Kurzlink. */
+export function QrIcon() {
+  return (
+    <Outline size={14} width={1.3}>
+      <rect x="2.5" y="2.5" width="4" height="4" rx="0.5" />
+      <rect x="9.5" y="2.5" width="4" height="4" rx="0.5" />
+      <rect x="2.5" y="9.5" width="4" height="4" rx="0.5" />
+      <path d="M9.5 9.5h1.5M12.5 9.5h1M9.5 12v1.5M11.5 11.5h2v2" />
+    </Outline>
+  );
+}
