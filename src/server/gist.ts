@@ -14,10 +14,10 @@ export interface GistInfo {
 const MAX_OUTPUT = 16 * 1024 * 1024;
 
 /** Mit diesem Code beendet sich `gh`, wenn es nicht angemeldet ist. */
-const NOT_LOGGED_IN = 4;
+export const NOT_LOGGED_IN = 4;
 
 /** Die Orte von `gh`, falls es nicht im `PATH` des Servers liegt. */
-const GH_FALLBACKS = ['/opt/homebrew/bin/gh', '/usr/local/bin/gh'];
+export const GH_FALLBACKS = ['/opt/homebrew/bin/gh', '/usr/local/bin/gh'];
 
 /**
  * Ruft `gh api` mit `args` auf und liefert die Antwort als JSON. Mit `input` geht der Inhalt als

@@ -3076,6 +3076,8 @@ span.info-parent {
 /* Der Dialog „Kurzlink anlegen“ nimmt die Stile des Dialogs für Merge und Reset, siehe docs/kurzlink.md. */
 .shortlink-dialog {
   width: min(620px, calc(100vw - 32px));
+  /* Der Dialog steht im DOM in der Kopfleiste und erbte sonst deren `nowrap`. */
+  white-space: normal;
 }
 
 .shortlink-label {
@@ -3228,4 +3230,48 @@ span.info-parent {
 
 .shortlink-assigned {
   align-self: center;
+}
+
+/* Der Dialog „Veröffentlichen …“, siehe docs/veroeffentlichen.md: je Schritt Stand und Knopf. */
+.publish-dialog {
+  width: min(620px, calc(100vw - 32px));
+  /* Der Dialog steht im DOM in der Kopfleiste und erbte sonst deren `nowrap`. */
+  white-space: normal;
+}
+
+.publish-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--border-tree);
+}
+
+.publish-step-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.publish-step-text p {
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.publish-step-text .menu-input {
+  margin-top: 6px;
+}
+
+.publish-step-title {
+  font-weight: 600;
+}
+
+.publish-step-action {
+  flex: none;
+  padding-top: 2px;
+}
+
+.publish-repo {
+  font-family: var(--font-code);
+  font-size: 11.5px;
+  color: var(--text-primary);
 }

@@ -44,7 +44,10 @@ Frag vor jeder Bibliothek, die über TanStack, React, Vite und Lezer hinausgeht.
   den Worktree eines anderen Tabs. Nach außen schreibt außerdem das Hochladen einer Datei in einen
   Gist des Repos über `gh api` (`docs/gist.md`). Für einen Kurzlink (`docs/kurzlink.md`) holt
   Schrittmacher im Redirect-Repo den Stand per Fast-Forward, committet dort nur `_redirects` und
-  pusht; den QR-Code legt es im Worktree `werkstatt` ab und committet nur diese Datei.
+  pusht; den QR-Code legt es im Worktree `werkstatt` ab und committet nur diese Datei. Zum
+  Veröffentlichen (`docs/veroeffentlichen.md`) holt es den Stand des Teilnehmer-Repos, legt es
+  über `gh` an und schaltet seine Sichtbarkeit, pusht einzelne Branches dorthin, nach Freigabe
+  auch mit Force, und legt `live_coding` samt Worktree an.
 - Fenstergröße zum Prüfen: 1194 × 764 pt (Sidecar abzüglich Menü- und Titelleiste der Web-App)
 - Bedienung mit Maus oder Trackpad des MacBooks, nicht mit dem Pencil; mit dem Finger wird nur
   gescrollt.

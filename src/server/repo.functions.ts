@@ -15,6 +15,17 @@ import { isOpenApp, openIn, openInBrowser } from './apps';
 import type { OpenApp } from './apps';
 import { createGist, gistIdOf, gistUrl, gistNameOf, gistTextOf, readGist, writeToGist } from './gist';
 import { createNotes } from './notes';
+import {
+  PUBLISHED_BRANCHES,
+  createLiveCoding,
+  createParticipants,
+  publishBranch,
+  publishStatus,
+  pushPlan,
+  setVisibility,
+  titleOf,
+} from './publish';
+import type { PublishStatus, PublishedBranch, PushPlan } from './publish';
 import { addRedirect, checkPath, checkUrl, isLive, qrSvg, readDomain, readTalks, saveQr, werkstattOf } from './shortlink';
 import type { ShortlinkData, ShortlinkDomain } from './shortlink';
 import { shared } from './shared';
@@ -419,6 +430,72 @@ export const openGist = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     await openInBrowser(gistUrl(data.id));
   });
+
+/** Einer der Branches, die an die Teilnehmer gehen. */
+function publishedBranch(value: unknown): PublishedBranch {
+  const found = PUBLISHED_BRANCHES.find((branch) => branch === value);
+  if (found === undefined) {
+    throw new Error(`An die Teilnehmer gehen nur ${PUBLISHED_BRANCHES.join(', ')}.`);
+  }
+  return found;
+}
+
+/** Wie weit das Veröffentlichen für die Teilnehmer ist, siehe `docs/veroeffentlichen.md`. */
+export const loadPublishStatus = createServerFn({ method: 'GET' })
+  .validator((data: { worktree: string }) => ({ worktree: text(data.worktree, 'worktree') }))
+  .handler(async ({ data }): Promise<PublishStatus> => publishStatus((await access(data.worktree)).repoPath));
+
+/** Legt das Teilnehmer-Repo privat an, mit der Überschrift aus `WORKSHOP.md` als Beschreibung. */
+export const createParticipantRepo = createServerFn({ method: 'POST' })
+  .validator((data: { worktree: string; name: string }) => ({
+    worktree: text(data.worktree, 'worktree'),
+    name: text(data.name, 'name').trim(),
+  }))
+  .handler(async ({ data }) => {
+    const { repoPath } = await access(data.worktree);
+    await createParticipants(repoPath, data.name, await titleOf(repoPath));
+  });
+
+/** Schaltet das Teilnehmer-Repo öffentlich oder privat. */
+export const switchParticipantVisibility = createServerFn({ method: 'POST' })
+  .validator((data: { worktree: string; visibility: 'public' | 'private' }) => {
+    if (data.visibility !== 'public' && data.visibility !== 'private') {
+      throw new Error('Die Sichtbarkeit ist weder public noch private.');
+    }
+    return { worktree: text(data.worktree, 'worktree'), visibility: data.visibility };
+  })
+  .handler(async ({ data }) => {
+    const status = await publishStatus((await access(data.worktree)).repoPath);
+    if (status.repo === null) {
+      throw new Error('Es gibt noch kein Teilnehmer-Repo auf GitHub.');
+    }
+    await setVisibility(status.repo, data.visibility);
+  });
+
+/** Was der Push eines Branches an die Teilnehmer bewirken würde, für die Bestätigung. */
+export const loadPushPlan = createServerFn({ method: 'GET' })
+  .validator((data: { worktree: string; branch: string }) => ({
+    worktree: text(data.worktree, 'worktree'),
+    branch: publishedBranch(data.branch),
+  }))
+  .handler(async ({ data }): Promise<PushPlan> => pushPlan((await access(data.worktree)).repoPath, data.branch));
+
+/** Pusht einen Branch an die Teilnehmer, mit `force` nur gegen den bestätigten Stand. */
+export const publishToParticipants = createServerFn({ method: 'POST' })
+  .validator((data: { worktree: string; branch: string; force: boolean; expected: string | null }) => ({
+    worktree: text(data.worktree, 'worktree'),
+    branch: publishedBranch(data.branch),
+    force: data.force === true,
+    expected: data.expected === null ? null : text(data.expected, 'expected'),
+  }))
+  .handler(async ({ data }) => {
+    await publishBranch((await access(data.worktree)).repoPath, data.branch, data.force, data.expected);
+  });
+
+/** Legt `live_coding` aus `main` an, veröffentlicht den Branch und liefert seinen Worktree. */
+export const startLiveCoding = createServerFn({ method: 'POST' })
+  .validator((data: { worktree: string }) => ({ worktree: text(data.worktree, 'worktree') }))
+  .handler(async ({ data }) => createLiveCoding((await access(data.worktree)).repoPath));
 
 /** Eine Adresse mit `http` oder `https`; der Server fragt nur solche ab. */
 function webUrl(value: unknown, name: string): string {

@@ -35,6 +35,7 @@ import {
 import { CopyIcon, subAnchorOf } from './HoverTools';
 import type { SubAnchor } from './HoverTools';
 import { ProjectOpenMenu } from './Projects';
+import { PublishDialog } from './PublishDialog';
 import { copyQr, ShortlinkDialog } from './ShortlinkDialog';
 import { Menu, MenuDivider, MenuItem, MenuNote, MenuSection, MenuWhere, NewTabButton, TrackingBadge } from './Menu';
 import { CloseButton, sameTab, TabsContext } from './Tabs';
@@ -147,6 +148,7 @@ export function RepoMenu({
   // Der Dialog steht neben dem Menü, weil das Menü sich beim Öffnen des Dialogs schließt. Mit
   // `initial` beginnt er mit dem QR-Code eines zugeordneten Kurzlinks.
   const [shortlink, setShortlink] = useState<{ initial: SavedShortlink | null } | null>(null);
+  const [publish, setPublish] = useState(false);
   return (
     <>
       <Menu
@@ -174,11 +176,22 @@ export function RepoMenu({
             onShortlink={(initial) => {
               setShortlink({ initial });
             }}
+            onPublish={() => {
+              setPublish(true);
+            }}
             root={root}
             onRoot={onRoot}
           />
         )}
       </Menu>
+      {publish && info !== null && (
+        <PublishDialog
+          worktree={info.worktreePath}
+          onClose={() => {
+            setPublish(false);
+          }}
+        />
+      )}
       {shortlink !== null && (
         <ShortlinkDialog
           worktree={info?.worktreePath ?? null}
@@ -363,6 +376,7 @@ function RepoList({
   close,
   onShow,
   onShortlink,
+  onPublish,
   root: chosenRoot,
   onRoot,
 }: {
@@ -371,6 +385,8 @@ function RepoList({
   onShow: (view: ViewSearch) => void;
   /** Öffnet den Dialog „Kurzlink anlegen“, siehe `docs/kurzlink.md`; mit einem Kurzlink dessen QR-Code. */
   onShortlink: (initial: SavedShortlink | null) => void;
+  /** Öffnet den Dialog „Veröffentlichen …“, siehe `docs/veroeffentlichen.md`. */
+  onPublish: () => void;
 } & RootProps) {
   const current = info?.repoPath ?? null;
   const tabActions = useContext(TabsContext);
@@ -523,6 +539,19 @@ function RepoList({
           {/* Die Zeile öffnet das Untermenü beim Überfahren und beim Klick; der Eintrag selbst tut nichts. */}
           <MenuItem main="Projekte" icon={<ProjectIcon />} aside="›" onChoose={() => {}} />
         </div>
+        {info !== null && (
+          <div className="menu-row" onMouseEnter={closeProjects}>
+            <MenuItem
+              main="Veröffentlichen …"
+              icon={<CloudIcon />}
+              tip="Teilnehmer-Repo, Startpunkt, live_coding und Musterlösungen"
+              onChoose={() => {
+                close();
+                onPublish();
+              }}
+            />
+          </div>
+        )}
         <div className="menu-row" onMouseEnter={closeProjects}>
           <MenuItem
             main="Kurzlink anlegen …"

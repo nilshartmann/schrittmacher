@@ -52,7 +52,9 @@ ausgewählt, auch wenn noch lokale Änderungen übrig sind.
 
 - Jeder Commit wird sofort gepusht. Mit „Force-Push“ läuft der Push mit `--force-with-lease`.
 - Hat der Branch noch kein Ziel auf dem Remote, pusht Schrittmacher mit `-u origin <branch>`.
-- Vorausgesetzt wird genau ein Remote `origin`. Andere Fälle werden vorerst nicht behandelt.
+- Gepusht wird an das Remote, dem der Branch folgt. Legt „Veröffentlichen …“ den Branch
+  `live_coding` an (`docs/veroeffentlichen.md`), folgt er dem Teilnehmer-Repo, und jeder Push geht
+  direkt an die Teilnehmer. Ohne Ziel pusht Schrittmacher an `origin`.
 - Scheitert der Push, etwa ohne Netz, bleibt der Commit bestehen. Schrittmacher zeigt die Meldung
   von Git und einen Knopf, mit dem sich der Push wiederholen lässt.
 - Ein gelungener Push wird kurz unter der Dateiliste gemeldet.
