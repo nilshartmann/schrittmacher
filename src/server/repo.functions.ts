@@ -649,7 +649,8 @@ export const saveShortlinkQr = createServerFn({ method: 'POST' })
 
 /**
  * Öffnet den Worktree in einem Programm auf dem Mac, etwa im Terminal oder in Fork. Mit `path`
- * öffnen Terminal und ForkLift den Ordner dieser Datei im Worktree; Fork kennt nur ganze Repos.
+ * öffnen Terminal und ForkLift den Ordner dieser Datei im Worktree; Fork kennt nur ganze Repos, und
+ * Claude Code startet immer im Worktree, damit es dessen `CLAUDE.md` findet.
  */
 export const openWorktreeIn = createServerFn({ method: 'POST' })
   .validator((data: { worktree: string; app: OpenApp; path?: string }) => {
@@ -661,7 +662,7 @@ export const openWorktreeIn = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     const { worktreePath } = await access(data.worktree);
     const place =
-      data.path === undefined || data.app === 'fork' ? worktreePath : await folderInWorktree(worktreePath, data.path);
+      data.path === undefined || data.app === 'fork' || data.app === 'claude' ? worktreePath : await folderInWorktree(worktreePath, data.path);
     await openIn(data.app, place);
   });
 

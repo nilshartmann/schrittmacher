@@ -6,12 +6,13 @@ import { CopyIcon, CopyToIcon, CopyToMenu, subAnchorOf } from './HoverTools';
 import type { CopyTarget, SubAnchor } from './HoverTools';
 import { GistDialog } from './GistMenu';
 import type { GistCopy, GistRequest } from './GistMenu';
-import { CloseIcon, FolderIcon, GitClientIcon, TerminalIcon } from './Icons';
+import { ClaudeIcon, CloseIcon, FolderIcon, GitClientIcon, TerminalIcon } from './Icons';
 import { ContextMenu, MenuItem, MenuNote } from './Menu';
 
 /** Die Programme im Kontextmenü, in der Reihenfolge, in der sie dort stehen. */
 const OPEN_ENTRIES: { app: OpenApp; label: string; icon: ReactNode }[] = [
   { app: 'terminal', label: 'Im Terminal öffnen', icon: <TerminalIcon /> },
+  { app: 'claude', label: 'In Claude Code öffnen', icon: <ClaudeIcon /> },
   { app: 'forklift', label: 'In ForkLift öffnen', icon: <FolderIcon /> },
   { app: 'fork', label: 'In Fork öffnen', icon: <GitClientIcon /> },
 ];
@@ -26,7 +27,7 @@ export interface MenuCopyTo {
 
 /**
  * Das Kontextmenü, das einen Worktree in einem Programm auf dem Mac öffnet. Mit `path` öffnen
- * Terminal und ForkLift den Ordner dieser Datei, Fork bleibt beim Worktree. Das Menü schließt,
+ * Terminal und ForkLift den Ordner dieser Datei, Claude Code und Fork bleiben beim Worktree. Das Menü schließt,
  * sobald das Programm gestartet ist; scheitert das, bleibt es mit der Meldung offen. Unter den
  * Programmen stehen die Einträge aus `copies`, die einen Text in die Zwischenablage legen, mit
  * `copyTo` ein Untermenü, das die Datei in einen anderen Tab oder einen Gist kopiert; für einen Gist

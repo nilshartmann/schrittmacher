@@ -53,6 +53,15 @@ export function TerminalIcon() {
   );
 }
 
+/** Ein Funke aus vier Strahlen: in Claude Code öffnen. */
+export function ClaudeIcon() {
+  return (
+    <Outline size={15}>
+      <path d="M8 2v4M8 10v4M2 8h4M10 8h4M3.8 3.8l2.4 2.4M9.8 9.8l2.4 2.4M12.2 3.8 9.8 6.2M6.2 9.8l-2.4 2.4" />
+    </Outline>
+  );
+}
+
 /** Ein Graph mit Abzweig wie in einem Git-Client: in Fork öffnen. */
 export function GitClientIcon() {
   return (
