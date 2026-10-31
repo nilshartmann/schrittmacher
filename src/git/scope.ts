@@ -10,8 +10,8 @@ export type BranchScope = 'branch' | 'remote' | 'workshop' | 'all';
 
 const SCOPES: readonly BranchScope[] = ['branch', 'remote', 'workshop', 'all'];
 
-/** Die lokalen Branches eines Workshops, in der Reihenfolge des Menüs. */
-export const WORKSHOP_BRANCHES = ['main', 'schritte', 'live_coding'];
+/** Die lokalen Branches eines Workshops mit der Probe (`docs/werkstatt.md`), in der Reihenfolge des Menüs. */
+export const WORKSHOP_BRANCHES = ['main', 'schritte', 'live_coding', 'probe'];
 
 /** Die gespeicherte Wahl; eine ältere Einstellung `allBranches` gilt als `all`. */
 export function branchScopeOf(settings: Record<string, unknown>): BranchScope {
