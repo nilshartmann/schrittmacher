@@ -23,7 +23,27 @@ export function isOpenApp(value: unknown): value is OpenApp {
  * Argument an; nur für Claude Code steht er gequotet im Befehl, den iTerm in die Shell schreibt.
  */
 export function openIn(app: OpenApp, path: string): Promise<void> {
-  const [command, args] = app === 'claude' ? ['osascript', claudeScript(path)] : ['open', ['-a', APP_NAMES[app], path]];
+  return app === 'claude'
+    ? run('osascript', claudeScript(`cd ${quoted(path)} && claude`), app)
+    : run('open', ['-a', APP_NAMES[app], path], app);
+}
+
+/**
+ * Startet Claude Code im Ordner wie `openIn` und schickt gleich einen Prompt ab. Der Prompt steht
+ * in einer Datei, weil iTerm jeden Zeilenumbruch im Befehl als Return tippen würde. Mit `addDir`
+ * darf Claude auch dort lesen, etwa die Hinweise im Speicher.
+ */
+export function openClaude(path: string, start: { promptFile: string; addDir: string }): Promise<void> {
+  const command = `cd ${quoted(path)} && claude --add-dir ${quoted(start.addDir)} "$(cat ${quoted(start.promptFile)})"`;
+  return run('osascript', claudeScript(command), 'claude');
+}
+
+/** Ein Text in einfachen Anführungszeichen für die Shell. */
+function quoted(text: string): string {
+  return `'${text.replaceAll("'", "'\\''")}'`;
+}
+
+function run(command: string, args: string[], app: OpenApp): Promise<void> {
   return new Promise((resolve, reject) => {
     execFile(command, args, (error, _stdout, stderr) => {
       if (error !== null) {
@@ -36,12 +56,11 @@ export function openIn(app: OpenApp, path: string): Promise<void> {
 }
 
 /**
- * Die Argumente für `osascript`, die ein neues Fenster in iTerm öffnen und darin `claude` im Ordner
- * starten. Startet iTerm erst, nimmt das Skript dessen erstes Fenster, statt ein zweites zu öffnen.
- * Der Befehl kommt als Argument an, nicht im Text des Skripts.
+ * Die Argumente für `osascript`, die ein neues Fenster in iTerm öffnen und darin den Befehl
+ * ausführen. Startet iTerm erst, nimmt das Skript dessen erstes Fenster, statt ein zweites zu
+ * öffnen. Der Befehl kommt als Argument an, nicht im Text des Skripts.
  */
-function claudeScript(path: string): string[] {
-  const quoted = `'${path.replaceAll("'", "'\\''")}'`;
+function claudeScript(command: string): string[] {
   return [
     '-e', 'on run argv',
     '-e', 'tell application "iTerm"',
@@ -55,7 +74,7 @@ function claudeScript(path: string): string[] {
     '-e', 'tell current session of target to write text (item 1 of argv)',
     '-e', 'end tell',
     '-e', 'end run',
-    '--', `cd ${quoted} && claude`,
+    '--', command,
   ];
 }
 

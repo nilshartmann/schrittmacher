@@ -6,7 +6,8 @@ import { commitHeading, compareNotes, linesLabel, noteHeading } from '../notes/n
 import type { Note, NoteInput, NoteLines, Notes } from '../notes/notes';
 import { deleteNotes, loadNotes, saveNote } from '../server/repo.functions';
 import { WidthSplitter } from './FileList';
-import { TrashIcon } from './Icons';
+import { ClaudeIcon, TrashIcon } from './Icons';
+import { NotesClaudeDialog } from './NotesClaude';
 
 /** Die Grenzen der Breite der Spalte mit den Hinweisen in Pixeln; der Rest bleibt mindestens für den Diff. */
 export const NOTES_WIDTH = { min: 220, start: 280, restMin: 400 };
@@ -106,6 +107,9 @@ function commitLabel(note: { step: string | null; title: string }): string {
 }
 
 interface NotesColumnProps {
+  /** Worktree und Branch des Tabs, für „In Claude bearbeiten“. */
+  worktree: string;
+  branch: string;
   notes: Note[];
   commits: Commit[];
   /** Der gewählte Commit; ohne einen, etwa bei den lokalen Änderungen, `null`. */
@@ -140,6 +144,8 @@ interface NotesColumnProps {
 export function NotesColumn(props: NotesColumnProps) {
   const { notes, commits, sha, draft } = props;
   const [all, setAll] = useState(false);
+  // Der Dialog „In Claude bearbeiten“, mit `id` für einen einzelnen Hinweis.
+  const [claude, setClaude] = useState<{ id?: string } | null>(null);
   const ofCommit = notes.filter((note) => sha !== null && commitOfNote(note, commits)?.sha === sha);
   const shown = all ? notes : ofCommit;
   // Alle Hinweise nach Commit, in der Reihenfolge der Historie; Commits, die es nicht mehr gibt, am Ende.
@@ -219,6 +225,9 @@ export function NotesColumn(props: NotesColumnProps) {
                   onRemove={props.onRemove}
                   onActive={props.onActive}
                   onShow={props.onShow}
+                  onClaude={() => {
+                    setClaude({ id: note.id });
+                  }}
                 />
               </Fragment>
             );
@@ -234,8 +243,26 @@ export function NotesColumn(props: NotesColumnProps) {
           )}
         </div>
         {props.error !== null && <p className="notes-error">{props.error}</p>}
-        <NotesFooter file={props.file} markdown={props.markdown} count={notes.length} onClear={props.onClear} />
+        <NotesFooter
+          file={props.file}
+          markdown={props.markdown}
+          count={notes.length}
+          onClear={props.onClear}
+          onClaude={() => {
+            setClaude({});
+          }}
+        />
       </aside>
+      {claude !== null && (
+        <NotesClaudeDialog
+          worktree={props.worktree}
+          branch={props.branch}
+          id={claude.id}
+          onClose={() => {
+            setClaude(null);
+          }}
+        />
+      )}
     </>
   );
 }
@@ -371,6 +398,7 @@ function NoteCard({
   onRemove,
   onActive,
   onShow,
+  onClaude,
 }: {
   note: Note;
   size: FieldSize;
@@ -382,6 +410,8 @@ function NoteCard({
   onRemove: (id: string) => Promise<void>;
   onActive: (id: string | null) => void;
   onShow: (note: Note) => void;
+  /** Öffnet den Dialog „In Claude bearbeiten“ für diesen Hinweis. */
+  onClaude: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   return (
@@ -405,6 +435,15 @@ function NoteCard({
           }}
         >
           <NoteHead note={note} withCommit={false} />
+        </button>
+        <button
+          type="button"
+          className="hover-tool note-claude"
+          aria-label="Hinweis in Claude bearbeiten"
+          data-tip="Hinweis in Claude bearbeiten …"
+          onClick={onClaude}
+        >
+          <ClaudeIcon />
         </button>
         <button
           type="button"
@@ -604,11 +643,14 @@ function NotesFooter({
   markdown,
   count,
   onClear,
+  onClaude,
 }: {
   file: string;
   markdown: string;
   count: number;
   onClear: () => Promise<void>;
+  /** Öffnet den Dialog „In Claude bearbeiten“ für alle Hinweise. */
+  onClaude: () => void;
 }) {
   const [copied, setCopied] = useState<'markdown' | 'path' | null>(null);
   const [confirm, setConfirm] = useState(false);
@@ -659,6 +701,15 @@ function NotesFooter({
           }}
         >
           {copied === 'path' ? 'Kopiert' : 'Pfad'}
+        </button>
+        <button
+          type="button"
+          className="tool tool-small"
+          disabled={count === 0}
+          data-tip="Alle Hinweise in Claude Code bearbeiten, mit Prompt und Hinweisen zum Anpassen"
+          onClick={onClaude}
+        >
+          In Claude …
         </button>
         <button
           type="button"

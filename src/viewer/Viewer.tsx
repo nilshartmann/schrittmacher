@@ -682,6 +682,8 @@ export function Viewer({ view, search, onSearch, onOpen, onShow, tabs }: ViewerP
         </section>
         {settings.notesOpen && (
           <NotesColumn
+            worktree={worktree}
+            branch={branch}
             notes={notes.notes}
             commits={repo.commits}
             sha={noteCommit?.sha ?? null}

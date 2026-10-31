@@ -85,7 +85,28 @@ export function createNotes(dir: string) {
       }),
     remove: (repoPath: string, id: string) => update(repoPath, (notes) => notes.filter((note) => note.id !== id)),
     clear: (repoPath: string) => update(repoPath, () => []),
+    /**
+     * Schreibt die Hinweise, wie sie im Dialog stehen, für eine Session von Claude Code in eigene
+     * Dateien im Ordner `claude`, je Aufruf mit Zeitstempel. Die Hinweise selbst bleiben unverändert.
+     * Die Datei mit dem Prompt beginnt mit dem Auftrag, die Hinweise zu lesen.
+     */
+    forClaude: async (repoPath: string, markdown: string, prompt: string) => {
+      const dir = join(folder, 'claude');
+      await mkdir(dir, { recursive: true });
+      const base = join(dir, `${baseName(repoPath)}-${stampOf(new Date())}`);
+      const file = `${base}.md`;
+      const promptFile = `${base}.prompt.txt`;
+      await write(file, markdown);
+      await write(promptFile, `Lies ${file}.\n\n${prompt.trim()}\n`);
+      return { dir, file, promptFile };
+    },
   };
+}
+
+/** Datum und Uhrzeit für einen Dateinamen, etwa `2026-10-31-174512`. */
+function stampOf(date: Date): string {
+  const two = (value: number) => String(value).padStart(2, '0');
+  return `${String(date.getFullYear())}-${two(date.getMonth() + 1)}-${two(date.getDate())}-${two(date.getHours())}${two(date.getMinutes())}${two(date.getSeconds())}`;
 }
 
 export type NotesStore = ReturnType<typeof createNotes>;

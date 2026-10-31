@@ -10,8 +10,8 @@ import { changedAt, findRepos, foldersOf } from '../git/repos';
 import { branchScopeOf } from '../git/scope';
 import type { RepoEntry, RepoFolder } from '../git/repos';
 import type { SyncAction } from '../git/types';
-import { noteInputOf } from '../notes/notes';
-import { isOpenApp, openIn, openInBrowser } from './apps';
+import { markdownOf, noteInputOf } from '../notes/notes';
+import { isOpenApp, openClaude, openIn, openInBrowser } from './apps';
 import type { OpenApp } from './apps';
 import { createGist, gistIdOf, gistUrl, gistNameOf, gistTextOf, readGist, writeToGist } from './gist';
 import { createNotes } from './notes';
@@ -788,6 +788,50 @@ export const deleteNotes = createServerFn({ method: 'POST' })
     const { repoPath } = await access(data.worktree);
     const notes = await notesStore();
     return data.id === undefined ? notes.clear(repoPath) : notes.remove(repoPath, data.id);
+  });
+
+/**
+ * Der Ordner, in dem Claude Code die Hinweise bearbeitet: in einer Werkstatt der Worktree von
+ * `werkstatt`, weil Claude Code nur dort ihre `CLAUDE.md` findet, sonst der Worktree selbst.
+ */
+async function claudeFolder(worktree: string): Promise<{ repoPath: string; cwd: string }> {
+  const { repoPath, worktreePath } = await access(worktree);
+  const status = await werkstattStatus(repoPath);
+  const werkstatt = status?.rows.find((row) => row.branch === 'werkstatt')?.worktree ?? null;
+  return { repoPath, cwd: werkstatt ?? worktreePath };
+}
+
+/**
+ * Was der Dialog „In Claude bearbeiten“ vorschlägt: den Ordner, in dem Claude Code startet, und die
+ * Hinweise als Markdown, mit `id` nur diesen einen.
+ */
+export const notesForClaude = createServerFn({ method: 'GET' })
+  .validator((data: { worktree: string; id?: string }) => ({
+    worktree: text(data.worktree, 'worktree'),
+    id: optionalText(data.id),
+  }))
+  .handler(async ({ data }) => {
+    const { repoPath, cwd } = await claudeFolder(data.worktree);
+    const { notes } = await (await notesStore()).load(repoPath);
+    const chosen = data.id === undefined ? notes : notes.filter((note) => note.id === data.id);
+    return { cwd, markdown: markdownOf(repoPath, chosen) };
+  });
+
+/**
+ * Legt die Hinweise aus dem Dialog als eigene Datei ab und startet Claude Code mit dem Prompt, siehe
+ * `docs/hinweise.md`. Liefert den Pfad der Datei.
+ */
+export const openNotesInClaude = createServerFn({ method: 'POST' })
+  .validator((data: { worktree: string; prompt: string; markdown: string }) => ({
+    worktree: text(data.worktree, 'worktree'),
+    prompt: text(data.prompt, 'prompt'),
+    markdown: text(data.markdown, 'markdown'),
+  }))
+  .handler(async ({ data }) => {
+    const { repoPath, cwd } = await claudeFolder(data.worktree);
+    const saved = await (await notesStore()).forClaude(repoPath, data.markdown, data.prompt);
+    await openClaude(cwd, { promptFile: saved.promptFile, addDir: saved.dir });
+    return saved.file;
   });
 
 /** Wo ein Ziel zum Kopieren liegt, vom Repo der Quelle aus gesehen. */

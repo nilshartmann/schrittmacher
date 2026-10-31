@@ -29,6 +29,26 @@ steht hinter dem Titel eines Commits die Zahl seiner Hinweise.
 Unter der Spalte steht die Markdown-Datei. Ihr Inhalt und ihr Pfad lassen sich von dort in die
 Zwischenablage kopieren. Der Papierkorb löscht nach einer Rückfrage alle Hinweise des Repos.
 
+## In Claude bearbeiten
+
+„In Claude …“ unter der Spalte öffnet einen Dialog für alle Hinweise des Repos, der Knopf mit dem
+Funken an einem Hinweis einen für diesen einen. Der Dialog nennt den Ordner, in dem Claude Code
+startet, und den Branch des Tabs. Darunter stehen zwei Felder, die sich vor dem Start anpassen
+lassen:
+
+- der Prompt, vorbelegt mit dem Branch und dem Auftrag, jeden Hinweis gegen seinen Commit zu prüfen,
+  einen Weg vorzuschlagen und noch nichts umzusetzen
+- die Hinweise als Markdown, wie sie auch in der Datei stehen
+
+„In Claude öffnen“ legt die Hinweise aus dem Dialog als eigene Datei im Ordner `claude` neben den
+Hinweisen ab, je Aufruf mit Zeitstempel im Namen. Daneben liegt der Prompt, dem Schrittmacher
+„Lies <Datei>.“ voranstellt. Die Hinweise selbst bleiben unverändert, eine Änderung im Dialog gilt
+nur für diesen Aufruf. Danach öffnet sich ein Fenster in iTerm, und Claude Code startet dort mit dem
+Prompt, der sofort abgeschickt wird. Lesen darf es den Ordner `claude` über `--add-dir`.
+
+Claude Code startet in einer Werkstatt im Worktree von `werkstatt`, weil es nur dort deren
+`CLAUDE.md` findet (`docs/werkstatt.md`), sonst im Worktree des Tabs.
+
 ## Regeln
 
 - Ein Hinweis gehört zu dem Commit, bis zu dem der Vergleich reicht. Zu den lokalen Änderungen
