@@ -34,7 +34,8 @@ export function openIn(app: OpenApp, path: string): Promise<void> {
  * darf Claude auch dort lesen, etwa die Hinweise im Speicher.
  */
 export function openClaude(path: string, start: { promptFile: string; addDir: string }): Promise<void> {
-  const command = `cd ${quoted(path)} && claude --add-dir ${quoted(start.addDir)} "$(cat ${quoted(start.promptFile)})"`;
+  // Der Prompt steht vor `--add-dir`, weil die Option mehrere Ordner nimmt und ihn sonst als Ordner liest.
+  const command = `cd ${quoted(path)} && claude "$(cat ${quoted(start.promptFile)})" --add-dir ${quoted(start.addDir)}`;
   return run('osascript', claudeScript(command), 'claude');
 }
 
