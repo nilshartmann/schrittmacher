@@ -10,7 +10,7 @@ import {
   startProbe,
 } from '../server/repo.functions';
 import type { ProbePlan, WerkstattRow, WerkstattStatus } from '../server/werkstatt';
-import { ClaudeIcon, CloudIcon, QrIcon, TerminalIcon, TrashIcon, WorkshopIcon } from './Icons';
+import { ChevronIcon, ClaudeIcon, CloudIcon, QrIcon, TerminalIcon, TrashIcon, WorkshopIcon } from './Icons';
 import { ContextMenu, Menu, MenuItem, MenuNote } from './Menu';
 import { PublishDialog } from './PublishDialog';
 import { ShortlinkDialog } from './ShortlinkDialog';
@@ -69,10 +69,15 @@ export function WerkstattMenu({
   return (
     <>
       <Menu
-        button={<WorkshopIcon />}
+        button={
+          <>
+            <WorkshopIcon />
+            <ChevronIcon open size={8} />
+          </>
+        }
         label="Werkstatt"
         tip="Werkstatt"
-        className="bar-tool"
+        className="bar-tool bar-menu"
         panelClassName="menu-panel-werkstatt"
       >
         {(close) => {
