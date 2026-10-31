@@ -17,10 +17,12 @@ import {
   copyTargets,
   copyToGist,
   createRepoGist,
+  loadWerkstatt,
   pushBranch,
   repoGists,
 } from '../server/repo.functions';
 import type { CopyPlace } from '../server/repo.functions';
+import type { WerkstattStatus } from '../server/werkstatt';
 import type { Tab, ViewSearch } from '../server/store';
 import { CommitList } from './CommitList';
 import { SyncMenu } from './SyncMenu';
@@ -41,6 +43,8 @@ import { useRepoChanges } from './useRepoChanges';
 import type { Layout } from './Header';
 import { TabsContext, whereInMenu } from './Tabs';
 import { ScopeMenu, WhereMenus } from './ViewMenus';
+import { ProbeMenu, WerkstattMenu } from './WerkstattMenu';
+import type { ProbeTarget } from './WerkstattMenu';
 import type { OpenView } from './ViewMenus';
 
 const NO_GAPS: ReadonlyMap<string, ReadonlySet<number>> = new Map();
@@ -217,6 +221,33 @@ export function Viewer({ view, search, onSearch, onOpen, onShow, tabs }: ViewerP
   const [focus, setFocus] = useState<LineFocus | null>(null);
   // Der Branch, dessen Abstand zum Remote gerade Merge und Reset anbietet, mit der Stelle des Badges.
   const [syncing, setSyncing] = useState<{ branch: string; at: DOMRect } | null>(null);
+
+  // Der Stand der Werkstatt, wenn das Repo eine ist, siehe `docs/werkstatt.md`. Er wird neu geladen,
+  // sobald sich die Branches ändern, und nach jeder Aktion im Menü.
+  const [werkstatt, setWerkstatt] = useState<{ worktree: string; status: WerkstattStatus } | null>(null);
+  const [werkstattLoads, setWerkstattLoads] = useState(0);
+  const refsKey = repo.refs.map((ref) => `${ref.name} ${ref.sha}`).join('\n');
+  useEffect(() => {
+    let live = true;
+    loadWerkstatt({ data: { worktree } }).then(
+      (status) => {
+        if (live) {
+          setWerkstatt(status === null ? null : { worktree, status });
+        }
+      },
+      (failure: unknown) => {
+        console.error('Der Stand der Werkstatt ließ sich nicht laden.', failure);
+      },
+    );
+    return () => {
+      live = false;
+    };
+  }, [worktree, refsKey, werkstattLoads]);
+  const reloadWerkstatt = () => {
+    setWerkstattLoads((count) => count + 1);
+  };
+  const werkstattStatus = werkstatt?.worktree === worktree ? werkstatt.status : null;
+  const [probing, setProbing] = useState<{ target: ProbeTarget; at: { x: number; y: number } } | null>(null);
   const closeSync = useCallback(() => {
     setSyncing(null);
   }, []);
@@ -415,6 +446,11 @@ export function Viewer({ view, search, onSearch, onOpen, onShow, tabs }: ViewerP
           setActiveNote(null);
         }}
         notesCount={notes.notes.length}
+        werkstatt={
+          werkstattStatus === null ? undefined : (
+            <WerkstattMenu worktree={worktree} status={werkstattStatus} onChanged={reloadWerkstatt} />
+          )
+        }
       />
       <CommitList
         commits={repo.commits}
@@ -438,7 +474,31 @@ export function Viewer({ view, search, onSearch, onOpen, onShow, tabs }: ViewerP
         }}
         noted={settings.notesOpen ? noted : undefined}
         authorDate={settings.authorDate}
+        onProbe={
+          werkstattStatus === null
+            ? undefined
+            : (commit, at) => {
+                setProbing({
+                  target: { sha: commit.sha, label: commit.step === null ? commit.title : `${commit.step}: ${commit.title}` },
+                  at,
+                });
+              }
+        }
+        probing={probing?.target.sha ?? null}
       />
+      {probing !== null && werkstattStatus !== null && (
+        <ProbeMenu
+          key={probing.target.sha}
+          worktree={worktree}
+          status={werkstattStatus}
+          target={probing.target}
+          at={probing.at}
+          onDone={reloadWerkstatt}
+          onClose={() => {
+            setProbing(null);
+          }}
+        />
+      )}
       {syncing !== null && (
         <SyncMenu
           key={`${worktree}\n${syncing.branch}`}

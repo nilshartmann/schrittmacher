@@ -70,7 +70,7 @@ async function gh(args: string[]): Promise<string> {
 }
 
 /** Wie `runGit`, liefert bei einem Fehler aber `null`, etwa für einen Branch, den es nicht gibt. */
-async function maybe(repoPath: string, args: string[]): Promise<string | null> {
+export async function maybe(repoPath: string, args: string[]): Promise<string | null> {
   try {
     return (await runGit(repoPath, args)).trim();
   } catch {
@@ -95,8 +95,8 @@ async function suggestionOf(repoPath: string): Promise<string> {
   return origin === null ? '' : origin.replace(/-(werkstatt|prepare)$/, '');
 }
 
-/** Die Worktrees mit ihrem Branch, wie `git worktree list --porcelain` sie nennt. */
-async function worktreesOf(repoPath: string): Promise<{ path: string; branch: string | null }[]> {
+/** Die Worktrees mit ihrem Branch, wie `git worktree list --porcelain` sie nennt; der Haupt-Checkout zuerst. */
+export async function worktreesOf(repoPath: string): Promise<{ path: string; branch: string | null }[]> {
   return (await runGit(repoPath, ['worktree', 'list', '--porcelain']))
     .split('\n\n')
     .map((block) => ({
@@ -233,6 +233,23 @@ export async function publishBranch(
 }
 
 /**
+ * Der Ordner, in dem ein neuer Worktree entsteht: im Haupt-Checkout, wenn dort `werkstatt` liegt und
+ * die anderen Worktrees darin liegen oder es noch keine gibt; sonst neben `main` oder `schritte`.
+ */
+export function worktreeBase(worktrees: { path: string; branch: string | null }[]): string {
+  const [first] = worktrees;
+  const others = worktrees.slice(1);
+  if (first?.branch === 'werkstatt' && others.every((worktree) => worktree.path.startsWith(`${first.path}/`))) {
+    return first.path;
+  }
+  const sibling = worktrees.find((worktree) => worktree.branch === 'main' || worktree.branch === 'schritte');
+  if (sibling === undefined) {
+    throw new Error('Kein Ort für den Worktree: Es gibt weder main noch schritte als Worktree.');
+  }
+  return dirname(sibling.path);
+}
+
+/**
  * Legt `live_coding` aus `main` an, pusht den Branch an die Teilnehmer und setzt das Ziel dorthin.
  * Der Worktree entsteht neben den anderen, siehe `docs/veroeffentlichen.md`. Liefert seinen Pfad.
  */
@@ -243,16 +260,7 @@ export async function createLiveCoding(repoPath: string): Promise<string> {
   if (existing !== undefined) {
     return existing.path;
   }
-  const [first] = worktrees;
-  const others = worktrees.slice(1);
-  const nested =
-    first?.branch === 'werkstatt' && others.length > 0 && others.every((worktree) => worktree.path.startsWith(`${first.path}/`));
-  const sibling = worktrees.find((worktree) => worktree.branch === 'main' || worktree.branch === 'schritte');
-  const base = nested && first !== undefined ? first.path : sibling === undefined ? null : dirname(sibling.path);
-  if (base === null) {
-    throw new Error('Kein Ort für den Worktree: Es gibt weder main noch schritte als Worktree.');
-  }
-  const path = join(base, 'live_coding');
+  const path = join(worktreeBase(worktrees), 'live_coding');
   const hasBranch = (await maybe(repoPath, ['rev-parse', '--verify', '--quiet', 'refs/heads/live_coding'])) !== null;
   await runGit(repoPath, hasBranch ? ['worktree', 'add', path, 'live_coding'] : ['worktree', 'add', '-b', 'live_coding', path, 'main']);
   await runGit(path, ['push', '--quiet', '--set-upstream', remote, 'refs/heads/live_coding:refs/heads/live_coding'], {

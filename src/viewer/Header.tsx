@@ -27,6 +27,8 @@ interface HeaderProps {
   onNotesOpen: () => void;
   /** Die Zahl aller Hinweise des Repos; sie steht neben dem Knopf, solange die Hinweise an sind. */
   notesCount: number;
+  /** Der Knopf „Werkstatt“, nur in einer Werkstatt, siehe `docs/werkstatt.md`. */
+  werkstatt?: ReactNode;
 }
 
 /**
@@ -63,6 +65,7 @@ export function Header(props: HeaderProps) {
         <span className="bar-separator" />
         {props.scope}
         {props.where}
+        {props.werkstatt}
       </div>
       <div className="header-tools">
         <button

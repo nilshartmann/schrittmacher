@@ -365,6 +365,11 @@ button.crumb:hover,
   padding: 0 6px 10px;
 }
 
+/* Im Menü der Werkstatt steht unter jedem Branch der Pfad seines Worktrees. */
+.menu-panel-werkstatt {
+  width: min(460px, calc(100vw - 24px));
+}
+
 .menu-panel-branches {
   width: min(340px, calc(100vw - 24px));
 }
@@ -1122,6 +1127,42 @@ a.menu-item {
 .commit-meta {
   color: var(--quiet);
   font-size: var(--size-small);
+}
+
+/*
+ * Der Knopf „Probe“ in einer Werkstatt. Seine Zelle nimmt keinen Platz und klebt am rechten Rand des
+ * Bands, auch wenn die Liste breiter ist. Der Knopf erscheint beim Überfahren und überdeckt Datum
+ * und SHA mit der Farbe der Zeile.
+ */
+.commit td.commit-tools {
+  position: sticky;
+  right: 0;
+  width: 0;
+  padding: 0;
+}
+
+.commit td .commit-probe {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  display: none;
+  width: auto;
+  gap: 4px;
+  padding: 0 8px 0 6px;
+  grid-auto-flow: column;
+  background: inherit;
+  font-size: var(--size-small);
+  transform: translateY(-50%);
+}
+
+.commit:hover td .commit-probe,
+.commit td .commit-probe[aria-expanded='true'] {
+  display: grid;
+}
+
+.commit-probe:hover {
+  background: inherit;
+  box-shadow: inset 0 0 0 1px var(--line-soft);
 }
 
 .commit-sha {

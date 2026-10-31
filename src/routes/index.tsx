@@ -9,6 +9,7 @@ import {
   resolveView,
   saveTabs,
   saveView,
+  tabLabels,
   tabOf,
   takeTabRequest,
 } from '../server/repo.functions';
@@ -18,6 +19,7 @@ import { EmptyHeader } from '../viewer/Header';
 import { MissingView } from '../viewer/MissingView';
 import { ProjectBadge } from '../viewer/Projects';
 import { sameTab, TabBar, tabKey, TabsContext, withVisible } from '../viewer/Tabs';
+import type { TabLabel } from '../viewer/Tabs';
 import { Tooltips } from '../viewer/Tooltips';
 import { Viewer } from '../viewer/Viewer';
 import type { LoadedView } from '../viewer/Viewer';
@@ -147,6 +149,7 @@ function Opened({ data, search }: { data: LoadedView | MissingData; search: View
       current={tabs.current}
       tracking={view?.repo.refs.find((ref) => ref.kind === 'local' && ref.name === view.repo.info.branch)?.tracking}
       missing={tabs.missing}
+      labels={tabs.labels}
       onChoose={tabs.choose}
       onClose={tabs.close}
       onCloseOthers={tabs.closeOthers}
@@ -274,13 +277,16 @@ function useTabs(
 
   // Geprüft wird, sobald sich die Tabs oder der aktive ändern; so fällt ein Repo auf, das wieder da ist.
   const [missing, setMissing] = useState<ReadonlyMap<string, Missing>>(new Map());
+  // Die kürzeren Namen der Tabs einer Werkstatt, siehe `docs/werkstatt.md`; gemerkt bleiben die vollen.
+  const [labels, setLabels] = useState<ReadonlyMap<string, TabLabel>>(new Map());
   const keys = list.map(tabKey).join('\0');
   useEffect(() => {
     let live = true;
-    checkTabs({ data: { tabs: list } }).then(
-      (found) => {
+    Promise.all([checkTabs({ data: { tabs: list } }), tabLabels({ data: { tabs: list } })]).then(
+      ([found, named]) => {
         if (live) {
           setMissing(new Map(list.flatMap((tab, at) => (found[at] == null ? [] : [[tabKey(tab), found[at]]]))));
+          setLabels(new Map(list.flatMap((tab, at) => (named[at] == null ? [] : [[tabKey(tab), named[at]]]))));
         }
       },
       (error: unknown) => {
@@ -306,6 +312,7 @@ function useTabs(
     list,
     current,
     missing,
+    labels,
     choose: (tab: Tab) => {
       void openTab(tab);
     },

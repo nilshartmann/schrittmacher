@@ -47,7 +47,9 @@ Frag vor jeder Bibliothek, die über TanStack, React, Vite und Lezer hinausgeht.
   pusht; den QR-Code legt es im Worktree `werkstatt` ab und committet nur diese Datei. Zum
   Veröffentlichen (`docs/veroeffentlichen.md`) holt es den Stand des Teilnehmer-Repos, legt es
   über `gh` an und schaltet seine Sichtbarkeit, pusht einzelne Branches dorthin, nach Freigabe
-  auch mit Force, und legt `live_coding` samt Worktree an.
+  auch mit Force, und legt `live_coding` samt Worktree an. In einer Werkstatt (`docs/werkstatt.md`)
+  legt es Worktrees für `main` und `schritte` an und legt den Branch `probe` samt Worktree an,
+  setzt ihn hart zurück oder entfernt ihn.
 - Fenstergröße zum Prüfen: 1194 × 764 pt (Sidecar abzüglich Menü- und Titelleiste der Web-App)
 - Bedienung mit Maus oder Trackpad des MacBooks, nicht mit dem Pencil; mit dem Finger wird nur
   gescrollt.

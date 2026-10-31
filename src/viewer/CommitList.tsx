@@ -4,7 +4,7 @@ import type { Graph, GraphRow } from '../git/graph';
 import { LOCAL } from '../git/repo';
 import type { Comparison } from '../git/repo';
 import type { Commit, Ref } from '../git/types';
-import { BranchIcon, NoteIcon } from './Icons';
+import { BranchIcon, NoteIcon, WorkshopIcon } from './Icons';
 import { Distance, distanceTip, hasDistance } from './Menu';
 
 /** Die Breite einer Spalte des Graphen und die Höhe einer Zeile in Pixeln. */
@@ -48,6 +48,13 @@ interface CommitListProps {
   noted?: ReadonlyMap<string, number>;
   /** Ob hinter dem Datum des Committers eine Spalte mit dem des Autors steht. */
   authorDate: boolean;
+  /**
+   * Mit `onProbe` erscheint am Ende jeder Zeile beim Überfahren der Knopf „Probe“; er bekommt die
+   * Stelle für sein Menü, siehe `docs/werkstatt.md`.
+   */
+  onProbe?: (commit: Commit, at: { x: number; y: number }) => void;
+  /** Der Commit, dessen Menü „Probe“ offen ist; sein Knopf bleibt stehen. */
+  probing?: string | null;
 }
 
 /**
@@ -176,6 +183,7 @@ export function CommitList(props: CommitListProps) {
                 <td className="commit-meta commit-sha" />
                 <td className="commit-meta" />
                 {props.authorDate && <td className="commit-meta" />}
+                {props.onProbe !== undefined && <td className="commit-tools" />}
               </tr>
             )}
             {/* Die Indizes bleiben die der Historie, nur die Anzeige ist umgedreht. */}
@@ -225,6 +233,16 @@ export function CommitList(props: CommitListProps) {
                       </td>
                     )
                   )}
+                  {props.onProbe !== undefined && (
+                    <td className="commit-tools">
+                      <ProbeButton
+                        expanded={props.probing === commit.sha}
+                        onOpen={(at) => {
+                          props.onProbe?.(commit, at);
+                        }}
+                      />
+                    </td>
+                  )}
                 </tr>
               );
             })}
@@ -234,6 +252,35 @@ export function CommitList(props: CommitListProps) {
       </nav>
       <HeightSplitter height={props.height} onHeight={props.onHeight} />
     </>
+  );
+}
+
+/**
+ * Der Knopf „Probe“ am Ende einer Zeile. Er erscheint beim Überfahren und überdeckt dann Datum und
+ * SHA; ein Klick wählt den Commit nicht, sondern öffnet das Menü darunter.
+ */
+function ProbeButton({ expanded, onOpen }: { expanded: boolean; onOpen: (at: { x: number; y: number }) => void }) {
+  return (
+    <button
+      type="button"
+      className="hover-tool commit-probe"
+      aria-label="Probe"
+      aria-haspopup="menu"
+      aria-expanded={expanded}
+      data-tip={expanded ? undefined : 'Probe ab diesem Commit'}
+      onPointerDown={(event) => {
+        // Sonst schließt das offene Menü schon beim Drücken und öffnet beim Klick gleich wieder.
+        event.stopPropagation();
+      }}
+      onClick={(event) => {
+        event.stopPropagation();
+        const box = event.currentTarget.getBoundingClientRect();
+        onOpen({ x: box.left, y: box.bottom + 4 });
+      }}
+    >
+      <WorkshopIcon />
+      Probe
+    </button>
   );
 }
 

@@ -75,6 +75,12 @@ export function whereInMenu(tab: Tab): ReactNode {
   return <MenuWhere folder={folder} branch={tab.branch || null} />;
 }
 
+/** Die Namen, die ein Tab statt der gemerkten zeigt, etwa die kürzeren in einer Werkstatt. */
+export interface TabLabel {
+  repo: string;
+  worktreeName: string;
+}
+
 interface TabBarProps {
   tabs: Tab[];
   current: Tab;
@@ -82,6 +88,8 @@ interface TabBarProps {
   tracking?: Tracking;
   /** Was den Ansichten fehlt, je `tabKey`; ein Tab ohne Eintrag lässt sich öffnen. */
   missing: ReadonlyMap<string, Missing>;
+  /** Die Namen, die ein Tab zeigt, je `tabKey`; ohne Eintrag die gemerkten. */
+  labels: ReadonlyMap<string, TabLabel>;
   onChoose: (tab: Tab) => void;
   onClose: (tab: Tab) => void;
   onCloseOthers: (tab: Tab) => void;
@@ -108,6 +116,7 @@ export function TabBar({
   current,
   tracking,
   missing,
+  labels,
   onChoose,
   onClose,
   onCloseOthers,
@@ -115,6 +124,7 @@ export function TabBar({
   onMove,
   end,
 }: TabBarProps) {
+  const labeled = (tab: Tab): Tab => ({ ...tab, ...labels.get(tabKey(tab)) });
   const rest = tabs.slice(SHOWN_TABS);
   // Der gezogene Tab und die Seite des Tabs unter dem Zeiger, an der er landen würde.
   const [dragged, setDragged] = useState<Tab | null>(null);
@@ -188,8 +198,8 @@ export function TabBar({
               }}
             >
               {lost !== undefined && <WarningIcon />}
-              <span className="tab-repo">{tab.repo}</span>
-              <span className="tab-where">· {whereOf(tab)}</span>
+              <span className="tab-repo">{labeled(tab).repo}</span>
+              <span className="tab-where">· {whereOf(labeled(tab))}</span>
               {active && <TrackingBadge tracking={tracking} />}
             </button>
             <HoverTools>
@@ -223,8 +233,8 @@ export function TabBar({
               {rest.map((tab) => (
                 <div key={tabKey(tab)} className="menu-row">
                   <MenuItem
-                    main={tab.repo}
-                    sub={whereInMenu(tab)}
+                    main={labeled(tab).repo}
+                    sub={whereInMenu(labeled(tab))}
                     icon={missing.has(tabKey(tab)) ? <WarningIcon /> : undefined}
                     tip={missing.get(tabKey(tab))?.message ?? tab.worktree}
                     onChoose={() => {

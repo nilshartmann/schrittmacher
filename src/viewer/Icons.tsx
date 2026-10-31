@@ -53,6 +53,16 @@ export function TerminalIcon() {
   );
 }
 
+/** Ein Hammer: das Menü der Werkstatt und die Probe. */
+export function WorkshopIcon() {
+  return (
+    <Outline size={15}>
+      <rect x="2.5" y="2" width="9" height="4" rx="1" />
+      <path d="M11.5 4h2M7 6v8" />
+    </Outline>
+  );
+}
+
 /** Ein Funke aus vier Strahlen: in Claude Code öffnen. */
 export function ClaudeIcon() {
   return (

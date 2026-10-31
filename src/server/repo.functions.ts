@@ -29,6 +29,8 @@ import type { PublishStatus, PublishedBranch, PushPlan } from './publish';
 import { addRedirect, checkPath, checkUrl, isLive, qrSvg, readDomain, readTalks, saveQr, werkstattOf } from './shortlink';
 import type { ShortlinkData, ShortlinkDomain } from './shortlink';
 import { shared } from './shared';
+import { ADDABLE_BRANCHES, addWorktree, discardProbe, probePlan, setProbe, werkstattLabel, werkstattStatus } from './werkstatt';
+import type { AddableBranch, ProbePlan, WerkstattStatus } from './werkstatt';
 import { createStore, defaultStoreDir, expandHome, sameView } from './store';
 import type { JsonValue, Projects, SavedGist, SavedShortlink, SavedView, Store, Tab, ViewSearch } from './store';
 
@@ -496,6 +498,64 @@ export const publishToParticipants = createServerFn({ method: 'POST' })
 export const startLiveCoding = createServerFn({ method: 'POST' })
   .validator((data: { worktree: string }) => ({ worktree: text(data.worktree, 'worktree') }))
   .handler(async ({ data }) => createLiveCoding((await access(data.worktree)).repoPath));
+
+/** Der Stand der Werkstatt, zu der der Worktree gehört; `null`, wenn sein Repo keine ist. */
+export const loadWerkstatt = createServerFn({ method: 'GET' })
+  .validator((data: { worktree: string }) => ({ worktree: text(data.worktree, 'worktree') }))
+  .handler(async ({ data }): Promise<WerkstattStatus | null> => werkstattStatus((await access(data.worktree)).repoPath));
+
+/** Legt den Worktree für `main` oder `schritte` an und liefert seinen Pfad. */
+export const addWerkstattWorktree = createServerFn({ method: 'POST' })
+  .validator((data: { worktree: string; branch: AddableBranch }) => {
+    if (!ADDABLE_BRANCHES.includes(data.branch)) {
+      throw new Error(`Für '${String(data.branch)}' legt Schrittmacher keinen Worktree an.`);
+    }
+    return { worktree: text(data.worktree, 'worktree'), branch: data.branch };
+  })
+  .handler(async ({ data }) => addWorktree((await access(data.worktree)).repoPath, data.branch));
+
+/** Was verloren geht, wenn die Probe auf `target` gesetzt oder ohne `target` verworfen wird. */
+export const loadProbePlan = createServerFn({ method: 'GET' })
+  .validator((data: { worktree: string; target?: string }) => ({
+    worktree: text(data.worktree, 'worktree'),
+    target: optionalText(data.target),
+  }))
+  .handler(async ({ data }): Promise<ProbePlan> => probePlan((await access(data.worktree)).repoPath, data.target ?? null));
+
+/** Legt die Probe auf dem Commit an oder setzt sie dorthin neu auf; liefert den Pfad ihres Worktrees. */
+export const startProbe = createServerFn({ method: 'POST' })
+  .validator((data: { worktree: string; target: string; expected: string | null }) => ({
+    worktree: text(data.worktree, 'worktree'),
+    target: text(data.target, 'target'),
+    expected: data.expected === null ? null : text(data.expected, 'expected'),
+  }))
+  .handler(async ({ data }) => setProbe((await access(data.worktree)).repoPath, data.target, data.expected));
+
+/** Entfernt Worktree und Branch der Probe. */
+export const removeProbe = createServerFn({ method: 'POST' })
+  .validator((data: { worktree: string; expected: string }) => ({
+    worktree: text(data.worktree, 'worktree'),
+    expected: text(data.expected, 'expected'),
+  }))
+  .handler(async ({ data }) => {
+    await discardProbe((await access(data.worktree)).repoPath, data.expected);
+  });
+
+/** Die kürzeren Namen der Tabs, die zu einer Werkstatt gehören; `null` für die übrigen. */
+export const tabLabels = createServerFn({ method: 'POST' })
+  .validator((data: { tabs: Tab[] }) => ({ tabs: tabsOf(data.tabs) }))
+  .handler(({ data }) =>
+    Promise.all(
+      data.tabs.map(async (tab) => {
+        try {
+          const { repoPath, worktreePath } = await access(tab.worktree);
+          return await werkstattLabel(repoPath, worktreePath);
+        } catch {
+          return null;
+        }
+      }),
+    ),
+  );
 
 /** Eine Adresse mit `http` oder `https`; der Server fragt nur solche ab. */
 function webUrl(value: unknown, name: string): string {
