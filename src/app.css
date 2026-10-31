@@ -1129,41 +1129,25 @@ a.menu-item {
   font-size: var(--size-small);
 }
 
-/*
- * Der Knopf „Probe“ in einer Werkstatt. Seine Zelle nimmt keinen Platz und klebt am rechten Rand des
- * Bands, auch wenn die Liste breiter ist. Der Knopf erscheint beim Überfahren und überdeckt Datum
- * und SHA mit der Farbe der Zeile.
- */
-.commit td.commit-tools {
-  position: sticky;
-  right: 0;
-  width: 0;
-  padding: 0;
-}
-
-.commit td .commit-probe {
-  position: absolute;
-  top: 50%;
-  right: 4px;
+/* Der Knopf „Probe“ in einer Werkstatt steht hinter dem Titel und erscheint beim Überfahren der Zeile. */
+.commit-title .commit-probe {
   display: none;
   width: auto;
-  gap: 4px;
+  height: 18px;
+  margin-left: 8px;
   padding: 0 8px 0 6px;
+  gap: 4px;
   grid-auto-flow: column;
-  background: inherit;
-  font-size: var(--size-small);
-  transform: translateY(-50%);
-}
-
-.commit:hover td .commit-probe,
-.commit td .commit-probe[aria-expanded='true'] {
-  display: grid;
-}
-
-.commit-probe:hover {
-  background: inherit;
+  vertical-align: middle;
   box-shadow: inset 0 0 0 1px var(--line-soft);
+  font-size: var(--size-small);
 }
+
+.commit:hover .commit-probe,
+.commit-title .commit-probe[aria-expanded='true'] {
+  display: inline-grid;
+}
+
 
 .commit-sha {
   font-family: var(--font-code);

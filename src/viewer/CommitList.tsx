@@ -49,8 +49,8 @@ interface CommitListProps {
   /** Ob hinter dem Datum des Committers eine Spalte mit dem des Autors steht. */
   authorDate: boolean;
   /**
-   * Mit `onProbe` erscheint am Ende jeder Zeile beim Überfahren der Knopf „Probe“; er bekommt die
-   * Stelle für sein Menü, siehe `docs/werkstatt.md`.
+   * Mit `onProbe` erscheint beim Überfahren einer Zeile hinter dem Titel der Knopf „Probe“; er
+   * bekommt die Stelle für sein Menü, siehe `docs/werkstatt.md`.
    */
   onProbe?: (commit: Commit, at: { x: number; y: number }) => void;
   /** Der Commit, dessen Menü „Probe“ offen ist; sein Knopf bleibt stehen. */
@@ -183,7 +183,6 @@ export function CommitList(props: CommitListProps) {
                 <td className="commit-meta commit-sha" />
                 <td className="commit-meta" />
                 {props.authorDate && <td className="commit-meta" />}
-                {props.onProbe !== undefined && <td className="commit-tools" />}
               </tr>
             )}
             {/* Die Indizes bleiben die der Historie, nur die Anzeige ist umgedreht. */}
@@ -211,6 +210,14 @@ export function CommitList(props: CommitListProps) {
                   <td className="commit-title">
                     {commit.title}
                     <NoteCount count={props.noted?.get(commit.sha) ?? 0} />
+                    {props.onProbe !== undefined && (
+                      <ProbeButton
+                        expanded={props.probing === commit.sha}
+                        onOpen={(at) => {
+                          props.onProbe?.(commit, at);
+                        }}
+                      />
+                    )}
                     <RefBadges
                       refs={props.refs.filter((ref) => ref.sha === commit.sha)}
                       branch={props.branch}
@@ -233,16 +240,6 @@ export function CommitList(props: CommitListProps) {
                       </td>
                     )
                   )}
-                  {props.onProbe !== undefined && (
-                    <td className="commit-tools">
-                      <ProbeButton
-                        expanded={props.probing === commit.sha}
-                        onOpen={(at) => {
-                          props.onProbe?.(commit, at);
-                        }}
-                      />
-                    </td>
-                  )}
                 </tr>
               );
             })}
@@ -256,8 +253,8 @@ export function CommitList(props: CommitListProps) {
 }
 
 /**
- * Der Knopf „Probe“ am Ende einer Zeile. Er erscheint beim Überfahren und überdeckt dann Datum und
- * SHA; ein Klick wählt den Commit nicht, sondern öffnet das Menü darunter.
+ * Der Knopf „Probe“ hinter dem Titel eines Commits. Er erscheint beim Überfahren der Zeile; ein
+ * Klick wählt den Commit nicht, sondern öffnet das Menü darunter.
  */
 function ProbeButton({ expanded, onOpen }: { expanded: boolean; onOpen: (at: { x: number; y: number }) => void }) {
   return (

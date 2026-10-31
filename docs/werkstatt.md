@@ -58,8 +58,8 @@ wie bei älteren Repos, nennt der Tab ihn nicht eigens.
 Zum Proben des Live-Codings gibt es den Branch `probe`, getrennt von `live_coding`. Geprobt wird
 meist ab einem Commit auf `schritte`, weil `main` nur ab und zu nachgezogen wird.
 
-- In einer Werkstatt erscheint an jedem Commit der Liste, über dem der Zeiger steht, rechts in der
-  Zeile der Knopf „Probe“ (`HoverTools`). Er öffnet ein Menü:
+- In einer Werkstatt erscheint an jedem Commit der Liste, über dem der Zeiger steht, direkt hinter
+  dem Titel der Knopf „Probe“. Er öffnet ein Menü:
   - „Probe ab hier“, solange es `probe` nicht gibt: legt den Branch auf diesem Commit an, dazu den
     Worktree `probe/`, und öffnet ihn als Tab.
   - „Probe hierher neu aufsetzen …“, wenn es `probe` gibt: Die Bestätigung nennt die Commits und
