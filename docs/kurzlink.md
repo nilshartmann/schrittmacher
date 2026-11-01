@@ -60,8 +60,10 @@ Die Kurzlinks liegen als Zeilen in der Datei `_redirects` eines Repos je Domain,
 - Vor dem Eintragen holt der Server den Stand des Redirect-Repos und zieht ihn per Fast-Forward
   nach. Hat das Repo lokale Änderungen oder geht der Fast-Forward nicht, bricht er mit einer
   Meldung ab.
-- Die Zeile `/<pfad> <ziel>` kommt vor die Weiterleitung `/*` am Ende, denn Netlify nimmt die
-  erste passende Zeile. Fehlt `/*`, kommt sie ans Ende.
+- Die Zeile `/<pfad> <ziel>` kommt vor die erste Weiterleitung der Datei, damit der neueste
+  Kurzlink oben steht. Kommentare am Anfang bleiben davor. Damit liegt die Zeile auch vor der
+  Weiterleitung `/*` am Ende, und das ist nötig, weil Netlify die erste passende Zeile nimmt. Hat
+  die Datei noch keine Weiterleitung, kommt die Zeile ans Ende.
 - Commit mit dem Betreff `Kurzlink /<pfad>` und Push auf `origin`.
 - Danach fragt der Server den Kurzlink ab, bis er auf das Ziel weiterleitet, höchstens einige
   Minuten. Der Dialog zeigt, ob Netlify ihn schon ausliefert.

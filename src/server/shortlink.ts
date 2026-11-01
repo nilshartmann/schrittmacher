@@ -209,7 +209,8 @@ export function checkPath(path: string): string {
 /**
  * Trägt den Kurzlink in `_redirects` ein, committet nur diese Datei und pusht. Vorher wird der
  * Stand von `origin` per Fast-Forward nachgezogen; lokale Änderungen brechen ab. Die Zeile kommt
- * vor die Weiterleitung `/*`, weil Netlify die erste passende Zeile nimmt.
+ * vor die erste Weiterleitung, damit der neueste Kurzlink oben steht. Damit liegt sie auch vor `/*`,
+ * und das ist nötig, weil Netlify die erste passende Zeile nimmt.
  */
 export async function addRedirect(repoPath: string, path: string, target: string): Promise<void> {
   if ((await runGit(repoPath, ['status', '--porcelain'])).trim() !== '') {
@@ -223,12 +224,12 @@ export async function addRedirect(repoPath: string, path: string, target: string
     throw new Error(`Den Pfad /${path} gibt es schon.`);
   }
   const lines = text.replace(/\n+$/, '').split('\n');
-  const fallback = lines.findIndex((line) => line.trim().split(/\s+/)[0] === '/*');
+  const first = lines.findIndex((line) => line.trim().startsWith('/'));
   const line = `/${path} ${target}`;
-  if (fallback === -1) {
+  if (first === -1) {
     lines.push(line);
   } else {
-    lines.splice(fallback, 0, line);
+    lines.splice(first, 0, line);
   }
   await writeFile(file, `${lines.join('\n')}\n`);
   await runGit(repoPath, ['commit', '--only', '-m', `Kurzlink /${path}`, '--', '_redirects']);
