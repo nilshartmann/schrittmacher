@@ -162,14 +162,14 @@ function pickedLines(container: HTMLElement): NoteLines | null {
   if (numbers.length === 0 || first == null || last == null) {
     return null;
   }
-  const texts = lines.map((line) => (line.querySelector('.text')?.textContent ?? '').replaceAll('\u200b', ''));
+  const texts = lines.map((line) => line.querySelector('.text')?.textContent ?? '');
   const code = texts.join('\n');
   // Wie weit die Markierung in die erste Zeile hinein beginnt und in der letzten endet.
   const into = (text: Element, node: Node, offset: number) => {
     const before = document.createRange();
     before.setStart(text, 0);
     before.setEnd(node, offset);
-    return before.toString().replaceAll('\u200b', '').length;
+    return before.toString().length;
   };
   const lastText = texts.at(-1) ?? '';
   const start = first.contains(range.startContainer) ? into(first, range.startContainer, range.startOffset) : 0;
@@ -354,7 +354,8 @@ function Line({
 function LineText({ line }: { line: SideLine }) {
   const { text, ranges, parts } = line;
   if (text === '') {
-    return '​';
+    // Ein Umbruch statt eines Zeichens gibt der leeren Zeile Höhe und kopiert sich als leere Zeile.
+    return <br />;
   }
   return chunksOf(text, parts, ranges).map((chunk, chunkIndex) => {
     const pieces = chunk.pieces.map((piece, index) =>
