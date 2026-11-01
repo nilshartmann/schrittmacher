@@ -7,7 +7,7 @@ Festgelegt am 31.10.2026.
 Eine Werkstatt ist ein Repo mit einem Branch `werkstatt`, lokal oder auf `origin`. Der Branch
 enthält Planung und Konventionen, die anderen Branches den Code (`docs/veroeffentlichen.md`).
 Das gilt für den neuen Aufbau (`<slug>-werkstatt`, `werkstatt` im Haupt-Checkout, die Worktrees
-darin) und für ältere Repos (`<slug>-prepare`, `werkstatt` in einem Worktree daneben). Wo der
+darin unter `worktree/`) und für ältere Repos (`<slug>-prepare`, `werkstatt` in einem Worktree daneben). Wo der
 Worktree von `werkstatt` liegt, ermittelt Schrittmacher mit `git worktree list`; er muss nicht der
 Haupt-Checkout sein.
 
@@ -39,8 +39,7 @@ Claude Code startet nur im Worktree von `werkstatt`. In einem anderen Worktree f
 und jeder Worktree eine eigene hat. Im Worktree `werkstatt` beginnt die Session wie in der Cloud.
 
 Ein neuer Worktree entsteht wie `live_coding` beim Veröffentlichen: Liegt `werkstatt` im
-Haupt-Checkout und liegen die Worktrees darin, entsteht er dort, sonst neben `main` oder
-`schritte`. Liegt der Branch nur auf `origin`, wird er dabei lokal angelegt und folgt `origin`.
+Haupt-Checkout, entsteht er dort unter `worktree/`, sonst neben `main` oder `schritte`. Liegt der Branch nur auf `origin`, wird er dabei lokal angelegt und folgt `origin`.
 
 ## Tab-Titel
 
@@ -61,7 +60,7 @@ meist ab einem Commit auf `schritte`, weil `main` nur ab und zu nachgezogen wird
 - In einer Werkstatt erscheint an jedem Commit der Liste, über dem der Zeiger steht, direkt hinter
   dem Titel der Knopf „Probe“. Er öffnet ein Menü:
   - „Probe ab hier“, solange es `probe` nicht gibt: legt den Branch auf diesem Commit an, dazu den
-    Worktree `probe/`, und öffnet ihn als Tab.
+    Worktree `worktree/probe/`, und öffnet ihn als Tab.
   - „Probe hierher neu aufsetzen …“, wenn es `probe` gibt: Die Bestätigung nennt die Commits und
     lokalen Änderungen auf `probe`, die verloren gehen. Verloren ist ein Commit, der weder auf dem
     Ziel noch auf einem anderen Branch liegt. Danach setzt `reset --hard` im Worktree `probe` auf
@@ -74,4 +73,4 @@ meist ab einem Commit auf `schritte`, weil `main` nur ab und zu nachgezogen wird
 - Den Commit, auf dem die Probe beginnt, liest Schrittmacher aus dem Reflog von `probe`.
 - `probe` wird nie gepusht, weder an `origin` noch an `teilnehmer`, und fehlt im Dialog
   „Veröffentlichen …“. Eine Cloud-Session sieht die Probe nicht.
-- In `.gitignore` der Vorlage steht `/probe/` neben den anderen Worktrees.
+- In `.gitignore` der Vorlage steht `/worktree/`, das schließt alle Worktrees aus, auch die Probe.

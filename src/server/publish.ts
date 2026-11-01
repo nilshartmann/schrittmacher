@@ -233,14 +233,13 @@ export async function publishBranch(
 }
 
 /**
- * Der Ordner, in dem ein neuer Worktree entsteht: im Haupt-Checkout, wenn dort `werkstatt` liegt und
- * die anderen Worktrees darin liegen oder es noch keine gibt; sonst neben `main` oder `schritte`.
+ * Der Ordner, in dem ein neuer Worktree entsteht: `worktree/` im Haupt-Checkout, wenn dort `werkstatt`
+ * liegt; sonst neben `main` oder `schritte`, wie in älteren Repos.
  */
 export function worktreeBase(worktrees: { path: string; branch: string | null }[]): string {
   const [first] = worktrees;
-  const others = worktrees.slice(1);
-  if (first?.branch === 'werkstatt' && others.every((worktree) => worktree.path.startsWith(`${first.path}/`))) {
-    return first.path;
+  if (first?.branch === 'werkstatt') {
+    return join(first.path, 'worktree');
   }
   const sibling = worktrees.find((worktree) => worktree.branch === 'main' || worktree.branch === 'schritte');
   if (sibling === undefined) {

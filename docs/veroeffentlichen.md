@@ -74,8 +74,8 @@ ausdrücklichem Ziel (`refs/heads/<branch>:refs/heads/<branch>`), nie `--all` od
   Ziel dorthin (`-u`). Danach geht jeder Push aus dem Tab „Live“ ohne weiteres Zutun an die
   Teilnehmer. An `origin` geht `live_coding` nicht, das Teilnehmer-Repo ist zugleich die Sicherung.
 - Der Worktree entsteht neben den anderen Worktrees des Repos:
-  - Liegt `werkstatt` im Haupt-Checkout und liegen die Worktrees darin, entsteht `live_coding/`
-    dort, wie es `bin/worktrees.sh` der Vorlage erwartet.
+  - Liegt `werkstatt` im Haupt-Checkout, entsteht `worktree/live_coding/` darin, wie es
+    `bin/worktrees.sh` der Vorlage erwartet.
   - Sonst entsteht er im Ordner, in dem `main` oder `schritte` als Worktree liegen.
 - Danach öffnet der Dialog den Worktree als Tab „Live“ und schließt sich. Ist `live_coding` schon
   angelegt, öffnet „Als Tab öffnen“ den Tab.
