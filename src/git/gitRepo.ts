@@ -114,8 +114,14 @@ export function gitSource(worktree: string): RepoSource {
         throw new Error('Für den Commit ist keine Datei ausgewählt.');
       }
       // Ein Pfad gilt wörtlich, auch mit `*` oder `:` darin. `add` nimmt neue und gelöschte Dateien
-      // auf, `--only` committet dann nur diese Pfade und lässt den übrigen Index stehen.
-      await plain(git('--literal-pathspecs', 'add', '--all', '--', ...paths));
+      // auf, `--only` committet dann nur diese Pfade und lässt den übrigen Index stehen. Ein Pfad,
+      // dessen Löschung schon im Index steht, etwa der alte Name nach `git mv`, fehlt in Index und
+      // Worktree. Bei ihm bricht `add` ab, deshalb bekommt es nur die Pfade, die Git noch findet.
+      const known = await git('--literal-pathspecs', 'ls-files', '-z', '--cached', '--others', '--exclude-standard', '--', ...paths);
+      const present = known.split('\0').filter((path) => path !== '');
+      if (present.length > 0) {
+        await plain(git('--literal-pathspecs', 'add', '--all', '--', ...present));
+      }
       await plain(git('--literal-pathspecs', 'commit', '--quiet', '--only', `--message=${message}`, '--', ...paths));
       return (await git('rev-parse', 'HEAD')).trim();
     },
