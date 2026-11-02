@@ -207,7 +207,7 @@ export function PublishDialog({ worktree, onClose }: { worktree: string; onClose
         >
           {remote === null ? (
             <>
-              <p className="sync-quiet">Gibt es noch nicht. Es entsteht privat.</p>
+              <p className="sync-quiet">Noch nicht verbunden. Fehlt es auf GitHub, entsteht es privat.</p>
               <input
                 className="menu-input"
                 type="text"

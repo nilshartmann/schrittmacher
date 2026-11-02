@@ -41,6 +41,8 @@ ausdrücklichem Ziel (`refs/heads/<branch>:refs/heads/<branch>`), nie `--all` od
   `-prepare`, in derselben Organisation. Der Name lässt sich vor dem Anlegen ändern.
 - Angelegt wird mit `gh repo create`, immer privat. Die Beschreibung ist die erste Überschrift aus
   `WORKSHOP.md` auf `werkstatt`, falls es sie gibt.
+- Gibt es das Repo auf GitHub schon, etwa leer von Hand angelegt, wird es nicht neu angelegt. Seine
+  Sichtbarkeit bleibt dann, wie sie ist; der Dialog zeigt sie danach an.
 - Danach setzt Schrittmacher das Remote `teilnehmer`.
 
 ## Sichtbarkeit

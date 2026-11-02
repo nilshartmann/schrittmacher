@@ -159,7 +159,23 @@ export async function publishStatus(repoPath: string): Promise<PublishStatus> {
   };
 }
 
-/** Legt das Teilnehmer-Repo privat an und setzt das Remote `teilnehmer`. */
+/** Ob es das Repo auf GitHub schon gibt; andere Fehler als „nicht gefunden“ gehen weiter. */
+async function repoExists(name: string): Promise<boolean> {
+  try {
+    await gh(['repo', 'view', name, '--json', 'name']);
+    return true;
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('Could not resolve to a Repository')) {
+      return false;
+    }
+    throw error;
+  }
+}
+
+/**
+ * Legt das Teilnehmer-Repo privat an und setzt das Remote `teilnehmer`. Gibt es das Repo schon,
+ * etwa leer von Hand angelegt, setzt Schrittmacher nur das Remote.
+ */
 export async function createParticipants(repoPath: string, name: string, description: string): Promise<void> {
   if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(name)) {
     throw new Error(`Erwartet wird org/name, nicht „${name}“.`);
@@ -167,7 +183,9 @@ export async function createParticipants(repoPath: string, name: string, descrip
   if ((await participantRemote(repoPath)) !== null) {
     throw new Error('Das Werkstatt-Repo hat schon ein Remote für die Teilnehmer.');
   }
-  await gh(['repo', 'create', name, '--private', ...(description === '' ? [] : ['--description', description])]);
+  if (!(await repoExists(name))) {
+    await gh(['repo', 'create', name, '--private', ...(description === '' ? [] : ['--description', description])]);
+  }
   await runGit(repoPath, ['remote', 'add', 'teilnehmer', `git@github.com:${name}.git`]);
 }
 
