@@ -122,7 +122,23 @@ const FENCE_ENDINGS = new Map<string, string>([
   ['xml', 'xml'],
   ['yaml', 'yaml'],
   ['yml', 'yaml'],
+  ['sql', 'sql'],
+  ['sh', 'sh'],
+  ['shell', 'sh'],
+  ['bash', 'sh'],
+  ['zsh', 'sh'],
+  ['properties', 'properties'],
 ]);
+
+/**
+ * The language that the info string of a fenced code block names with its first word, such as
+ * `ts` in ```` ```ts title ````; none for a language without colors here.
+ */
+export function fenceLanguage(info: string): Language | null {
+  const word = info.trim().split(/\s+/)[0]?.toLowerCase() ?? '';
+  const ending = FENCE_ENDINGS.get(word);
+  return ending === undefined ? null : languageOf(`code.${ending}`);
+}
 
 /** The class of a name; whether it is a constant depends on its spelling, which only the text shows. */
 const NAME = 'name';
@@ -403,8 +419,7 @@ const MARKDOWN: TextParser = markdownParser.configure([
   },
   parseCode({
     codeParser: (info) => {
-      const ending = FENCE_ENDINGS.get(info.trim().split(/\s+/)[0]?.toLowerCase() ?? '');
-      const language = ending === undefined ? null : languageOf(`code.${ending}`);
+      const language = fenceLanguage(info);
       return language === null ? null : parserOf(language);
     },
   }),

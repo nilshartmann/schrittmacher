@@ -1,6 +1,7 @@
 #!/bin/sh
 # Öffnet einen Ordner als neuen Tab in Schrittmacher, wie `fork <pfad>` in Fork. Ohne Pfad gilt
-# das aktuelle Verzeichnis. Der Server muss laufen; danach kommt die Web-App nach vorn.
+# das aktuelle Verzeichnis. Eine Markdown-Datei zeigt Schrittmacher stattdessen gerendert an. Der
+# Server muss laufen; danach kommt die Web-App nach vorn.
 #
 #   SCHRITTMACHER_URL  der Server, sonst http://127.0.0.1:5310
 #   SCHRITTMACHER_APP  die Web-App, sonst Schrittmacher; leer, um sie nicht zu öffnen
@@ -8,11 +9,19 @@ set -eu
 
 url="${SCHRITTMACHER_URL:-http://127.0.0.1:5310}"
 app="${SCHRITTMACHER_APP-Schrittmacher}"
-dir="$(cd "${1:-.}" && pwd -P)"
+target="${1:-.}"
+
+if [ -f "$target" ]; then
+  path="$(cd "$(dirname "$target")" && pwd -P)/$(basename "$target")"
+  endpoint=markdown
+else
+  path="$(cd "$target" && pwd -P)"
+  endpoint=tab
+fi
 
 # Bei einem Fehler zeigt curl nur die Meldung des Servers; ist er nicht erreichbar, fehlt sie.
-if ! message="$(curl -s --fail-with-body -X POST --data-binary "$dir" "$url/api/tab")"; then
-  echo "schrittmacher: '$dir' ließ sich nicht öffnen. ${message:-Läuft der Server unter $url?}" >&2
+if ! message="$(curl -s --fail-with-body -X POST --data-binary "$path" "$url/api/$endpoint")"; then
+  echo "schrittmacher: '$path' ließ sich nicht öffnen. ${message:-Läuft der Server unter $url?}" >&2
   exit 1
 fi
 if [ -n "$app" ]; then

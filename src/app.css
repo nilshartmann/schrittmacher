@@ -3349,3 +3349,254 @@ span.info-parent {
   font-family: var(--font-code);
   font-size: 12px;
 }
+
+/* Die Ansicht einer Markdown-Datei unter /markdown, gesetzt wie auf GitHub */
+
+.md-back {
+  height: 24px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-icon);
+  font-size: var(--size-small);
+  cursor: pointer;
+}
+
+.md-back:hover {
+  background: var(--bg-hover);
+}
+
+.md-where {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--size-small);
+}
+
+.md-name {
+  color: var(--text-primary);
+}
+
+.md-dir {
+  overflow: hidden;
+  color: var(--text-path);
+  text-overflow: ellipsis;
+}
+
+.md-scroll {
+  flex: 1;
+  overflow: auto;
+  background: var(--surface);
+}
+
+.md {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 24px 32px 64px;
+  line-height: 1.55;
+  overflow-wrap: break-word;
+}
+
+.md > :first-child {
+  margin-top: 0;
+}
+
+.md h1,
+.md h2,
+.md h3,
+.md h4,
+.md h5,
+.md h6 {
+  margin: 1.4em 0 0.6em;
+  line-height: 1.25;
+  font-weight: 600;
+  scroll-margin-top: 12px;
+}
+
+.md h1 {
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid var(--line-soft);
+  font-size: 1.9em;
+}
+
+.md h2 {
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid var(--line-soft);
+  font-size: 1.45em;
+}
+
+.md h3 {
+  font-size: 1.2em;
+}
+
+.md h4 {
+  font-size: 1em;
+}
+
+.md h5,
+.md h6 {
+  color: var(--quiet);
+  font-size: 0.9em;
+}
+
+.md p,
+.md ul,
+.md ol,
+.md blockquote,
+.md .md-code,
+.md .md-table,
+.md .md-html-block {
+  margin: 0 0 1em;
+}
+
+.md ul,
+.md ol {
+  padding-left: 2em;
+}
+
+.md li > p {
+  margin: 0;
+}
+
+.md li + li {
+  margin-top: 0.25em;
+}
+
+.md li > ul,
+.md li > ol {
+  margin: 0.25em 0 0;
+}
+
+.md .md-task-item {
+  list-style: none;
+}
+
+.md .md-task input {
+  margin: 0 0.4em 0 -1.4em;
+  vertical-align: middle;
+}
+
+.md blockquote {
+  padding: 0 1em;
+  border-left: 0.25em solid var(--line);
+  color: var(--quiet);
+}
+
+.md a {
+  color: var(--menu-accent);
+  text-decoration: none;
+}
+
+.md a:hover {
+  text-decoration: underline;
+}
+
+.md .md-file-link {
+  color: var(--text-path);
+  text-decoration: underline dotted;
+}
+
+.md code {
+  padding: 0.15em 0.35em;
+  border-radius: 4px;
+  background: var(--bg-field);
+  font-family: var(--font-code);
+  font-size: 0.88em;
+}
+
+.md hr {
+  height: 2px;
+  margin: 1.5em 0;
+  border: 0;
+  background: var(--line-soft);
+}
+
+.md img {
+  max-width: 100%;
+}
+
+.md-code {
+  position: relative;
+}
+
+.md-code pre {
+  margin: 0;
+  padding: 12px 14px;
+  overflow: auto;
+  border-radius: 6px;
+  background: var(--diff-empty);
+  font-family: var(--font-code);
+  font-size: 0.85em;
+  line-height: 1.45;
+}
+
+.md-code pre code {
+  padding: 0;
+  background: transparent;
+  font-size: inherit;
+}
+
+.md-code-label {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  color: var(--sign);
+  font-size: var(--size-small);
+}
+
+.md-copy {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 1;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--border-input);
+  border-radius: 6px;
+  background: var(--bg-panel);
+  color: var(--text-secondary);
+  font-family: var(--font-menu);
+  font-size: var(--size-small);
+  cursor: pointer;
+  opacity: 0;
+}
+
+.md-code:hover .md-copy {
+  opacity: 1;
+}
+
+.md-table {
+  overflow: auto;
+}
+
+.md table {
+  border-collapse: collapse;
+}
+
+.md th,
+.md td {
+  padding: 6px 13px;
+  border: 1px solid var(--line);
+}
+
+.md th {
+  font-weight: 600;
+}
+
+.md tbody tr:nth-child(2n) {
+  background: var(--diff-empty);
+}
+
+.md .md-html,
+.md .md-html-block {
+  color: var(--sign);
+  font-family: var(--font-code);
+  font-size: 0.85em;
+}
+
+.md .md-html-block {
+  white-space: pre-wrap;
+}

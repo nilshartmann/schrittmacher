@@ -11,7 +11,6 @@ import {
   saveView,
   tabLabels,
   tabOf,
-  takeTabRequest,
 } from '../server/repo.functions';
 import type { Missing, ProjectChange } from '../server/repo.functions';
 import type { Project, Projects, Tab, ViewSearch } from '../server/store';
@@ -21,14 +20,12 @@ import { ProjectBadge } from '../viewer/Projects';
 import { sameTab, TabBar, tabKey, TabsContext, withVisible } from '../viewer/Tabs';
 import type { TabLabel } from '../viewer/Tabs';
 import { Tooltips } from '../viewer/Tooltips';
+import { useRequests } from '../viewer/useRequests';
 import { Viewer } from '../viewer/Viewer';
 import type { LoadedView } from '../viewer/Viewer';
 
 /** Die Zeit in Millisekunden, nach der eine Ansicht gemerkt wird, wenn keine Wahl mehr folgt. */
 const SAVE_DELAY = 400;
-
-/** Der Abstand der Fragen nach einem Tab vom Kommando `schrittmacher`, in Millisekunden. */
-const REQUEST_INTERVAL = 1500;
 
 /**
  * Ein Parameter der URL als Text. Der Router liest Werte als JSON, eine Nummer wie `40` kommt
@@ -140,7 +137,7 @@ function Opened({ data, search }: { data: LoadedView | MissingData; search: View
       });
     }
   });
-  useTabRequests(tabs.openNew);
+  useRequests(tabs.openNew);
   useSaveView(view === null ? null : search);
 
   const tabBar = (
@@ -414,50 +411,11 @@ function useTabs(
   }
 }
 
-/**
- * Holt die Tabs ab, die das Kommando `schrittmacher <pfad>` beim Server anfordert. Gefragt wird
- * beim Start, regelmäßig, solange das Fenster sichtbar ist, und sofort, wenn es sichtbar wird, weil
- * das Kommando die Web-App danach nach vorn holt.
- */
-function useTabRequests(openNew: (target: ViewSearch) => Promise<void>) {
-  const latest = useRef(openNew);
-  latest.current = openNew;
-  useEffect(() => {
-    let busy = false;
-    const check = async () => {
-      if (busy || document.visibilityState !== 'visible') {
-        return;
-      }
-      busy = true;
-      try {
-        const requested = await takeTabRequest();
-        if (requested !== null) {
-          await latest.current(requested);
-        }
-      } catch {
-        // Der Server ist kurz nicht erreichbar; die nächste Frage versucht es wieder.
-      } finally {
-        busy = false;
-      }
-    };
-    const onCheck = () => {
-      void check();
-    };
-    onCheck();
-    const timer = setInterval(onCheck, REQUEST_INTERVAL);
-    document.addEventListener('visibilitychange', onCheck);
-    return () => {
-      clearInterval(timer);
-      document.removeEventListener('visibilitychange', onCheck);
-    };
-  }, []);
-}
-
 /** Ohne Ansicht: beim allerersten Start, ohne offenen Tab oder wenn sie sich nicht öffnen lässt. */
 function NoView({ message }: { message?: string }) {
   const { show } = useOpen();
   // Auch ohne Tab öffnet das Kommando `schrittmacher <pfad>` einen.
-  useTabRequests(async (target) => {
+  useRequests(async (target) => {
     show(target);
   });
   return (

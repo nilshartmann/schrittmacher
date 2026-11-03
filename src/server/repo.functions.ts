@@ -28,6 +28,8 @@ import {
 import type { PublishStatus, PublishedBranch, PushPlan } from './publish';
 import { addRedirect, checkPath, checkUrl, isLive, qrSvg, readDomain, readTalks, saveQr, werkstattOf } from './shortlink';
 import type { ShortlinkData, ShortlinkDomain } from './shortlink';
+import { requested } from './requests';
+import type { PageRequest } from './requests';
 import { shared } from './shared';
 import { ADDABLE_BRANCHES, addWorktree, discardProbe, probePlan, setProbe, werkstattLabel, werkstattStatus } from './werkstatt';
 import type { AddableBranch, ProbePlan, WerkstattStatus } from './werkstatt';
@@ -1007,9 +1009,6 @@ async function locatePath(given: string): Promise<{ repoPath: string; worktreePa
   return where;
 }
 
-/** Der Tab, den das Kommando `schrittmacher <pfad>` zuletzt angefordert hat, bis die Seite ihn abholt. */
-const requested = shared('requested', () => ({ tab: null as ViewSearch | null }));
-
 /**
  * Merkt sich die Ansicht zu einem Pfad als neuen Tab, siehe `bin/schrittmacher`. Anders als
  * `openRepo` gilt immer der Worktree des Pfads, mit seiner zuletzt geöffneten Ansicht. Sie läuft
@@ -1023,14 +1022,14 @@ export const requestTab = createServerOnlyFn(async (path: string): Promise<void>
   if (view === null) {
     throw new Error(`Für '${path}' gibt es keine Ansicht.`);
   }
-  requested.tab = view;
+  requested.next = { kind: 'tab', view };
 });
 
-/** Liefert den angeforderten Tab einmal und vergisst ihn dann; ohne Anforderung `null`. */
-export const takeTabRequest = createServerFn({ method: 'POST' }).handler(() => {
-  const view = requested.tab;
-  requested.tab = null;
-  return view;
+/** Liefert die angeforderte Ansicht einmal und vergisst sie dann; ohne Anforderung `null`. */
+export const takeRequest = createServerFn({ method: 'POST' }).handler((): PageRequest | null => {
+  const next = requested.next;
+  requested.next = null;
+  return next;
 });
 
 /** Die gemerkten Ansichten, die neueste zuerst, mit ihren Teilen für die URL. */

@@ -18,7 +18,8 @@ Der ursprüngliche Auftrag steht in `docs/auftrag-klick-dummy.md`, offene Punkte
 - `pnpm dev:wjax`: wie `dev:echt`, mit einem Worktree für den allerersten Start (`SCHRITTMACHER_REPO`)
 - `schrittmacher [pfad]` (`bin/schrittmacher`, verlinkt nach `~/.local/bin`): öffnet den Worktree
   zum Pfad als Tab wie `fork <pfad>` und holt die Web-App nach vorn; anderer Server mit
-  `SCHRITTMACHER_URL=…`, ohne Web-App mit leerem `SCHRITTMACHER_APP`
+  `SCHRITTMACHER_URL=…`, ohne Web-App mit leerem `SCHRITTMACHER_APP`. Eine Markdown-Datei als
+  Pfad zeigt die Web-App gerendert unter `/markdown` an (`src/viewer/Markdown.tsx`).
 - `schrittmacher-start` (`bin/schrittmacher-start`, verlinkt nach `~/.local/bin`): startet
   `pnpm dev:echt` im Hintergrund, falls unter Port 5310 nichts antwortet, und holt die Web-App nach
   vorn; die Ausgabe des Servers steht in `$TMPDIR/schrittmacher-server.log`
