@@ -1,3 +1,4 @@
+import { readdir } from 'node:fs/promises';
 import { join, relative, sep } from 'node:path';
 import { runGit } from '../git/process';
 import { maybe, worktreeBase, worktreesOf } from './publish';
@@ -33,6 +34,23 @@ export interface WerkstattStatus {
   rows: WerkstattRow[];
   /** Der Commit, auf dem die Probe angelegt oder zuletzt neu aufgesetzt wurde. */
   probeStart: ShortCommit | null;
+  /** Die Folien unter `folien/` im Worktree von `werkstatt`, als Pfad darin, nach Namen sortiert. */
+  slides: string[];
+}
+
+/** Der Ordner der Folien im Worktree von `werkstatt`. */
+export const SLIDES_DIR = 'folien';
+
+/** Die Folien für PowerPoint im Worktree von `werkstatt`; ohne Worktree oder Ordner keine. */
+async function slidesOf(werkstatt: string | null): Promise<string[]> {
+  if (werkstatt === null) {
+    return [];
+  }
+  const names = await readdir(join(werkstatt, SLIDES_DIR)).catch(() => []);
+  return names
+    .filter((name) => name.toLowerCase().endsWith('.pptx') && !name.startsWith('~$'))
+    .sort((a, b) => a.localeCompare(b))
+    .map((name) => `${SLIDES_DIR}/${name}`);
 }
 
 /** Was das Neuaufsetzen oder Verwerfen der Probe verwirft. */
@@ -77,6 +95,7 @@ export async function werkstattStatus(repoPath: string): Promise<WerkstattStatus
   return {
     rows: rows.map((row) => ({ ...row, place: row.worktree === null ? null : relative(main, row.worktree) })),
     probeStart: await probeStart(repoPath),
+    slides: await slidesOf(rows.find((row) => row.branch === 'werkstatt')?.worktree ?? null),
   };
 }
 

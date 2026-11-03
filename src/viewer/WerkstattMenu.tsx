@@ -5,12 +5,13 @@ import type { OpenApp } from '../server/apps';
 import {
   addWerkstattWorktree,
   loadProbePlan,
+  openWerkstattSlides,
   openWorktreeIn,
   removeProbe,
   startProbe,
 } from '../server/repo.functions';
 import type { ProbePlan, WerkstattRow, WerkstattStatus } from '../server/werkstatt';
-import { ChevronIcon, ClaudeIcon, CloudIcon, QrIcon, TerminalIcon, TrashIcon, WorkshopIcon } from './Icons';
+import { ChevronIcon, ClaudeIcon, CloudIcon, QrIcon, SlidesIcon, TerminalIcon, TrashIcon, WorkshopIcon } from './Icons';
 import { ContextMenu, Menu, MenuItem, MenuNote } from './Menu';
 import { PublishDialog } from './PublishDialog';
 import { ShortlinkDialog } from './ShortlinkDialog';
@@ -46,7 +47,7 @@ function stateOf(row: WerkstattRow, status: WerkstattStatus): string {
  * Der Knopf „Werkstatt“ in der Kopfzeile, siehe `docs/werkstatt.md`. Das Menü zeigt je Branch der
  * Werkstatt seinen Stand. Ein Klick auf einen Branch mit Worktree öffnet ihn als Tab, einer ohne
  * Worktree legt ihn an. Beim Überfahren öffnen Knöpfe den Worktree im Terminal, den von `werkstatt`
- * auch in Claude Code, und verwerfen die Probe. Darunter stehen Veröffentlichen und Kurzlink.
+ * auch in Claude Code, und verwerfen die Probe. Darunter stehen die Folien, Veröffentlichen und Kurzlink.
  */
 export function WerkstattMenu({
   worktree,
@@ -158,6 +159,18 @@ export function WerkstattMenu({
                 );
               })}
               <div className="menu-rule" />
+              {status.slides.map((file) => (
+                <MenuItem
+                  key={file}
+                  main="Folien öffnen"
+                  sub={file.slice(file.lastIndexOf('/') + 1)}
+                  icon={<SlidesIcon />}
+                  tip="In PowerPoint öffnen"
+                  onChoose={() => {
+                    run(() => openWerkstattSlides({ data: { worktree, file } }));
+                  }}
+                />
+              ))}
               <MenuItem
                 main="Veröffentlichen …"
                 icon={<CloudIcon />}

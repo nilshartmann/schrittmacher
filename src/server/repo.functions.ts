@@ -11,7 +11,7 @@ import { branchScopeOf } from '../git/scope';
 import type { RepoEntry, RepoFolder } from '../git/repos';
 import type { SyncAction } from '../git/types';
 import { markdownOf, noteInputOf } from '../notes/notes';
-import { isOpenApp, openClaude, openIn, openInBrowser } from './apps';
+import { isOpenApp, openClaude, openIn, openInBrowser, openInPowerPoint } from './apps';
 import type { OpenApp } from './apps';
 import { createGist, gistIdOf, gistUrl, gistNameOf, gistTextOf, readGist, writeToGist } from './gist';
 import { createNotes } from './notes';
@@ -503,6 +503,21 @@ export const startLiveCoding = createServerFn({ method: 'POST' })
 export const loadWerkstatt = createServerFn({ method: 'GET' })
   .validator((data: { worktree: string }) => ({ worktree: text(data.worktree, 'worktree') }))
   .handler(async ({ data }): Promise<WerkstattStatus | null> => werkstattStatus((await access(data.worktree)).repoPath));
+
+/** Öffnet eine der Folien der Werkstatt in PowerPoint; `file` ist ein Pfad aus `slides` ihres Stands. */
+export const openWerkstattSlides = createServerFn({ method: 'POST' })
+  .validator((data: { worktree: string; file: string }) => ({
+    worktree: text(data.worktree, 'worktree'),
+    file: text(data.file, 'file'),
+  }))
+  .handler(async ({ data }) => {
+    const status = await werkstattStatus((await access(data.worktree)).repoPath);
+    const werkstatt = status?.rows.find((row) => row.branch === 'werkstatt')?.worktree ?? null;
+    if (status === null || werkstatt === null || !status.slides.includes(data.file)) {
+      throw new Error(`Die Folien '${data.file}' gibt es in der Werkstatt nicht.`);
+    }
+    await openInPowerPoint(join(werkstatt, data.file));
+  });
 
 /** Legt den Worktree für `main` oder `schritte` an und liefert seinen Pfad. */
 export const addWerkstattWorktree = createServerFn({ method: 'POST' })

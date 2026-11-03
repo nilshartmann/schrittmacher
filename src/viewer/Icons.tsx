@@ -291,3 +291,13 @@ export function QrIcon() {
     </Outline>
   );
 }
+
+/** Eine Folie auf einem Ständer: Folien in PowerPoint öffnen. */
+export function SlidesIcon() {
+  return (
+    <Outline size={15}>
+      <rect x="2" y="2.5" width="12" height="8" rx="1" />
+      <path d="M8 10.5v3M5.5 13.5h5M5 8l2-2.5 1.5 1.5L11 5" />
+    </Outline>
+  );
+}

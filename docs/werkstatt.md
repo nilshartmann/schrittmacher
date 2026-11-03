@@ -32,7 +32,9 @@ erscheinen beim Überfahren.
 | `probe` | Worktree vorhanden | Commit, auf dem die Probe beginnt; als Tab, im Terminal öffnen; „Probe verwerfen …“ |
 | | fehlt | Hinweis auf den Knopf „Probe“ an den Commits |
 
-Darunter stehen „Veröffentlichen …“ und „Kurzlink anlegen …“, dieselben Dialoge wie im Repo-Menü.
+Darunter steht je Datei mit der Endung `.pptx` unter `folien/` im Worktree von `werkstatt` ein
+Eintrag „Folien öffnen“ mit dem Namen der Datei. Er öffnet sie in PowerPoint. Danach folgen
+„Veröffentlichen …“ und „Kurzlink anlegen …“, dieselben Dialoge wie im Repo-Menü.
 
 Claude Code startet nur im Worktree von `werkstatt`. In einem anderen Worktree findet es die
 `CLAUDE.md` der Werkstatt nicht, weil es nur bis zur Wurzel des Git-Arbeitsverzeichnisses sucht
