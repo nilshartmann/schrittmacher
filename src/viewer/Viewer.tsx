@@ -692,6 +692,11 @@ export function Viewer({ view, search, onSearch, onOpen, onShow, tabs }: ViewerP
             onDraftDone={() => {
               setNoteDraft(null);
             }}
+            onCommitNote={() => {
+              if (noteCommit !== undefined) {
+                setNoteDraft({ sha: noteCommit.sha, step: noteCommit.step, title: noteCommit.title, path: null, lines: null });
+              }
+            }}
             onSave={notes.save}
             onRemove={notes.remove}
             onClear={notes.clear}
@@ -701,8 +706,10 @@ export function Viewer({ view, search, onSearch, onOpen, onShow, tabs }: ViewerP
               if (commit === undefined) {
                 return;
               }
-              if (commit.sha !== comparison.to || comparison.from !== null || note.path !== current?.file.path) {
-                onSearch({ ...keysOf(repo.commits, line, { from: null, to: commit.sha }), file: note.path });
+              // Ein Hinweis zum ganzen Commit wählt nur den Commit und lässt die Datei, wie sie ist.
+              const file = note.path ?? current?.file.path;
+              if (commit.sha !== comparison.to || comparison.from !== null || file !== current?.file.path) {
+                onSearch({ ...keysOf(repo.commits, line, { from: null, to: commit.sha }), file });
               }
               if (note.lines !== null) {
                 setFocus({ side: note.lines.side, line: note.lines.from, at: Date.now() });

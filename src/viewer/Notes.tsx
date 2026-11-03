@@ -6,7 +6,7 @@ import { commitHeading, compareNotes, linesLabel, noteHeading } from '../notes/n
 import type { Note, NoteInput, NoteLines, Notes } from '../notes/notes';
 import { deleteNotes, loadNotes, saveNote } from '../server/repo.functions';
 import { WidthSplitter } from './FileList';
-import { ClaudeIcon, TrashIcon } from './Icons';
+import { ClaudeIcon, NoteIcon, TrashIcon } from './Icons';
 import { NotesClaudeDialog } from './NotesClaude';
 
 /** Die Grenzen der Breite der Spalte mit den Hinweisen in Pixeln; der Rest bleibt mindestens für den Diff. */
@@ -24,7 +24,7 @@ const CODE_PREVIEW = 3;
 /** So lange zeigt ein Knopf zum Kopieren „Kopiert“, in Millisekunden. */
 const COPIED_FOR = 1200;
 
-/** Ein Hinweis, der gerade angelegt wird: zum gewählten Commit und zur gewählten Datei. */
+/** Ein Hinweis, der gerade angelegt wird: zum gewählten Commit und zur gewählten Datei oder ohne Datei. */
 export type NoteDraft = Omit<NoteInput, 'id' | 'text'>;
 
 const MARKDOWN: Language = { name: 'markdown', dialect: '' };
@@ -118,6 +118,8 @@ interface NotesColumnProps {
   path: string | null;
   draft: NoteDraft | null;
   onDraftDone: () => void;
+  /** Legt einen Hinweis zum ganzen gewählten Commit an. */
+  onCommitNote: () => void;
   onSave: (note: NoteInput) => Promise<void>;
   onRemove: (id: string) => Promise<void>;
   onClear: () => Promise<void>;
@@ -166,6 +168,16 @@ export function NotesColumn(props: NotesColumnProps) {
       <aside className="notes-column" style={{ width: props.width }} aria-label="Hinweise">
         <div className="notes-bar">
           <span className="notes-heading">Hinweise</span>
+          <button
+            type="button"
+            className="icon-button notes-commit-note"
+            aria-label="Hinweis zum Commit"
+            disabled={sha === null}
+            data-tip={sha === null ? 'Hinweise gibt es nur zu Commits' : 'Hinweis zum ganzen Commit'}
+            onClick={props.onCommitNote}
+          >
+            <NoteIcon size={16} />
+          </button>
           <div className="notes-scope" role="group" aria-label="Welche Hinweise">
             <button
               type="button"
@@ -220,7 +232,7 @@ export function NotesColumn(props: NotesColumnProps) {
                   note={note}
                   size={size}
                   gone={commit === undefined}
-                  quiet={!all && props.path !== null && note.path !== props.path}
+                  quiet={!all && props.path !== null && note.path !== null && note.path !== props.path}
                   onSave={props.onSave}
                   onRemove={props.onRemove}
                   onActive={props.onActive}
@@ -238,7 +250,7 @@ export function NotesColumn(props: NotesColumnProps) {
                 ? 'Es gibt noch keine Hinweise.'
                 : sha === null
                   ? 'Hinweise gibt es nur zu Commits.'
-                  : 'Zu diesem Commit gibt es noch keine Hinweise. Zeilen im Diff markieren und auf „Hinweis“ klicken, oder mit dem Knopf über dem Diff einen Hinweis zur ganzen Datei anlegen.'}
+                  : 'Zu diesem Commit gibt es noch keine Hinweise. Zeilen im Diff markieren und auf „Hinweis“ klicken. Der Knopf über dem Diff legt einen Hinweis zur ganzen Datei an, der Knopf oben in dieser Spalte einen zum ganzen Commit.'}
             </p>
           )}
         </div>
@@ -267,14 +279,20 @@ export function NotesColumn(props: NotesColumnProps) {
   );
 }
 
-/** Der Kopf eines Hinweises: Datei und Zeilen, mit `withCommit` auch der Commit. */
+/** Der Kopf eines Hinweises: Datei und Zeilen oder „ganzer Commit“, mit `withCommit` auch der Commit. */
 function NoteHead({ note, withCommit }: { note: Pick<Note, 'step' | 'title' | 'path' | 'lines'>; withCommit: boolean }) {
   return (
     <span className="note-head">
       {withCommit && <span className="note-commit">{commitLabel(note)}</span>}
       <span className="note-where">
-        <span className="note-file">{nameOf(note.path)}</span>
-        <span className="note-lines">{note.lines === null ? 'ganze Datei' : linesLabel(note.lines)}</span>
+        {note.path === null ? (
+          <span className="note-lines">ganzer Commit</span>
+        ) : (
+          <>
+            <span className="note-file">{nameOf(note.path)}</span>
+            <span className="note-lines">{note.lines === null ? 'ganze Datei' : linesLabel(note.lines)}</span>
+          </>
+        )}
       </span>
     </span>
   );
@@ -429,7 +447,7 @@ function NoteCard({
           type="button"
           className="note-show"
           disabled={gone}
-          data-tip={gone ? 'Den Commit gibt es nicht mehr' : note.path}
+          data-tip={gone ? 'Den Commit gibt es nicht mehr' : (note.path ?? commitLabel(note))}
           onClick={() => {
             onShow(note);
           }}
@@ -457,7 +475,7 @@ function NoteCard({
           <TrashIcon />
         </button>
       </div>
-      {note.lines !== null && !editing && <CodePreview lines={note.lines} path={note.path} />}
+      {note.lines !== null && note.path !== null && !editing && <CodePreview lines={note.lines} path={note.path} />}
       {editing ? (
         <NoteEditor
           note={note}

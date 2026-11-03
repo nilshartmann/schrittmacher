@@ -11,14 +11,17 @@ steht rechts vom Diff die Spalte mit den Hinweisen, und die Zahl neben dem Knopf
 Hinweise des Repos. Ausgeschaltet, etwa während eines Vortrags, ist alles zu Hinweisen
 ausgeblendet: die Spalte, die Knöpfe, die Hervorhebung im Diff und die Zahlen in der Commit-Liste.
 
-Bei eingeschalteten Hinweisen entsteht ein neuer auf zwei Wegen:
+Bei eingeschalteten Hinweisen entsteht ein neuer auf drei Wegen:
 
 - Zeilen im Diff markieren: Am Ende der Markierung erscheint der Knopf „Hinweis“. Er legt einen
   Hinweis zu diesen Zeilen an.
 - Knopf mit der Sprechblase in der Leiste über dem Diff: Er legt einen Hinweis zur ganzen Datei an.
+- Knopf mit der Sprechblase oben in der Spalte: Er legt einen Hinweis zum ganzen Commit an, ohne
+  Datei. In der Markdown-Datei steht er unter „Ganzer Commit“ vor den Hinweisen zu Dateien.
 
 In der Spalte stehen wahlweise die Hinweise des gewählten Commits oder alle. Ein Klick auf Datei
-und Zeilen eines Hinweises wählt seinen Commit und seine Datei und scrollt zu den Zeilen. Ein Klick
+und Zeilen eines Hinweises wählt seinen Commit und seine Datei und scrollt zu den Zeilen. Bei einem
+Hinweis zum ganzen Commit wählt er nur den Commit. Ein Klick
 auf den Text ändert ihn; ⌘↩ oder ein Klick daneben speichert, Escape bricht ab. Der Text ist
 Markdown und erscheint mit Farben. Über dem Feld steht, was Schrittmacher in der Markdown-Datei vor
 dem Text ergänzt: der Commit, die Datei mit den Zeilen, ihr Code und der markierte Teil. Am Griff

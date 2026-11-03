@@ -15,15 +15,16 @@ export interface NoteLines {
 
 /**
  * Ein Hinweis zur Überarbeitung eines Commits, zu einer Datei und, wenn welche markiert waren, zu
- * Zeilen darin. Nummer und Titel des Commits stehen dabei, damit er sich nach einem Rebase wieder
- * finden lässt.
+ * Zeilen darin. Ohne Datei (`path` ist `null`) gilt er für den ganzen Commit und hat auch keine
+ * Zeilen. Nummer und Titel des Commits stehen dabei, damit er sich nach einem Rebase wieder finden
+ * lässt.
  */
 export interface Note {
   id: string;
   sha: string;
   step: string | null;
   title: string;
-  path: string;
+  path: string | null;
   lines: NoteLines | null;
   text: string;
   /** Wann der Hinweis angelegt wurde, als ISO-Datum. */
@@ -73,7 +74,7 @@ export function isNote(value: unknown): value is Note {
     typeof value.sha === 'string' &&
     (value.step === null || typeof value.step === 'string') &&
     typeof value.title === 'string' &&
-    typeof value.path === 'string' &&
+    (typeof value.path === 'string' || (value.path === null && value.lines === null)) &&
     (value.lines === null || isLines(value.lines)) &&
     typeof value.text === 'string' &&
     typeof value.created === 'string'
@@ -124,10 +125,13 @@ function compareCommits(a: Note, b: Note): number {
   return a.created.localeCompare(b.created);
 }
 
-/** Innerhalb eines Commits nach Datei, darin zuerst die Hinweise zur ganzen Datei, dann nach Zeile. */
+/**
+ * Innerhalb eines Commits zuerst die Hinweise zum ganzen Commit, dann nach Datei, darin zuerst die
+ * Hinweise zur ganzen Datei, dann nach Zeile.
+ */
 export function compareNotes(a: Note, b: Note): number {
   if (a.path !== b.path) {
-    return a.path.localeCompare(b.path);
+    return a.path === null ? -1 : b.path === null ? 1 : a.path.localeCompare(b.path);
   }
   if (a.lines === null || b.lines === null) {
     return a.lines === b.lines ? a.created.localeCompare(b.created) : a.lines === null ? -1 : 1;
@@ -164,19 +168,26 @@ function inlineCode(code: string): string {
   return `${ticks}${padding}${code}${padding}${ticks}`;
 }
 
+/** Die Überschrift eines Hinweises zum ganzen Commit. */
+const WHOLE_COMMIT = 'Ganzer Commit';
+
 /**
  * Der Teil eines Hinweises, den Schrittmacher ergänzt: die Überschrift mit Datei und Zeilen, der
- * Code der Zeilen und, wenn nur ein Teil davon markiert war, dieser Teil. Danach folgt der Text.
+ * Code der Zeilen und, wenn nur ein Teil davon markiert war, dieser Teil. Ohne Datei heißt die
+ * Überschrift „Ganzer Commit“. Danach folgt der Text.
  */
 export function noteHeading(note: Pick<Note, 'path' | 'lines'>): string {
-  const { lines } = note;
-  if (lines === null) {
-    return `### ${note.path}`;
+  const { lines, path } = note;
+  if (path === null) {
+    return `### ${WHOLE_COMMIT}`;
   }
-  const parts = [`### ${note.path}, ${linesLabel(lines)}`, fenced(lines.code, note.path)];
+  if (lines === null) {
+    return `### ${path}`;
+  }
+  const parts = [`### ${path}, ${linesLabel(lines)}`, fenced(lines.code, path)];
   if (lines.marked !== undefined) {
     const marked = lines.code.slice(lines.marked.start, lines.marked.end);
-    parts.push(marked.includes('\n') ? `Markiert:\n\n${fenced(marked, note.path)}` : `Markiert: ${inlineCode(marked)}`);
+    parts.push(marked.includes('\n') ? `Markiert:\n\n${fenced(marked, path)}` : `Markiert: ${inlineCode(marked)}`);
   }
   return parts.join('\n\n');
 }
@@ -188,7 +199,8 @@ export function commitHeading(note: Pick<Note, 'sha' | 'step' | 'title'>): strin
 
 /**
  * Die Hinweise als Markdown, das sich ohne weitere Erklärung an Claude geben lässt: je Commit ein
- * Abschnitt, darin je Hinweis die Datei, die Zeilen mit dem markierten Code und der Hinweis.
+ * Abschnitt, darin zuerst die Hinweise zum ganzen Commit, dann je Hinweis die Datei, die Zeilen mit
+ * dem markierten Code und der Hinweis.
  */
 export function markdownOf(repoPath: string, notes: Note[]): string {
   const parts = [
@@ -196,6 +208,7 @@ export function markdownOf(repoPath: string, notes: Note[]): string {
     [
       `Die Hinweise gelten für die Commits im Repo \`${repoPath}\`.`,
       'Setze jeden Hinweis in dem Commit um, unter dem er steht.',
+      `Ein Hinweis unter „${WHOLE_COMMIT}“ gilt für den Commit als Ganzes und für keine bestimmte Datei.`,
       'Zeilennummern zählen in der Datei im Stand dieses Commits, „vor dem Commit“ im Stand davor.',
       'Der Code der Zeilen steht jeweils dabei, damit sich die Stelle auch nach einer Änderung finden lässt.',
       'War nur ein Teil davon markiert, steht er unter „Markiert“.',
