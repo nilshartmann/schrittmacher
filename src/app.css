@@ -3319,6 +3319,27 @@ span.info-parent {
   color: var(--text-primary);
 }
 
+/* Der Knopf hinter dem Teilnehmer-Repo, der seine Adresse auf GitHub kopiert */
+.publish-copy {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin: 0 2px 0 4px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-secondary);
+  vertical-align: middle;
+  cursor: pointer;
+}
+
+.publish-copy:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
 /* Der Dialog „In Claude bearbeiten“ mit Prompt und Hinweisen zum Anpassen */
 
 .claude-dialog {

@@ -27,7 +27,7 @@ er den Stand des Teilnehmer-Repos mit `git fetch`.
 
 | Schritt | Stand | Knopf |
 |---|---|---|
-| Teilnehmer-Repo | fehlt; oder vorhanden als `<org>/<name>`, privat oder öffentlich | „Anlegen“; Schalter für die Sichtbarkeit |
+| Teilnehmer-Repo | fehlt; oder vorhanden als `<org>/<name>`, privat oder öffentlich | „Anlegen“; Schalter für die Sichtbarkeit; hinter dem Namen ein Knopf, der `https://github.com/<org>/<name>` kopiert |
 | Startpunkt | Platzhalter steht noch auf `main`; `main` nicht veröffentlicht; veröffentlicht und gleich; veröffentlicht, aber abweichend | „`main` veröffentlichen“ |
 | Live-Coding | `live_coding` fehlt; angelegt, folgt `teilnehmer`, im Worktree ausgecheckt | „`live_coding` anlegen“ |
 | Musterlösungen | `schritte` nicht veröffentlicht; veröffentlicht und gleich; abweichend | „`schritte` veröffentlichen“ |

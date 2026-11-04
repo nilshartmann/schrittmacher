@@ -9,6 +9,7 @@ import {
   switchParticipantVisibility,
 } from '../server/repo.functions';
 import type { BranchState, PublishStatus, PublishedBranch, PushPlan } from '../server/publish';
+import { ChainIcon, CheckMarkIcon } from './Icons';
 import { TabsContext } from './Tabs';
 
 function messageOf(error: unknown): string {
@@ -41,6 +42,46 @@ function Step({ title, children, action }: { title: string; children: ReactNode;
       </div>
       {action !== undefined && <div className="publish-step-action">{action}</div>}
     </div>
+  );
+}
+
+/** So lange zeigt der Knopf nach dem Kopieren den Haken. */
+const COPIED_FOR = 1500;
+
+/** Ein Knopf hinter dem Namen des Teilnehmer-Repos, der seine Adresse auf GitHub kopiert. */
+function CopyRepoUrl({ url, onError }: { url: string; onError: (message: string) => void }) {
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (!copied) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setCopied(false);
+    }, COPIED_FOR);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [copied]);
+  const label = copied ? 'Kopiert' : 'GitHub-Adresse kopieren';
+  return (
+    <button
+      type="button"
+      className="publish-copy"
+      aria-label={label}
+      data-tip={label}
+      onClick={() => {
+        navigator.clipboard.writeText(url).then(
+          () => {
+            setCopied(true);
+          },
+          (failure: unknown) => {
+            onError(`Die Adresse ließ sich nicht kopieren: ${messageOf(failure)}`);
+          },
+        );
+      }}
+    >
+      {copied ? <CheckMarkIcon /> : <ChainIcon />}
+    </button>
   );
 }
 
@@ -223,6 +264,7 @@ export function PublishDialog({ worktree, onClose }: { worktree: string; onClose
           ) : (
             <p className="sync-quiet">
               <span className="publish-repo">{status.repo ?? remote}</span>
+              {status.repo !== null && <CopyRepoUrl url={`https://github.com/${status.repo}`} onError={setError} />}
               {status.visibility !== null && ` · ${status.visibility === 'public' ? 'öffentlich' : 'privat'}`}
               {remote !== 'teilnehmer' && ` · Remote „${remote}“`}
             </p>
