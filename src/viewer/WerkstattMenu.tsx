@@ -5,16 +5,30 @@ import type { OpenApp } from '../server/apps';
 import {
   addWerkstattWorktree,
   loadProbePlan,
+  openWerkstattPdf,
   openWerkstattSlides,
   openWorktreeIn,
   removeProbe,
   startProbe,
 } from '../server/repo.functions';
 import type { ProbePlan, WerkstattRow, WerkstattStatus } from '../server/werkstatt';
-import { ChevronIcon, ClaudeIcon, CloudIcon, QrIcon, SlidesIcon, TerminalIcon, TrashIcon, WorkshopIcon } from './Icons';
+import {
+  ChainIcon,
+  ChevronIcon,
+  ClaudeIcon,
+  CloudIcon,
+  PdfIcon,
+  QrIcon,
+  SlidesIcon,
+  TerminalIcon,
+  TrashIcon,
+  UploadIcon,
+  WorkshopIcon,
+} from './Icons';
 import { ContextMenu, Menu, MenuItem, MenuNote } from './Menu';
 import { PublishDialog } from './PublishDialog';
 import { ShortlinkDialog } from './ShortlinkDialog';
+import { SlidesDialog } from './SlidesDialog';
 import { TabsContext } from './Tabs';
 
 function messageOf(failure: unknown): string {
@@ -47,7 +61,8 @@ function stateOf(row: WerkstattRow, status: WerkstattStatus): string {
  * Der Knopf „Werkstatt“ in der Kopfzeile, siehe `docs/werkstatt.md`. Das Menü zeigt je Branch der
  * Werkstatt seinen Stand. Ein Klick auf einen Branch mit Worktree öffnet ihn als Tab, einer ohne
  * Worktree legt ihn an. Beim Überfahren öffnen Knöpfe den Worktree im Terminal, den von `werkstatt`
- * auch in Claude Code, und verwerfen die Probe. Darunter stehen die Folien, Veröffentlichen und Kurzlink.
+ * auch in Claude Code, und verwerfen die Probe. Darunter stehen die Folien mit Knöpfen für PowerPoint,
+ * das PDF im Folien-Repo und den Link dazu, danach Veröffentlichen und Kurzlink.
  */
 export function WerkstattMenu({
   worktree,
@@ -63,6 +78,7 @@ export function WerkstattMenu({
   const [publish, setPublish] = useState(false);
   const [shortlink, setShortlink] = useState(false);
   const [discard, setDiscard] = useState(false);
+  const [upload, setUpload] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const showTab = (path: string, branch: string) => {
     void tabs?.show({ worktree: path, branch });
@@ -159,18 +175,61 @@ export function WerkstattMenu({
                 );
               })}
               <div className="menu-rule" />
-              {status.slides.map((file) => (
-                <MenuItem
-                  key={file}
-                  main="Folien öffnen"
-                  sub={file.slice(file.lastIndexOf('/') + 1)}
-                  icon={<SlidesIcon />}
-                  tip="In PowerPoint öffnen"
-                  onChoose={() => {
-                    run(() => openWerkstattSlides({ data: { worktree, file } }));
-                  }}
-                />
-              ))}
+              {status.slides.map((file) => {
+                const uploaded = status.uploads.find((entry) => entry.file === file) ?? null;
+                const name = file.slice(file.lastIndexOf('/') + 1);
+                const openSlides = () => {
+                  run(() => openWerkstattSlides({ data: { worktree, file } }));
+                };
+                return (
+                  <div key={file} className="menu-row">
+                    <MenuItem
+                      main="Folien öffnen"
+                      sub={uploaded === null ? name : `${name} → ${uploaded.repo}`}
+                      icon={<SlidesIcon />}
+                      tip={uploaded === null ? 'In PowerPoint öffnen' : `In PowerPoint öffnen; hochgeladen als ${uploaded.repo}/${uploaded.name}.pdf`}
+                      onChoose={openSlides}
+                    />
+                    <span className="menu-actions">
+                      <ActionButton label="In PowerPoint öffnen" onClick={openSlides}>
+                        <SlidesIcon />
+                      </ActionButton>
+                      {uploaded?.pdf === true && (
+                        <ActionButton
+                          label="PDF in Acrobat öffnen"
+                          onClick={() => {
+                            run(() => openWerkstattPdf({ data: { worktree, file } }));
+                          }}
+                        >
+                          <PdfIcon />
+                        </ActionButton>
+                      )}
+                      <ActionButton
+                        label="PDF erzeugen und hochladen …"
+                        onClick={() => {
+                          close();
+                          setUpload(file);
+                        }}
+                      >
+                        <UploadIcon />
+                      </ActionButton>
+                      {uploaded?.url != null && (
+                        <ActionButton
+                          label="Link zum PDF kopieren"
+                          onClick={() => {
+                            const url = uploaded.url;
+                            if (url !== null) {
+                              run(() => navigator.clipboard.writeText(url));
+                            }
+                          }}
+                        >
+                          <ChainIcon />
+                        </ActionButton>
+                      )}
+                    </span>
+                  </div>
+                );
+              })}
               <MenuItem
                 main="Veröffentlichen …"
                 icon={<CloudIcon />}
@@ -207,6 +266,16 @@ export function WerkstattMenu({
           initial={null}
           onClose={() => {
             setShortlink(false);
+          }}
+        />
+      )}
+      {upload !== null && (
+        <SlidesDialog
+          worktree={worktree}
+          file={upload}
+          onDone={onChanged}
+          onClose={() => {
+            setUpload(null);
           }}
         />
       )}

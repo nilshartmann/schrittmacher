@@ -1,6 +1,6 @@
 import { realpath, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
-import { dirname, isAbsolute, join, resolve, sep } from 'node:path';
+import { basename, dirname, isAbsolute, join, resolve, sep } from 'node:path';
 import { createServerFn, createServerOnlyFn } from '@tanstack/react-start';
 import { buildDemoRepo, DEMO_BASE } from '../git/demoGit';
 import { DEMO_REPO } from '../git/demoRepo';
@@ -28,6 +28,8 @@ import {
 import type { PublishStatus, PublishedBranch, PushPlan } from './publish';
 import { addRedirect, checkPath, checkUrl, isLive, qrSvg, readDomain, readTalks, saveQr, werkstattOf } from './shortlink';
 import type { ShortlinkData, ShortlinkDomain } from './shortlink';
+import { checkSlidesName, openInAcrobat, slideRepoOf, suggestSlidesName, uploadSlides } from './slides';
+import type { SlideRepo, UploadResult } from './slides';
 import { requested } from './requests';
 import type { PageRequest } from './requests';
 import { shared } from './shared';
@@ -504,7 +506,24 @@ export const startLiveCoding = createServerFn({ method: 'POST' })
 /** Der Stand der Werkstatt, zu der der Worktree gehört; `null`, wenn sein Repo keine ist. */
 export const loadWerkstatt = createServerFn({ method: 'GET' })
   .validator((data: { worktree: string }) => ({ worktree: text(data.worktree, 'worktree') }))
-  .handler(async ({ data }): Promise<WerkstattStatus | null> => werkstattStatus((await access(data.worktree)).repoPath));
+  .handler(async ({ data }): Promise<WerkstattStatus | null> => {
+    const [{ repoPath }, { store }] = await Promise.all([access(data.worktree), server()]);
+    return werkstattStatus(repoPath, (await store.state()).slides[repoPath] ?? []);
+  });
+
+/**
+ * Eine PowerPoint-Datei der Werkstatt, nur wenn sie unter `slides` ihres Stands steht, mit dem Repo
+ * und ihrem vollen Pfad.
+ */
+async function werkstattSlide(worktree: string, file: string): Promise<{ repoPath: string; pptx: string }> {
+  const { repoPath } = await access(worktree);
+  const status = await werkstattStatus(repoPath);
+  const werkstatt = status?.rows.find((row) => row.branch === 'werkstatt')?.worktree ?? null;
+  if (status === null || werkstatt === null || !status.slides.includes(file)) {
+    throw new Error(`Die Folien '${file}' gibt es in der Werkstatt nicht.`);
+  }
+  return { repoPath, pptx: join(werkstatt, file) };
+}
 
 /** Öffnet eine der Folien der Werkstatt in PowerPoint; `file` ist ein Pfad aus `slides` ihres Stands. */
 export const openWerkstattSlides = createServerFn({ method: 'POST' })
@@ -513,12 +532,81 @@ export const openWerkstattSlides = createServerFn({ method: 'POST' })
     file: text(data.file, 'file'),
   }))
   .handler(async ({ data }) => {
-    const status = await werkstattStatus((await access(data.worktree)).repoPath);
-    const werkstatt = status?.rows.find((row) => row.branch === 'werkstatt')?.worktree ?? null;
-    if (status === null || werkstatt === null || !status.slides.includes(data.file)) {
-      throw new Error(`Die Folien '${data.file}' gibt es in der Werkstatt nicht.`);
+    await openInPowerPoint((await werkstattSlide(data.worktree, data.file)).pptx);
+  });
+
+/** Das Folien-Repo aus `config.json` zu seinem Namen. */
+async function slideRepoPath(name: string): Promise<string> {
+  const { store } = await server();
+  const found = (await store.slideRepos()).find((path) => basename(path) === name);
+  if (found === undefined) {
+    throw new Error(`Das Folien-Repo ${name} steht nicht unter „slides“ in config.json.`);
+  }
+  return found;
+}
+
+/** Was der Dialog „PDF hochladen“ braucht, siehe `docs/folien.md`. */
+export interface SlidesUploadData {
+  repos: SlideRepo[];
+  /** Die gemerkte Zuordnung der Datei, sonst `null`. */
+  saved: { repo: string; name: string } | null;
+  /** Der vorgeschlagene Name ohne Endung, nach der Konvention der Folien-Repos. */
+  suggestion: string;
+  problems: string[];
+}
+
+export const slidesUploadData = createServerFn({ method: 'GET' })
+  .validator((data: { worktree: string; file: string }) => ({
+    worktree: text(data.worktree, 'worktree'),
+    file: text(data.file, 'file'),
+  }))
+  .handler(async ({ data }): Promise<SlidesUploadData> => {
+    const [{ repoPath }, { store }] = await Promise.all([werkstattSlide(data.worktree, data.file), server()]);
+    const paths = await store.slideRepos();
+    const saved = ((await store.state()).slides[repoPath] ?? []).find((entry) => entry.file === data.file);
+    return {
+      repos: await Promise.all(paths.map(slideRepoOf)),
+      saved: saved === undefined ? null : { repo: basename(saved.repo), name: saved.name },
+      suggestion: suggestSlidesName(basename(repoPath)),
+      problems: paths.length === 0 ? ['In config.json fehlt „slides“, die Pfade der Folien-Repos.'] : [],
+    };
+  });
+
+/**
+ * Erzeugt das PDF aus einer PowerPoint-Datei der Werkstatt und lädt beide ins Folien-Repo hoch,
+ * siehe `uploadSlides`. Die Zuordnung merkt sich der Server vorher, damit sie auch gilt, wenn
+ * PowerPoint oder der Push scheitert.
+ */
+export const uploadWerkstattSlides = createServerFn({ method: 'POST' })
+  .validator((data: { worktree: string; file: string; repo: string; name: string }) => ({
+    worktree: text(data.worktree, 'worktree'),
+    file: text(data.file, 'file'),
+    repo: text(data.repo, 'repo'),
+    name: checkSlidesName(text(data.name, 'name')),
+  }))
+  .handler(async ({ data }): Promise<UploadResult> => {
+    const [{ repoPath, pptx }, target, { store }] = await Promise.all([
+      werkstattSlide(data.worktree, data.file),
+      slideRepoPath(data.repo),
+      server(),
+    ]);
+    await store.saveSlides(repoPath, { file: data.file, repo: target, name: data.name });
+    return uploadSlides(target, pptx, data.name);
+  });
+
+/** Öffnet das PDF einer PowerPoint-Datei der Werkstatt aus ihrem Folien-Repo in Acrobat. */
+export const openWerkstattPdf = createServerFn({ method: 'POST' })
+  .validator((data: { worktree: string; file: string }) => ({
+    worktree: text(data.worktree, 'worktree'),
+    file: text(data.file, 'file'),
+  }))
+  .handler(async ({ data }) => {
+    const [{ repoPath }, { store }] = await Promise.all([werkstattSlide(data.worktree, data.file), server()]);
+    const saved = ((await store.state()).slides[repoPath] ?? []).find((entry) => entry.file === data.file);
+    if (saved === undefined) {
+      throw new Error(`Die Folien '${data.file}' sind noch in kein Folien-Repo hochgeladen.`);
     }
-    await openInPowerPoint(join(werkstatt, data.file));
+    await openInAcrobat(join(saved.repo, `${saved.name}.pdf`));
   });
 
 /** Legt den Worktree für `main` oder `schritte` an und liefert seinen Pfad. */

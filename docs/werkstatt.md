@@ -33,7 +33,9 @@ erscheinen beim Überfahren.
 | | fehlt | Hinweis auf den Knopf „Probe“ an den Commits |
 
 Darunter steht je Datei mit der Endung `.pptx` unter `folien/` im Worktree von `werkstatt` ein
-Eintrag „Folien öffnen“ mit dem Namen der Datei. Er öffnet sie in PowerPoint. Danach folgen
+Eintrag „Folien öffnen“ mit dem Namen der Datei. Er öffnet sie in PowerPoint. Seine Knöpfe öffnen
+das PDF, laden PowerPoint-Datei und PDF in ein Folien-Repo hoch und kopieren den Link zum PDF
+(`docs/folien.md`). Danach folgen
 „Veröffentlichen …“ und „Kurzlink anlegen …“, dieselben Dialoge wie im Repo-Menü.
 
 Claude Code startet nur im Worktree von `werkstatt`. In einem anderen Worktree findet es die

@@ -3107,6 +3107,15 @@ span.info-parent {
   overflow-wrap: anywhere;
 }
 
+/* Der Dialog „PDF hochladen“ steht wie der Kurzlink im DOM in der Kopfleiste, siehe docs/folien.md. */
+.slides-dialog {
+  white-space: normal;
+}
+
+.slides-dialog .menu-input {
+  width: 100%;
+}
+
 /* Der Dialog „Kurzlink anlegen“ nimmt die Stile des Dialogs für Merge und Reset, siehe docs/kurzlink.md. */
 .shortlink-dialog {
   width: min(620px, calc(100vw - 32px));

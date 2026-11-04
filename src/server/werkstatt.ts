@@ -2,6 +2,9 @@ import { readdir } from 'node:fs/promises';
 import { join, relative, sep } from 'node:path';
 import { runGit } from '../git/process';
 import { maybe, worktreeBase, worktreesOf } from './publish';
+import { uploadOf } from './slides';
+import type { SlidesUpload } from './slides';
+import type { SavedSlides } from './store';
 
 /** Die Branches einer Werkstatt in der Reihenfolge des Menüs, siehe `docs/werkstatt.md`. */
 export const WERKSTATT_BRANCHES = ['werkstatt', 'main', 'schritte', 'live_coding', 'probe'] as const;
@@ -36,6 +39,8 @@ export interface WerkstattStatus {
   probeStart: ShortCommit | null;
   /** Die Folien unter `folien/` im Worktree von `werkstatt`, als Pfad darin, nach Namen sortiert. */
   slides: string[];
+  /** Die Folien, die einem Folien-Repo zugeordnet sind, nur zu Dateien aus `slides`. */
+  uploads: SlidesUpload[];
 }
 
 /** Der Ordner der Folien im Worktree von `werkstatt`. */
@@ -77,8 +82,11 @@ export function shortName(repo: string): string {
   return repo.replace(/^\d{4}-\d{2}-\d{2}-/, '').replace(/-(werkstatt|prepare)$/, '') || repo;
 }
 
-/** Der Stand der Branches einer Werkstatt; `null`, wenn das Repo keine ist. */
-export async function werkstattStatus(repoPath: string): Promise<WerkstattStatus | null> {
+/**
+ * Der Stand der Branches einer Werkstatt; `null`, wenn das Repo keine ist. Mit `saved` kommen die
+ * Zuordnungen der Folien zu einem Folien-Repo dazu.
+ */
+export async function werkstattStatus(repoPath: string, saved: SavedSlides[] = []): Promise<WerkstattStatus | null> {
   if (!(await isWerkstatt(repoPath))) {
     return null;
   }
@@ -92,10 +100,12 @@ export async function werkstattStatus(repoPath: string): Promise<WerkstattStatus
     })),
   );
   const main = worktrees[0]?.path ?? repoPath;
+  const slides = await slidesOf(rows.find((row) => row.branch === 'werkstatt')?.worktree ?? null);
   return {
     rows: rows.map((row) => ({ ...row, place: row.worktree === null ? null : relative(main, row.worktree) })),
     probeStart: await probeStart(repoPath),
-    slides: await slidesOf(rows.find((row) => row.branch === 'werkstatt')?.worktree ?? null),
+    slides,
+    uploads: await Promise.all(saved.filter((entry) => slides.includes(entry.file)).map(uploadOf)),
   };
 }
 

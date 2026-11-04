@@ -58,6 +58,19 @@ export interface SavedShortlink {
   target: string;
 }
 
+/**
+ * Die Folien einer Werkstatt, wie sie in einem Folien-Repo veröffentlicht werden, siehe
+ * `docs/folien.md`.
+ */
+export interface SavedSlides {
+  /** Die PowerPoint-Datei als Pfad im Worktree von `werkstatt`, etwa `folien/vortrag.pptx`. */
+  file: string;
+  /** Der Pfad des Folien-Repos, wie er in `config.json` steht, mit aufgelöstem `~`. */
+  repo: string;
+  /** Der Name der Dateien im Folien-Repo ohne Endung, etwa `wjax-2026-tanstack-ai`. */
+  name: string;
+}
+
 /** Die Konfiguration in `config.json`, von Hand gepflegt. */
 interface Config {
   /** Die Verzeichnisse, in denen nach Repos gesucht wird; `~` steht für das Home-Verzeichnis. */
@@ -66,6 +79,8 @@ interface Config {
   homepage?: string;
   /** Die Redirect-Repos für Kurzlinks, eins je Domain. */
   redirects?: string[];
+  /** Die Folien-Repos, in die PowerPoint-Datei und PDF eines Vortrags hochgeladen werden. */
+  slides?: string[];
 }
 
 /** Woher der Dialog „Kurzlink anlegen“ Veranstaltungen und Domains nimmt, mit aufgelöstem `~`. */
@@ -96,6 +111,8 @@ export interface State {
   gists: Record<string, SavedGist[]>;
   /** Die Kurzlinks je Repo, der zuletzt angelegte oder zugeordnete zuerst. */
   shortlinks: Record<string, SavedShortlink[]>;
+  /** Die hochgeladenen Folien je Repo, eine Zuordnung je PowerPoint-Datei der Werkstatt. */
+  slides: Record<string, SavedSlides[]>;
 }
 
 /** Die Projekte mit dem Namen des aktiven, wie sie die Oberfläche bekommt und ändert. */
@@ -162,6 +179,7 @@ export function createStore(options: StoreOptions) {
       roots: Array.isArray(record.roots) ? record.roots.filter(isString) : [],
       homepage: isString(record.homepage) ? record.homepage : undefined,
       redirects: Array.isArray(record.redirects) ? record.redirects.filter(isString) : undefined,
+      slides: Array.isArray(record.slides) ? record.slides.filter(isString) : undefined,
     };
   }
 
@@ -194,6 +212,11 @@ export function createStore(options: StoreOptions) {
             ]),
           )
         : {},
+      slides: isRecord(record.slides)
+        ? Object.fromEntries(
+            Object.entries(record.slides).map(([repo, list]) => [repo, Array.isArray(list) ? list.filter(isSavedSlides) : []]),
+          )
+        : {},
     };
   }
 
@@ -210,6 +233,8 @@ export function createStore(options: StoreOptions) {
       const { homepage, redirects } = await config();
       return { homepage: homepage === undefined ? null : expandHome(homepage), redirects: (redirects ?? []).map(expandHome) };
     },
+    /** Die Folien-Repos aus `config.json` mit aufgelöstem `~`. */
+    slideRepos: async () => ((await config()).slides ?? []).map(expandHome),
     state,
     /** Ob es noch keinen Zustand gibt, also beim allerersten Start. */
     isFresh: async () => (await readJson(stateFile)) === undefined,
@@ -263,6 +288,15 @@ export function createStore(options: StoreOptions) {
           [repoPath]: (current.shortlinks[repoPath] ?? []).filter((other) => other.url !== url),
         },
       })),
+    /** Merkt sich, wohin die PowerPoint-Datei hochgeladen wird; eine frühere Zuordnung der Datei wird ersetzt. */
+    saveSlides: (repoPath: string, slides: SavedSlides) =>
+      update((current) => ({
+        ...current,
+        slides: {
+          ...current.slides,
+          [repoPath]: [slides, ...(current.slides[repoPath] ?? []).filter((other) => other.file !== slides.file)],
+        },
+      })),
     addOpened: (repoPath: string) =>
       update((current) =>
         current.opened.includes(repoPath) ? current : { ...current, opened: [...current.opened, repoPath] },
@@ -311,6 +345,10 @@ function isSavedGist(value: unknown): value is SavedGist {
 
 function isSavedShortlink(value: unknown): value is SavedShortlink {
   return isRecord(value) && isString(value.url) && isString(value.target);
+}
+
+function isSavedSlides(value: unknown): value is SavedSlides {
+  return isRecord(value) && isString(value.file) && isString(value.repo) && isString(value.name);
 }
 
 function isProject(value: unknown): value is Project {

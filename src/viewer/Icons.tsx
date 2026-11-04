@@ -301,3 +301,32 @@ export function SlidesIcon() {
     </Outline>
   );
 }
+
+/** Ein Blatt mit umgeknickter Ecke: das PDF der Folien in Acrobat öffnen. */
+export function PdfIcon() {
+  return (
+    <Outline size={15}>
+      <path d="M4 1.75h5.25L12.5 5v8.25a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-10.5a1 1 0 0 1 1-1z" />
+      <path d="M9 1.75V5.25h3.5M5.5 9h4.5M5.5 11.5h3" />
+    </Outline>
+  );
+}
+
+/** Ein Pfeil nach oben aus einer Ablage: PowerPoint-Datei und PDF ins Folien-Repo hochladen. */
+export function UploadIcon() {
+  return (
+    <Outline size={15}>
+      <path d="M8 10.5V2.5M5 5.5l3-3 3 3M2.5 10v2.5a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1V10" />
+    </Outline>
+  );
+}
+
+/** Zwei Kettenglieder: den Link zum PDF kopieren. */
+export function ChainIcon() {
+  return (
+    <Outline size={15}>
+      <path d="M6.75 9.25a2.5 2.5 0 0 0 3.54 0l2.12-2.12a2.5 2.5 0 0 0-3.54-3.54l-.7.7" />
+      <path d="M9.25 6.75a2.5 2.5 0 0 0-3.54 0L3.59 8.87a2.5 2.5 0 0 0 3.54 3.54l.7-.7" />
+    </Outline>
+  );
+}
