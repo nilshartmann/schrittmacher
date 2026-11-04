@@ -24,12 +24,12 @@ erscheinen beim Überfahren.
 | Zeile | Stand | Einträge |
 |---|---|---|
 | `werkstatt` | Worktree vorhanden | als Tab, im Terminal, in Claude Code öffnen |
-| `main`, `schritte` | Worktree vorhanden | als Tab, im Terminal öffnen |
+| `main`, `schritte` | Worktree vorhanden | als Tab, im Terminal, in WebStorm, in IDEA öffnen |
 | | Branch ohne Worktree, lokal oder nur auf `origin` | „Worktree anlegen“ |
 | | Branch fehlt | „fehlt noch“, ohne Eintrag |
-| `live_coding` | Worktree vorhanden | als Tab, im Terminal öffnen |
+| `live_coding` | Worktree vorhanden | als Tab, im Terminal, in WebStorm, in IDEA öffnen |
 | | fehlt | Hinweis auf „Veröffentlichen …“ |
-| `probe` | Worktree vorhanden | Commit, auf dem die Probe beginnt; als Tab, im Terminal öffnen; „Probe verwerfen …“ |
+| `probe` | Worktree vorhanden | Commit, auf dem die Probe beginnt; als Tab, im Terminal, in WebStorm, in IDEA öffnen; „Probe verwerfen …“ |
 | | fehlt | Hinweis auf den Knopf „Probe“ an den Commits |
 
 Darunter steht je Datei mit der Endung `.pptx` unter `folien/` im Worktree von `werkstatt` ein

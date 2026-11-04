@@ -84,6 +84,25 @@ export function GitClientIcon() {
   );
 }
 
+/** Spitze Klammern wie um ein Tag: in WebStorm öffnen. */
+export function WebStormIcon() {
+  return (
+    <Outline size={15}>
+      <path d="M5.5 4 2 8l3.5 4M10.5 4 14 8l-3.5 4M9 3 7 13" />
+    </Outline>
+  );
+}
+
+/** Ein Quadrat mit Unterstrich wie im Zeichen von JetBrains: in IDEA öffnen. */
+export function IdeaIcon() {
+  return (
+    <Outline size={15}>
+      <rect x="2.25" y="2.25" width="11.5" height="11.5" rx="1.5" />
+      <path d="M4.75 11h4" />
+    </Outline>
+  );
+}
+
 /** Der Haken vor dem aktuellen Eintrag eines Menüs. */
 export function CheckMarkIcon() {
   return (

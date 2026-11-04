@@ -17,12 +17,14 @@ import {
   ChevronIcon,
   ClaudeIcon,
   CloudIcon,
+  IdeaIcon,
   PdfIcon,
   QrIcon,
   SlidesIcon,
   TerminalIcon,
   TrashIcon,
   UploadIcon,
+  WebStormIcon,
   WorkshopIcon,
 } from './Icons';
 import { ContextMenu, Menu, MenuItem, MenuNote } from './Menu';
@@ -61,7 +63,7 @@ function stateOf(row: WerkstattRow, status: WerkstattStatus): string {
  * Der Knopf „Werkstatt“ in der Kopfzeile, siehe `docs/werkstatt.md`. Das Menü zeigt je Branch der
  * Werkstatt seinen Stand. Ein Klick auf einen Branch mit Worktree öffnet ihn als Tab, einer ohne
  * Worktree legt ihn an. Beim Überfahren öffnen Knöpfe den Worktree im Terminal, den von `werkstatt`
- * auch in Claude Code, und verwerfen die Probe. Darunter stehen die Folien mit Knöpfen für PowerPoint,
+ * auch in Claude Code, die übrigen auch in WebStorm und IDEA, und verwerfen die Probe. Darunter stehen die Folien mit Knöpfen für PowerPoint,
  * das PDF im Folien-Repo und den Link dazu, danach Veröffentlichen und Kurzlink.
  */
 export function WerkstattMenu({
@@ -157,6 +159,26 @@ export function WerkstattMenu({
                           >
                             <ClaudeIcon />
                           </ActionButton>
+                        )}
+                        {row.branch !== 'werkstatt' && (
+                          <>
+                            <ActionButton
+                              label="In WebStorm öffnen"
+                              onClick={() => {
+                                openIn(path, 'webstorm');
+                              }}
+                            >
+                              <WebStormIcon />
+                            </ActionButton>
+                            <ActionButton
+                              label="In IDEA öffnen"
+                              onClick={() => {
+                                openIn(path, 'idea');
+                              }}
+                            >
+                              <IdeaIcon />
+                            </ActionButton>
+                          </>
                         )}
                         {row.branch === 'probe' && (
                           <ActionButton

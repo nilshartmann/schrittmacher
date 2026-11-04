@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process';
 
 /** Die Programme, in denen sich ein Ordner aus Schrittmacher öffnen lässt. */
-export const OPEN_APPS = ['terminal', 'claude', 'forklift', 'fork'] as const;
+export const OPEN_APPS = ['terminal', 'claude', 'forklift', 'fork', 'webstorm', 'idea'] as const;
 
 export type OpenApp = (typeof OPEN_APPS)[number];
 
@@ -11,6 +11,8 @@ const APP_NAMES: Record<OpenApp, string> = {
   claude: 'iTerm',
   forklift: 'ForkLift',
   fork: 'Fork',
+  webstorm: 'WebStorm',
+  idea: 'IntelliJ IDEA',
 };
 
 export function isOpenApp(value: unknown): value is OpenApp {

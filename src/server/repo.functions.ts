@@ -814,9 +814,13 @@ export const saveShortlinkQr = createServerFn({ method: 'POST' })
 
 /**
  * Öffnet den Worktree in einem Programm auf dem Mac, etwa im Terminal oder in Fork. Mit `path`
- * öffnen Terminal und ForkLift den Ordner dieser Datei im Worktree; Fork kennt nur ganze Repos, und
- * Claude Code startet immer im Worktree, damit es dessen `CLAUDE.md` findet.
+ * öffnen Terminal und ForkLift den Ordner dieser Datei im Worktree; Fork kennt nur ganze Repos,
+ * WebStorm und IDEA öffnen den Worktree als Projekt, und Claude Code startet immer im Worktree,
+ * damit es dessen `CLAUDE.md` findet.
  */
+/** Die Programme, die mit `path` den Ordner der Datei öffnen statt den ganzen Worktree. */
+const FOLDER_APPS: ReadonlySet<OpenApp> = new Set(['terminal', 'forklift']);
+
 export const openWorktreeIn = createServerFn({ method: 'POST' })
   .validator((data: { worktree: string; app: OpenApp; path?: string }) => {
     if (!isOpenApp(data.app)) {
@@ -827,7 +831,7 @@ export const openWorktreeIn = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     const { worktreePath } = await access(data.worktree);
     const place =
-      data.path === undefined || data.app === 'fork' || data.app === 'claude' ? worktreePath : await folderInWorktree(worktreePath, data.path);
+      data.path === undefined || !FOLDER_APPS.has(data.app) ? worktreePath : await folderInWorktree(worktreePath, data.path);
     await openIn(data.app, place);
   });
 
