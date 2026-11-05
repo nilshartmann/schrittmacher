@@ -28,7 +28,9 @@ Der ursprüngliche Auftrag steht in `docs/auftrag-klick-dummy.md`, offene Punkte
   mit leerem `SCHRITTMACHER_APP`
 - `werkstatt-neu` (`bin/werkstatt-neu`, verlinkt nach `~/.local/bin`): legt interaktiv eine neue
   Werkstatt aus `~/develop/werkstatt-vorlage` an, als Repo `<org>/<slug>-werkstatt` mit dem
-  Branch `werkstatt`, und öffnet sie in Schrittmacher; Ablauf in `ANLEGEN.md` der Vorlage
+  Branch `werkstatt`, und öffnet sie in Schrittmacher; Ablauf in `ANLEGEN.md` der Vorlage. Ohne
+  Rückfragen mit `--ja` und den Werten als Optionen (`werkstatt-neu --help`), etwa aus einer
+  Claude-Session.
 - `pnpm typecheck`: Typprüfung, vor jedem Commit
 - `pnpm screenshots`: Screenshots mit WebKit in der Fenstergröße unter Sidecar, gegen den Server
   mit Testdaten (anderer Server mit `URL=…`)

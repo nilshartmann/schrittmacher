@@ -1,9 +1,10 @@
 #!/bin/bash
 # Legt eine neue Werkstatt aus der Vorlage an: ein privates Repo `<org>/<slug>-werkstatt` mit dem
 # Branch `werkstatt` als Standard-Branch, ohne Historie, mit dem Inhalt der Vorlage. Fragt Art,
-# Titel, Datum, Slug, Organisation und Ordner ab, zeigt eine Zusammenfassung und legt erst nach
-# Bestätigung an. Zum Schluss öffnet es das Repo in Schrittmacher. Was danach ansteht, steht im
-# neuen Repo unter „Als Nächstes“ in WORKSHOP.md.
+# Titel, Datum, Slug, Organisation und Ordner ab, soweit sie nicht als Option übergeben sind, zeigt
+# eine Zusammenfassung und legt erst nach Bestätigung an. Mit `--ja` fragt es nichts und nimmt für
+# fehlende Werte die Vorgabe. Zum Schluss öffnet es das Repo in Schrittmacher. Was danach ansteht,
+# steht im neuen Repo unter „Als Nächstes“ in WORKSHOP.md. Die Optionen nennt `werkstatt-neu --help`.
 #
 #   WERKSTATT_VORLAGE  das Repo der Vorlage, sonst ~/develop/werkstatt-vorlage; kopiert wird HEAD
 #   WERKSTATT_ORIGIN   ein vorhandenes Remote statt eines neuen Repos auf GitHub, etwa zum Testen
@@ -18,11 +19,82 @@ fail() {
   exit 1
 }
 
-# Fragt mit Vorgabe; eine leere Eingabe nimmt die Vorgabe.
+hilfe() {
+  cat <<'HILFE'
+Aufruf: werkstatt-neu [Optionen]
+
+Legt eine neue Werkstatt aus der Vorlage an, als privates Repo <org>/<slug>-werkstatt mit dem
+Branch werkstatt, und öffnet sie in Schrittmacher. Fehlende Werte werden abgefragt.
+
+Optionen:
+  -a, --art ART        workshop oder vortrag (Vorgabe: workshop)
+  -t, --titel TITEL    Titel, wie er in der README stehen soll (Pflicht)
+  -d, --datum DATUM    Datum der Veranstaltung, etwa 2026-11-02 oder 2026-11
+                       (Vorgabe: aktueller Monat)
+  -s, --slug SLUG      Slug, nennt Datum und Thema (Vorgabe: aus Datum und Titel)
+  -o, --org ORG        GitHub-Organisation oder -Nutzer (Vorgabe: nilshartmann-workshops)
+  -f, --ordner ORDNER  Ordner, in den geklont wird (Vorgabe: ~/develop)
+  -y, --ja             nichts fragen: fehlende Werte nehmen die Vorgabe, angelegt wird ohne
+                       Bestätigung; ohne Terminal ist die Option nötig
+  -h, --help           diese Hilfe
+
+Umgebung:
+  WERKSTATT_VORLAGE    das Repo der Vorlage, sonst ~/develop/werkstatt-vorlage
+  WERKSTATT_ORIGIN     ein vorhandenes Remote statt eines neuen Repos auf GitHub
+  SCHRITTMACHER_APP    leer, um die Web-App nicht zu öffnen
+
+Beispiel ohne Rückfragen:
+  werkstatt-neu --ja --art vortrag --titel "React Server Components" --datum 2026-11-12
+HILFE
+}
+
+art="" titel="" datum="" slug="" org="" ordner="" ja=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -h | --help) hilfe; exit 0 ;;
+    -y | --ja) ja=1; shift; continue ;;
+    -a | --art | -t | --titel | -d | --datum | -s | --slug | -o | --org | -f | --ordner)
+      [ $# -ge 2 ] || fail "Zur Option $1 fehlt der Wert."
+      case "$1" in
+        -a | --art) art="$2" ;;
+        -t | --titel) titel="$2" ;;
+        -d | --datum) datum="$2" ;;
+        -s | --slug) slug="$2" ;;
+        -o | --org) org="$2" ;;
+        -f | --ordner) ordner="$2" ;;
+      esac
+      shift 2 ;;
+    --art=* | --titel=* | --datum=* | --slug=* | --org=* | --ordner=*)
+      wert="${1#*=}"
+      case "$1" in
+        --art=*) art="$wert" ;;
+        --titel=*) titel="$wert" ;;
+        --datum=*) datum="$wert" ;;
+        --slug=*) slug="$wert" ;;
+        --org=*) org="$wert" ;;
+        --ordner=*) ordner="$wert" ;;
+      esac
+      shift ;;
+    *) fail "Unbekannte Option „$1“, siehe werkstatt-neu --help." ;;
+  esac
+done
+
+if [ -z "$ja" ] && [ ! -t 0 ]; then
+  fail "Ohne Terminal kann nichts abgefragt werden. Übergib die Werte als Optionen und dazu --ja, siehe werkstatt-neu --help."
+fi
+
+# Nimmt den übergebenen Wert, sonst fragt es mit Vorgabe; eine leere Eingabe nimmt die Vorgabe.
+# Mit --ja wird nicht gefragt.
 ask() {
-  local answer
-  read -r -p "$1${2:+ [$2]}: " answer
-  echo "${answer:-${2:-}}"
+  local frage="$1" vorgabe="${2:-}" wert="${3:-}" answer=""
+  if [ -n "$wert" ]; then
+    echo "$wert"
+    return
+  fi
+  if [ -z "$ja" ]; then
+    read -r -p "$frage${vorgabe:+ [$vorgabe]}: " answer
+  fi
+  echo "${answer:-$vorgabe}"
 }
 
 # Wie `slugify` der Homepage in einfach: Umlaute umschreiben, alles andere als Bindestrich.
@@ -42,21 +114,21 @@ fi
 
 echo "Neue Werkstatt aus $vorlage"
 echo
-art="$(ask 'Art: (w)orkshop oder (v)ortrag' w)"
+art="$(ask 'Art: (w)orkshop oder (v)ortrag' w "$art")"
 case "$art" in
   w | workshop | Workshop) art=Workshop ;;
   v | vortrag | Vortrag | t | talk) art=Vortrag ;;
   *) fail "Unbekannte Art „$art“, erwartet w oder v." ;;
 esac
-titel="$(ask 'Titel, wie er in der README stehen soll')"
+titel="$(ask 'Titel, wie er in der README stehen soll' '' "$titel")"
 [ -n "$titel" ] || fail "Ohne Titel geht es nicht."
-datum="$(ask 'Datum der Veranstaltung, etwa 2026-11-02 oder 2026-11' "$(date +%Y-%m)")"
+datum="$(ask 'Datum der Veranstaltung, etwa 2026-11-02 oder 2026-11' "$(date +%Y-%m)" "$datum")"
 # Ein abschließendes „Workshop“, „Vortrag“ oder „Talk“ im Titel gehört nicht in den Slug.
 vorschlag="$(slugify "$datum $titel" | perl -pe 's/-(workshop|vortrag|talk)$//')"
-slug="$(slugify "$(ask 'Slug, nennt Datum und Thema' "$vorschlag")")"
+slug="$(slugify "$(ask 'Slug, nennt Datum und Thema' "$vorschlag" "$slug")")"
 [ -n "$slug" ] || fail "Der Slug ist leer."
-org="$(ask 'GitHub-Organisation oder -Nutzer' nilshartmann-workshops)"
-ordner="$(ask 'Ordner, in den geklont wird' "$HOME/develop")"
+org="$(ask 'GitHub-Organisation oder -Nutzer' nilshartmann-workshops "$org")"
+ordner="$(ask 'Ordner, in den geklont wird' "$HOME/develop" "$ordner")"
 ordner="${ordner/#\~/$HOME}"
 repo="$org/$slug-werkstatt"
 ziel="$ordner/$slug-werkstatt"
