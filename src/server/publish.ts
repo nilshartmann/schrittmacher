@@ -106,6 +106,28 @@ export async function worktreesOf(repoPath: string): Promise<{ path: string; bra
     .filter((worktree) => worktree.path !== '');
 }
 
+/** So oft und in diesem Abstand wiederholt Schrittmacher den Fetch, solange GitHub das Repo sperrt. */
+const DISABLED_RETRIES = 8;
+const DISABLED_PAUSE = 1000;
+
+/**
+ * Holt das Remote der Teilnehmer. Direkt nach dem Umschalten der Sichtbarkeit meldet GitHub das
+ * Repo einige Sekunden lang als „disabled“; so lange wird der Fetch wiederholt.
+ */
+async function fetchParticipants(repoPath: string, remote: string): Promise<void> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      await runGit(repoPath, ['fetch', '--quiet', '--prune', remote]);
+      return;
+    } catch (error) {
+      if (attempt >= DISABLED_RETRIES || !(error instanceof Error && error.message.includes('is disabled'))) {
+        throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, DISABLED_PAUSE));
+    }
+  }
+}
+
 /**
  * Holt den Stand des Teilnehmer-Repos und liefert, wie weit das Veröffentlichen ist. Der Fetch ist
  * auf das Remote der Teilnehmer beschränkt.
@@ -117,7 +139,7 @@ export async function publishStatus(repoPath: string): Promise<PublishStatus> {
   let visibility: PublishStatus['visibility'] = null;
   if (remote !== null) {
     repo = githubRepoOf((await maybe(repoPath, ['remote', 'get-url', remote])) ?? '');
-    await runGit(repoPath, ['fetch', '--quiet', '--prune', remote]).catch((error: unknown) => {
+    await fetchParticipants(repoPath, remote).catch((error: unknown) => {
       problems.push(`Das Teilnehmer-Repo ließ sich nicht holen: ${error instanceof Error ? error.message : String(error)}`);
     });
     if (repo !== null) {

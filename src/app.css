@@ -3319,7 +3319,7 @@ span.info-parent {
   color: var(--text-primary);
 }
 
-/* Der Knopf hinter dem Teilnehmer-Repo, der seine Adresse auf GitHub kopiert */
+/* Die Knöpfe hinter dem Teilnehmer-Repo: Adresse auf GitHub kopieren und im Browser öffnen */
 .publish-copy {
   display: inline-grid;
   place-items: center;
@@ -3333,6 +3333,10 @@ span.info-parent {
   color: var(--text-secondary);
   vertical-align: middle;
   cursor: pointer;
+}
+
+.publish-copy + .publish-copy {
+  margin-left: 0;
 }
 
 .publish-copy:hover {
@@ -3635,4 +3639,43 @@ span.info-parent {
 
 .md .md-html-block {
   white-space: pre-wrap;
+}
+
+/* Eine Bilddatei im Vergleich, bei einer geänderten das alte und das neue Bild nebeneinander */
+.image-view {
+  display: flex;
+  flex: 1;
+  gap: 24px;
+  min-height: 0;
+  padding: 24px;
+  overflow: auto;
+}
+
+.image-side {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+}
+
+.image-side figcaption {
+  color: var(--quiet);
+}
+
+.image-side.removed figcaption {
+  color: var(--diff-removed-ink);
+}
+
+.image-side.added figcaption {
+  color: var(--diff-added-ink);
+}
+
+/* Ein Schachbrett hinter dem Bild zeigt durchsichtige Stellen. */
+.image-side img {
+  max-width: 100%;
+  border: 1px solid var(--line);
+  background: repeating-conic-gradient(var(--line-soft) 0 25%, var(--surface) 0 50%) 0 0 / 16px 16px;
 }

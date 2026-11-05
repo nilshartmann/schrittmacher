@@ -1,20 +1,11 @@
 import { readFile, stat } from 'node:fs/promises';
 import { basename, dirname, extname, isAbsolute, resolve } from 'node:path';
 import { createServerFn, createServerOnlyFn } from '@tanstack/react-start';
+import { imageTypeOf } from '../git/images';
 import { requested } from './requests';
 
 /** Die Endungen einer Markdown-Datei, die die Ansicht zeigt. */
 const MARKDOWN_ENDINGS: ReadonlySet<string> = new Set(['.md', '.markdown']);
-
-/** Die Bilder, die eine Markdown-Datei neben sich einbinden darf, mit ihrem Medientyp. */
-const IMAGE_TYPES = new Map<string, string>([
-  ['.png', 'image/png'],
-  ['.jpg', 'image/jpeg'],
-  ['.jpeg', 'image/jpeg'],
-  ['.gif', 'image/gif'],
-  ['.webp', 'image/webp'],
-  ['.svg', 'image/svg+xml'],
-]);
 
 /** Eine Markdown-Datei mit ihrem Text und dem Zeitpunkt ihrer letzten Änderung. */
 export interface MarkdownFile {
@@ -73,7 +64,7 @@ export const requestMarkdown = createServerOnlyFn(async (path: string): Promise<
 export const readImage = createServerOnlyFn(
   async (value: string): Promise<{ bytes: Buffer; type: string } | null> => {
     const path = resolve(value);
-    const type = IMAGE_TYPES.get(extname(path).toLowerCase());
+    const type = imageTypeOf(path);
     if (!isAbsolute(value) || type === undefined) {
       return null;
     }

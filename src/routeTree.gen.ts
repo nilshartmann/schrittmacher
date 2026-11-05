@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as MarkdownRouteImport } from './routes/markdown'
+import { Route as ApiFileRouteImport } from './routes/api.file'
 import { Route as ApiImageRouteImport } from './routes/api.image'
 import { Route as ApiMarkdownRouteImport } from './routes/api.markdown'
 import { Route as ApiTabRouteImport } from './routes/api.tab'
@@ -23,6 +24,11 @@ const IndexRoute = IndexRouteImport.update({
 const MarkdownRoute = MarkdownRouteImport.update({
   id: '/markdown',
   path: '/markdown',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiFileRoute = ApiFileRouteImport.update({
+  id: '/api/file',
+  path: '/api/file',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiImageRoute = ApiImageRouteImport.update({
@@ -44,6 +50,7 @@ const ApiTabRoute = ApiTabRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/markdown': typeof MarkdownRoute
+  '/api/file': typeof ApiFileRoute
   '/api/image': typeof ApiImageRoute
   '/api/markdown': typeof ApiMarkdownRoute
   '/api/tab': typeof ApiTabRoute
@@ -51,6 +58,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/markdown': typeof MarkdownRoute
+  '/api/file': typeof ApiFileRoute
   '/api/image': typeof ApiImageRoute
   '/api/markdown': typeof ApiMarkdownRoute
   '/api/tab': typeof ApiTabRoute
@@ -59,22 +67,42 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/markdown': typeof MarkdownRoute
+  '/api/file': typeof ApiFileRoute
   '/api/image': typeof ApiImageRoute
   '/api/markdown': typeof ApiMarkdownRoute
   '/api/tab': typeof ApiTabRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/markdown' | '/api/image' | '/api/markdown' | '/api/tab'
+  fullPaths:
+    | '/'
+    | '/markdown'
+    | '/api/file'
+    | '/api/image'
+    | '/api/markdown'
+    | '/api/tab'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/markdown' | '/api/image' | '/api/markdown' | '/api/tab'
+  to:
+    | '/'
+    | '/markdown'
+    | '/api/file'
+    | '/api/image'
+    | '/api/markdown'
+    | '/api/tab'
   id:
-    '__root__' | '/' | '/markdown' | '/api/image' | '/api/markdown' | '/api/tab'
+    | '__root__'
+    | '/'
+    | '/markdown'
+    | '/api/file'
+    | '/api/image'
+    | '/api/markdown'
+    | '/api/tab'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   MarkdownRoute: typeof MarkdownRoute
+  ApiFileRoute: typeof ApiFileRoute
   ApiImageRoute: typeof ApiImageRoute
   ApiMarkdownRoute: typeof ApiMarkdownRoute
   ApiTabRoute: typeof ApiTabRoute
@@ -94,6 +122,13 @@ declare module '@tanstack/react-router' {
       path: '/markdown'
       fullPath: '/markdown'
       preLoaderRoute: typeof MarkdownRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/file': {
+      id: '/api/file'
+      path: '/api/file'
+      fullPath: '/api/file'
+      preLoaderRoute: typeof ApiFileRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/image': {
@@ -123,6 +158,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   MarkdownRoute: MarkdownRoute,
+  ApiFileRoute: ApiFileRoute,
   ApiImageRoute: ApiImageRoute,
   ApiMarkdownRoute: ApiMarkdownRoute,
   ApiTabRoute: ApiTabRoute,

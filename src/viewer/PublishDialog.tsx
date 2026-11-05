@@ -4,12 +4,13 @@ import {
   createParticipantRepo,
   loadPublishStatus,
   loadPushPlan,
+  openParticipantRepo,
   publishToParticipants,
   startLiveCoding,
   switchParticipantVisibility,
 } from '../server/repo.functions';
 import type { BranchState, PublishStatus, PublishedBranch, PushPlan } from '../server/publish';
-import { ChainIcon, CheckMarkIcon } from './Icons';
+import { ChainIcon, CheckMarkIcon, LinkIcon } from './Icons';
 import { TabsContext } from './Tabs';
 
 function messageOf(error: unknown): string {
@@ -81,6 +82,25 @@ function CopyRepoUrl({ url, onError }: { url: string; onError: (message: string)
       }}
     >
       {copied ? <CheckMarkIcon /> : <ChainIcon />}
+    </button>
+  );
+}
+
+/** Ein Knopf hinter dem Namen des Teilnehmer-Repos, der es auf GitHub im Browser öffnet. */
+function OpenRepo({ repo, onError }: { repo: string; onError: (message: string) => void }) {
+  return (
+    <button
+      type="button"
+      className="publish-copy"
+      aria-label="Auf GitHub öffnen"
+      data-tip="Auf GitHub öffnen"
+      onClick={() => {
+        openParticipantRepo({ data: { repo } }).catch((failure: unknown) => {
+          onError(messageOf(failure));
+        });
+      }}
+    >
+      <LinkIcon />
     </button>
   );
 }
@@ -264,7 +284,12 @@ export function PublishDialog({ worktree, onClose }: { worktree: string; onClose
           ) : (
             <p className="sync-quiet">
               <span className="publish-repo">{status.repo ?? remote}</span>
-              {status.repo !== null && <CopyRepoUrl url={`https://github.com/${status.repo}`} onError={setError} />}
+              {status.repo !== null && (
+                <>
+                  <CopyRepoUrl url={`https://github.com/${status.repo}`} onError={setError} />
+                  <OpenRepo repo={status.repo} onError={setError} />
+                </>
+              )}
               {status.visibility !== null && ` · ${status.visibility === 'public' ? 'öffentlich' : 'privat'}`}
               {remote !== 'teilnehmer' && ` · Remote „${remote}“`}
             </p>

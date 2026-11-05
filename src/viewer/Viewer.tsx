@@ -8,6 +8,7 @@ import type { Commit, DiffFile, Worktree } from '../git/types';
 import { rangesOf, splitRows, unifiedRows } from '../diff/rows';
 import type { Extent } from '../diff/rows';
 import { isHidden } from '../git/hidden';
+import { imageTypeOf } from '../git/images';
 import { scopeRefs, shownRef } from '../git/scope';
 import {
   addRepoGist,
@@ -36,6 +37,7 @@ import { commitOfNote, NotesColumn, useNotes } from './Notes';
 import type { NoteDraft } from './Notes';
 import { FileBar, FileList } from './FileList';
 import { Header } from './Header';
+import { ImageView } from './ImageView';
 import { CONTEXT, FONT_SIZES, useSettings } from './settings';
 import { Tooltips } from './Tooltips';
 import { useHidden } from './useHidden';
@@ -658,7 +660,9 @@ export function Viewer({ view, search, onSearch, onOpen, onShow, tabs }: ViewerP
                       }
                 }
               />
-              {current.file.binary ? (
+              {current.file.binary && loaded !== null && imageTypeOf(current.file.path) !== undefined ? (
+                <ImageView worktree={worktree} comparison={loaded.comparison} file={current.file} version={repo.state} />
+              ) : current.file.binary ? (
                 <p className="empty">Eine Binärdatei hat keine Zeilen zum Anzeigen.</p>
               ) : (
                 <DiffView

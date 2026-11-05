@@ -5,6 +5,7 @@ import { createServerFn, createServerOnlyFn } from '@tanstack/react-start';
 import { buildDemoRepo, DEMO_BASE } from '../git/demoGit';
 import { DEMO_REPO } from '../git/demoRepo';
 import { gitSource, locate } from '../git/gitRepo';
+import { imageTypeOf } from '../git/images';
 import type { Comparison, RepoSource } from '../git/repo';
 import { changedAt, findRepos, foldersOf } from '../git/repos';
 import { branchScopeOf } from '../git/scope';
@@ -357,6 +358,23 @@ export const copyFile = createServerFn({ method: 'POST' })
     await to.source.write(data.target.branch, data.path, content);
   });
 
+/**
+ * Ein Bild aus dem Vergleich mit seinem Medientyp, gelesen im Commit `revision`, mit `LOCAL` im
+ * Worktree; `null` für eine andere Datei oder eine, die es dort nicht gibt.
+ */
+export const readRepoImage = createServerOnlyFn(
+  async (worktree: string, revision: string, path: string): Promise<{ bytes: Uint8Array; type: string } | null> => {
+    const type = imageTypeOf(path);
+    // Ein Commit, der mit einem Strich beginnt, wäre für Git eine Option.
+    if (type === undefined || revision === '' || revision.startsWith('-')) {
+      return null;
+    }
+    const { source } = await access(worktree);
+    const bytes = await source.content(revision, path).catch(() => null);
+    return bytes === null ? null : { bytes, type };
+  },
+);
+
 /** Die Gists des Repos, in die sich Dateien kopieren lassen, siehe `docs/gist.md`. */
 export const repoGists = createServerFn({ method: 'GET' })
   .validator((data: { worktree: string }) => ({ worktree: text(data.worktree, 'worktree') }))
@@ -435,6 +453,19 @@ export const openGist = createServerFn({ method: 'POST' })
   .validator((data: { id: string }) => ({ id: gistIdOf(text(data.id, 'id')) }))
   .handler(async ({ data }) => {
     await openInBrowser(gistUrl(data.id));
+  });
+
+/** Öffnet das Teilnehmer-Repo auf GitHub im Standardbrowser des Macs. */
+export const openParticipantRepo = createServerFn({ method: 'POST' })
+  .validator((data: { repo: string }) => {
+    const repo = text(data.repo, 'repo');
+    if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo)) {
+      throw new Error(`Erwartet wird org/name, nicht „${repo}“.`);
+    }
+    return { repo };
+  })
+  .handler(async ({ data }) => {
+    await openInBrowser(`https://github.com/${data.repo}`);
   });
 
 /** Einer der Branches, die an die Teilnehmer gehen. */
