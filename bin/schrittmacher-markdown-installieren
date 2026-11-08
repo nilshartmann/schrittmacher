@@ -1,0 +1,62 @@
+#!/bin/sh
+# Baut die Helfer-App „Schrittmacher Markdown“ in ~/Applications und meldet sie bei macOS an. Sie
+# erscheint für Markdown-Dateien unter „Öffnen mit …“, startet bei Bedarf den Server und zeigt die
+# Datei in der Web-App. Die Web-App aus Safari kann sich selbst nicht für Dateitypen anmelden.
+#
+# Nach einem Umzug des Projekts oder einem Wechsel der Node-Version noch einmal aufrufen, weil die
+# Pfade fest in der App stehen.
+set -eu
+
+name="Schrittmacher Markdown"
+app="$HOME/Applications/$name.app"
+project="$(cd "$(dirname "$(realpath "$0")")/.." && pwd -P)"
+pnpm_dir="$(dirname "$(command -v pnpm)")"
+node_dir="$(dirname "$(command -v node)")"
+lsregister=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
+
+# AppleScript startet ohne den PATH der Shell; `pnpm` und `node` müssen deshalb fest darin stehen.
+folder="$(mktemp -d)"
+script="$folder/app.applescript"
+cat >"$script" <<APPLESCRIPT
+property environment : "export PATH='$pnpm_dir:$node_dir:/usr/bin:/bin:/usr/sbin:/sbin'; "
+
+on start()
+  do shell script environment & "SCHRITTMACHER_APP= '$project/bin/schrittmacher-start'"
+end start
+
+on run
+  start()
+  do shell script "open -a Schrittmacher"
+end run
+
+-- Die Ansicht zeigt eine Datei; bei mehreren gilt die erste.
+on open theFiles
+  start()
+  set thePath to POSIX path of (item 1 of (theFiles as list))
+  do shell script environment & "'$project/bin/schrittmacher' " & quoted form of thePath
+end open
+APPLESCRIPT
+
+rm -rf "$app"
+mkdir -p "$HOME/Applications"
+osacompile -o "$app" "$script"
+rm -rf "$folder"
+
+plist="$app/Contents/Info.plist"
+buddy=/usr/libexec/PlistBuddy
+"$buddy" -c "Set :CFBundleIdentifier net.nilshartmann.schrittmacher.markdown" "$plist" 2>/dev/null ||
+  "$buddy" -c "Add :CFBundleIdentifier string net.nilshartmann.schrittmacher.markdown" "$plist"
+"$buddy" -c "Add :LSUIElement bool true" "$plist"
+"$buddy" -c "Delete :CFBundleDocumentTypes" "$plist" 2>/dev/null || true
+"$buddy" -c "Add :CFBundleDocumentTypes array" "$plist"
+"$buddy" -c "Add :CFBundleDocumentTypes:0:CFBundleTypeName string Markdown" "$plist"
+"$buddy" -c "Add :CFBundleDocumentTypes:0:CFBundleTypeRole string Viewer" "$plist"
+# „Alternate“ nimmt die App in „Öffnen mit …“ auf, ohne sie zum Standard für Markdown zu machen.
+"$buddy" -c "Add :CFBundleDocumentTypes:0:LSHandlerRank string Alternate" "$plist"
+"$buddy" -c "Add :CFBundleDocumentTypes:0:LSItemContentTypes array" "$plist"
+"$buddy" -c "Add :CFBundleDocumentTypes:0:LSItemContentTypes:0 string net.daringfireball.markdown" "$plist"
+
+# Die Änderung am Info.plist macht die Signatur von osacompile ungültig.
+codesign --force --deep --sign - "$app"
+"$lsregister" -f "$app"
+echo "schrittmacher: '$app' ist unter „Öffnen mit …“ für Markdown-Dateien verfügbar."

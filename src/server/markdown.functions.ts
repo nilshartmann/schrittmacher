@@ -1,11 +1,9 @@
 import { readFile, stat } from 'node:fs/promises';
-import { basename, dirname, extname, isAbsolute, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, resolve } from 'node:path';
 import { createServerFn, createServerOnlyFn } from '@tanstack/react-start';
 import { imageTypeOf } from '../git/images';
+import { markdownPath } from './markdownPath';
 import { requested } from './requests';
-
-/** Die Endungen einer Markdown-Datei, die die Ansicht zeigt. */
-const MARKDOWN_ENDINGS: ReadonlySet<string> = new Set(['.md', '.markdown']);
 
 /** Eine Markdown-Datei mit ihrem Text und dem Zeitpunkt ihrer letzten Änderung. */
 export interface MarkdownFile {
@@ -17,25 +15,6 @@ export interface MarkdownFile {
   text: string;
   /** Die letzte Änderung in Millisekunden, um eine geänderte Datei zu bemerken. */
   changed: number;
-}
-
-/**
- * Der Pfad einer Markdown-Datei, die es gibt. Andere Dateien liest der Server nicht, weil die
- * Server-Funktion jeder Seite im Browser offensteht.
- */
-async function markdownPath(value: unknown): Promise<string> {
-  if (typeof value !== 'string' || !isAbsolute(value)) {
-    throw new Error('Der Pfad der Markdown-Datei fehlt oder ist nicht absolut.');
-  }
-  const path = resolve(value);
-  if (!MARKDOWN_ENDINGS.has(extname(path).toLowerCase())) {
-    throw new Error(`'${path}' ist keine Markdown-Datei (.md oder .markdown).`);
-  }
-  const found = await stat(path).catch(() => null);
-  if (found === null || !found.isFile()) {
-    throw new Error(`Die Datei '${path}' gibt es nicht.`);
-  }
-  return path;
 }
 
 /** Liest eine Markdown-Datei für die Ansicht unter `/markdown`. */

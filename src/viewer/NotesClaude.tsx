@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { notesForClaude, openNotesInClaude } from '../server/repo.functions';
 
 function messageOf(failure: unknown): string {
@@ -14,12 +14,7 @@ function defaultPrompt(branch: string): string {
   ].join(' ');
 }
 
-/**
- * Der Dialog „In Claude bearbeiten“, siehe `docs/hinweise.md`. Er nennt Ordner und Branch und zeigt
- * Prompt und Hinweise zum Anpassen. Beim Start legt der Server die Hinweise, wie sie hier stehen,
- * als eigene Datei ab und startet Claude Code mit dem Prompt; die Hinweise selbst bleiben, wie sie
- * sind. Mit `id` geht es nur um diesen einen Hinweis.
- */
+/** Der Dialog für die Hinweise zu Commits, siehe `docs/hinweise.md`. Mit `id` geht es nur um diesen einen. */
 export function NotesClaudeDialog({
   worktree,
   branch,
@@ -31,15 +26,47 @@ export function NotesClaudeDialog({
   id?: string;
   onClose: () => void;
 }) {
+  return (
+    <ClaudeDialog
+      title={id === undefined ? 'Hinweise in Claude bearbeiten' : 'Hinweis in Claude bearbeiten'}
+      rows={[{ label: 'Branch', value: branch }]}
+      initialPrompt={defaultPrompt(branch)}
+      load={() => notesForClaude({ data: { worktree, id } })}
+      start={(prompt, markdown) => openNotesInClaude({ data: { worktree, prompt, markdown } })}
+      onClose={onClose}
+    />
+  );
+}
+
+/**
+ * Der Dialog „In Claude bearbeiten“. Er nennt den Ordner und zeigt Prompt und Hinweise zum Anpassen.
+ * Beim Start legt der Server die Hinweise, wie sie hier stehen, als eigene Datei ab und startet
+ * Claude Code mit dem Prompt; die Hinweise selbst bleiben, wie sie sind.
+ */
+export function ClaudeDialog({
+  title,
+  rows,
+  initialPrompt,
+  load,
+  start: startClaude,
+  onClose,
+}: {
+  title: string;
+  rows: { label: string; value: string }[];
+  initialPrompt: string;
+  load: () => Promise<{ cwd: string; markdown: string }>;
+  start: (prompt: string, markdown: string) => Promise<unknown>;
+  onClose: () => void;
+}) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [cwd, setCwd] = useState<string | null>(null);
-  const [prompt, setPrompt] = useState(defaultPrompt(branch));
+  const [prompt, setPrompt] = useState(initialPrompt);
   const [markdown, setMarkdown] = useState('');
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     dialog.current?.showModal();
-    notesForClaude({ data: { worktree, id } }).then(
+    load().then(
       (loaded) => {
         setCwd(loaded.cwd);
         setMarkdown(loaded.markdown);
@@ -53,7 +80,7 @@ export function NotesClaudeDialog({
   const start = () => {
     setRunning(true);
     setError(null);
-    openNotesInClaude({ data: { worktree, prompt, markdown } }).then(onClose, (failure: unknown) => {
+    startClaude(prompt, markdown).then(onClose, (failure: unknown) => {
       setError(messageOf(failure));
       setRunning(false);
     });
@@ -71,12 +98,16 @@ export function NotesClaudeDialog({
         }
       }}
     >
-      <h2 id="claude-title">{id === undefined ? 'Hinweise in Claude bearbeiten' : 'Hinweis in Claude bearbeiten'}</h2>
+      <h2 id="claude-title">{title}</h2>
       <dl className="claude-where">
         <dt>Ordner</dt>
         <dd className="sync-path">{cwd ?? '…'}</dd>
-        <dt>Branch</dt>
-        <dd>{branch}</dd>
+        {rows.map((row) => (
+          <Fragment key={row.label}>
+            <dt>{row.label}</dt>
+            <dd>{row.value}</dd>
+          </Fragment>
+        ))}
       </dl>
       <label className="claude-field">
         <span className="sync-label">Prompt, davor steht „Lies &lt;Datei mit den Hinweisen&gt;.“</span>

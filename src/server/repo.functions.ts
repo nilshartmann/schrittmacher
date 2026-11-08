@@ -11,10 +11,13 @@ import { changedAt, findRepos, foldersOf } from '../git/repos';
 import { branchScopeOf } from '../git/scope';
 import type { RepoEntry, RepoFolder } from '../git/repos';
 import type { SyncAction } from '../git/types';
+import { mdMarkdownOf, mdNoteInputOf } from '../notes/markdownNotes';
 import { markdownOf, noteInputOf } from '../notes/notes';
 import { isOpenApp, openClaude, openIn, openInBrowser, openInPowerPoint } from './apps';
 import type { OpenApp } from './apps';
 import { createGist, gistIdOf, gistUrl, gistNameOf, gistTextOf, readGist, writeToGist } from './gist';
+import { createMarkdownNotes } from './markdownNotes';
+import { markdownPath } from './markdownPath';
 import { createNotes } from './notes';
 import {
   PUBLISHED_BRANCHES,
@@ -971,6 +974,78 @@ export const openNotesInClaude = createServerFn({ method: 'POST' })
     const { repoPath, cwd } = await claudeFolder(data.worktree);
     const saved = await (await notesStore()).forClaude(repoPath, data.markdown, data.prompt);
     await openClaude(cwd, { promptFile: saved.promptFile, addDir: saved.dir });
+    return saved.file;
+  });
+
+/** Die Hinweise zu Markdown-Dateien im Ordner des Speichers, siehe `notesStore`. */
+async function markdownNotesStore() {
+  const setup = await server();
+  return createMarkdownNotes(setup.dir ?? defaultStoreDir());
+}
+
+/** Die Hinweise zu einer Markdown-Datei. */
+export const loadMarkdownNotes = createServerFn({ method: 'GET' })
+  .validator((data: { path: string }) => ({ path: text(data.path, 'path') }))
+  .handler(async ({ data }) => (await markdownNotesStore()).load(await markdownPath(data.path)));
+
+/** Legt einen Hinweis zu einer Markdown-Datei an oder ändert ihn. */
+export const saveMarkdownNote = createServerFn({ method: 'POST' })
+  .validator((data: { path: string; note: unknown }) => ({ path: text(data.path, 'path'), note: mdNoteInputOf(data.note) }))
+  .handler(async ({ data }) => (await markdownNotesStore()).save(await markdownPath(data.path), data.note));
+
+/** Löscht einen Hinweis zu einer Markdown-Datei, ohne `id` alle Hinweise der Datei. */
+export const deleteMarkdownNotes = createServerFn({ method: 'POST' })
+  .validator((data: { path: string; id?: string }) => ({ path: text(data.path, 'path'), id: optionalText(data.id) }))
+  .handler(async ({ data }) => {
+    const path = await markdownPath(data.path);
+    const notes = await markdownNotesStore();
+    return data.id === undefined ? notes.clear(path) : notes.remove(path, data.id);
+  });
+
+/** Legt ein Bild aus der Zwischenablage als Datei ab und liefert ihren Pfad. */
+export const saveMarkdownImage = createServerFn({ method: 'POST' })
+  .validator((data: { path: string; type: string; base64: string }) => ({
+    path: text(data.path, 'path'),
+    type: text(data.type, 'type'),
+    base64: text(data.base64, 'base64'),
+  }))
+  .handler(async ({ data }) => {
+    // Der Pfad zeigt nur, dass die Anfrage zu einer vorhandenen Markdown-Datei gehört.
+    await markdownPath(data.path);
+    return (await markdownNotesStore()).saveImage(data.type, data.base64);
+  });
+
+/** Der Ordner, in dem Claude Code eine Markdown-Datei bearbeitet: ihr Worktree, ohne Repo ihr Ordner. */
+async function markdownClaudeFolder(path: string): Promise<string> {
+  const folder = dirname(path);
+  return access(folder).then(
+    (found) => found.worktreePath,
+    () => folder,
+  );
+}
+
+/** Ordner und Hinweise für den Dialog „In Claude bearbeiten“, mit `id` nur dieser eine. */
+export const markdownNotesForClaude = createServerFn({ method: 'GET' })
+  .validator((data: { path: string; id?: string }) => ({ path: text(data.path, 'path'), id: optionalText(data.id) }))
+  .handler(async ({ data }) => {
+    const path = await markdownPath(data.path);
+    const store = await markdownNotesStore();
+    const { notes } = await store.load(path);
+    const chosen = data.id === undefined ? notes : notes.filter((note) => note.id === data.id);
+    return { cwd: await markdownClaudeFolder(path), markdown: mdMarkdownOf(path, chosen, await store.textOf(path)) };
+  });
+
+/** Legt die Hinweise aus dem Dialog als eigene Datei ab und startet Claude Code mit dem Prompt. */
+export const openMarkdownNotesInClaude = createServerFn({ method: 'POST' })
+  .validator((data: { path: string; prompt: string; markdown: string }) => ({
+    path: text(data.path, 'path'),
+    prompt: text(data.prompt, 'prompt'),
+    markdown: text(data.markdown, 'markdown'),
+  }))
+  .handler(async ({ data }) => {
+    const path = await markdownPath(data.path);
+    const saved = await (await markdownNotesStore()).forClaude(path, data.markdown, data.prompt);
+    await openClaude(await markdownClaudeFolder(path), { promptFile: saved.promptFile, addDir: saved.dir });
     return saved.file;
   });
 

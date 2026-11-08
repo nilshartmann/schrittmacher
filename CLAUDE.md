@@ -20,6 +20,8 @@ Der ursprüngliche Auftrag steht in `docs/auftrag-klick-dummy.md`, offene Punkte
   zum Pfad als Tab wie `fork <pfad>` und holt die Web-App nach vorn; anderer Server mit
   `SCHRITTMACHER_URL=…`, ohne Web-App mit leerem `SCHRITTMACHER_APP`. Eine Markdown-Datei als
   Pfad zeigt die Web-App gerendert unter `/markdown` an (`src/viewer/Markdown.tsx`).
+- `bin/schrittmacher-markdown-installieren`: baut die Helfer-App für „Öffnen mit …“ auf Markdown-Dateien;
+  Hinweise zu Markdown-Dateien beschreibt `docs/markdown-hinweise.md`
 - `schrittmacher-start` (`bin/schrittmacher-start`, verlinkt nach `~/.local/bin`): startet
   `pnpm dev:echt` im Hintergrund, falls unter Port 5310 nichts antwortet, und holt die Web-App nach
   vorn; die Ausgabe des Servers steht in `$TMPDIR/schrittmacher-server.log`

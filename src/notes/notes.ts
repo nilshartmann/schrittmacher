@@ -154,7 +154,7 @@ function longestTicks(text: string, least: number): number {
 }
 
 /** Ein Codeblock, dessen Zaun länger ist als jede Folge von Backticks im Code. */
-function fenced(code: string, path: string): string {
+export function fenced(code: string, path: string): string {
   const fence = '`'.repeat(longestTicks(code, 2) + 1);
   const name = path.slice(path.lastIndexOf('/') + 1);
   const language = name.includes('.') ? name.slice(name.lastIndexOf('.') + 1) : '';
@@ -162,7 +162,7 @@ function fenced(code: string, path: string): string {
 }
 
 /** Code im Fließtext, mit so vielen Backticks, dass keine Folge im Code ihn beendet. */
-function inlineCode(code: string): string {
+export function inlineCode(code: string): string {
   const ticks = '`'.repeat(longestTicks(code, 0) + 1);
   const padding = code.startsWith('`') || code.endsWith('`') ? ' ' : '';
   return `${ticks}${padding}${code}${padding}${ticks}`;

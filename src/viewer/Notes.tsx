@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import type { ClipboardEvent } from 'react';
 import { chunksOf, highlightText, languageOf } from '../diff/highlight';
 import type { CodeRange, Language } from '../diff/highlight';
 import type { Commit, LinePart } from '../git/types';
@@ -6,7 +7,8 @@ import { commitHeading, compareNotes, linesLabel, noteHeading } from '../notes/n
 import type { Note, NoteInput, NoteLines, Notes } from '../notes/notes';
 import { deleteNotes, loadNotes, saveNote } from '../server/repo.functions';
 import { WidthSplitter } from './FileList';
-import { ClaudeIcon, NoteIcon, TrashIcon } from './Icons';
+import { ChevronIcon, ClaudeIcon, NoteIcon, TrashIcon } from './Icons';
+import { Menu, MenuItem } from './Menu';
 import { NotesClaudeDialog } from './NotesClaude';
 
 /** Die Grenzen der Breite der Spalte mit den Hinweisen in Pixeln; der Rest bleibt mindestens für den Diff. */
@@ -27,7 +29,7 @@ const COPIED_FOR = 1200;
 /** Ein Hinweis, der gerade angelegt wird: zum gewählten Commit und zur gewählten Datei oder ohne Datei. */
 export type NoteDraft = Omit<NoteInput, 'id' | 'text'>;
 
-const MARKDOWN: Language = { name: 'markdown', dialect: '' };
+export const MARKDOWN: Language = { name: 'markdown', dialect: '' };
 
 /**
  * In `noteHeading` steht der Code der Zeilen ab dieser Zeile: nach der Überschrift, einer leeren
@@ -353,7 +355,7 @@ function ColoredLine({ text, ranges, parts }: { text: string; ranges: CodeRange[
  * Text mit den Farben seiner Sprache, Zeile für Zeile, mit einem Umbruch nach jeder Zeile, damit er
  * in einem `pre` steht wie geschrieben. `parts` nennt markierte Teile je Zeile.
  */
-function Colored({
+export function Colored({
   text,
   language,
   parts,
@@ -517,13 +519,44 @@ function NoteCard({
  */
 function NoteEditor({
   note,
+  ...field
+}: {
+  note: Pick<Note, 'sha' | 'step' | 'title' | 'path' | 'lines'>;
+  size: FieldSize;
+  initial: string;
+  onSave: (text: string) => Promise<void>;
+  onCancel: () => void;
+  saveOnBlur?: boolean;
+}) {
+  const generatedParts = useMemo(() => {
+    const parts = new Map<number, LinePart[]>();
+    if (note.lines !== null) {
+      // Die Überschrift des Commits und die leere Zeile danach stehen vor `noteHeading`.
+      for (const [index, list] of markedParts(note.lines)) {
+        parts.set(index + 2 + CODE_LINE, list);
+      }
+    }
+    return parts;
+  }, [note.lines]);
+  return <NoteTextEditor generated={`${commitHeading(note)}\n\n${noteHeading(note)}`} generatedParts={generatedParts} {...field} />;
+}
+
+/** Das Feld selbst, mit dem Text, den Schrittmacher ergänzt, als `generated`. */
+export function NoteTextEditor({
+  generated,
+  generatedParts,
+  onPasteImage,
   size,
   initial,
   onSave,
   onCancel,
   saveOnBlur = false,
 }: {
-  note: Pick<Note, 'sha' | 'step' | 'title' | 'path' | 'lines'>;
+  /** Der Text, den Schrittmacher ergänzt; `null` blendet ihn aus. */
+  generated: string | null;
+  generatedParts?: ReadonlyMap<number, LinePart[]>;
+  /** Legt ein eingefügtes Bild ab und liefert den Pfad, der ins Feld kommt. */
+  onPasteImage?: (image: File) => Promise<string>;
   size: FieldSize;
   initial: string;
   onSave: (text: string) => Promise<void>;
@@ -564,18 +597,43 @@ function NoteEditor({
     element?.setSelectionRange(element.value.length, element.value.length);
     element?.scrollIntoView({ block: 'nearest' });
   }, []);
-  const ready = !busy && text.trim() !== '';
-  const generated = `${commitHeading(note)}\n\n${noteHeading(note)}`;
-  const generatedParts = useMemo(() => {
-    const parts = new Map<number, LinePart[]>();
-    if (note.lines !== null) {
-      // Die Überschrift des Commits und die leere Zeile danach stehen vor `noteHeading`.
-      for (const [index, list] of markedParts(note.lines)) {
-        parts.set(index + 2 + CODE_LINE, list);
-      }
+  const [pasting, setPasting] = useState(false);
+  const [pasteError, setPasteError] = useState<string | null>(null);
+  const ready = !busy && !pasting && text.trim() !== '';
+  const paste = (event: ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = [...event.clipboardData.items];
+    const image = items.find((item) => item.kind === 'file' && item.type.startsWith('image/'))?.getAsFile();
+    // Mit Text in der Zwischenablage, etwa aus einem Dokument, bleibt es beim normalen Einfügen.
+    if (onPasteImage === undefined || image == null || items.some((item) => item.type === 'text/plain')) {
+      return;
     }
-    return parts;
-  }, [note.lines]);
+    event.preventDefault();
+    setPasting(true);
+    setPasteError(null);
+    onPasteImage(image)
+      .then((path) => {
+        const element = field.current;
+        if (element !== null) {
+          // Während des Hochladens kann der Text weitergewachsen sein; es zählt die Stelle von jetzt.
+          const { selectionStart: start, selectionEnd: end, value } = element;
+          // Ein Leerzeichen trennt den Pfad vom Text daneben, sonst wäre er nicht mehr als Pfad lesbar.
+          const before = start > 0 && !/\s/.test(value.charAt(start - 1)) ? ' ' : '';
+          const after = end < value.length && !/\s/.test(value.charAt(end)) ? ' ' : '';
+          const inserted = before + path + after;
+          const caret = start + inserted.length;
+          setText(value.slice(0, start) + inserted + value.slice(end));
+          requestAnimationFrame(() => {
+            element.setSelectionRange(caret, caret);
+          });
+        }
+      })
+      .catch((failure: unknown) => {
+        setPasteError(messageOf(failure));
+      })
+      .finally(() => {
+        setPasting(false);
+      });
+  };
   const save = async () => {
     if (!ready) {
       return;
@@ -591,9 +649,11 @@ function NoteEditor({
   return (
     <div className="note-editor">
       <div ref={box} className="md-box" style={{ height: size.height ?? undefined, minHeight: NOTE_HEIGHT_MIN }}>
-        <pre className="md-generated" data-tip="Ergänzt Schrittmacher in der Markdown-Datei">
-          <Colored text={generated} language={MARKDOWN} parts={generatedParts} />
-        </pre>
+        {generated !== null && (
+          <pre className="md-generated" data-tip="Ergänzt Schrittmacher in der Markdown-Datei">
+            <Colored text={generated} language={MARKDOWN} parts={generatedParts} />
+          </pre>
+        )}
         <div className="md-input">
           <pre className="md-mirror" aria-hidden="true">
             <Colored text={text} language={MARKDOWN} />
@@ -610,6 +670,7 @@ function NoteEditor({
             onChange={(event) => {
               setText(event.target.value);
             }}
+            onPaste={paste}
             onKeyDown={(event) => {
               if (event.key === 'Enter' && event.metaKey) {
                 event.preventDefault();
@@ -632,6 +693,8 @@ function NoteEditor({
           />
         </div>
       </div>
+      {pasting && <p className="note-paste">Bild wird abgelegt …</p>}
+      {pasteError !== null && <p className="notes-error">{pasteError}</p>}
       <div className="note-actions">
         <button type="button" className="tool tool-small" onClick={onCancel}>
           Abbrechen
@@ -656,21 +719,24 @@ function NoteEditor({
  * Die Markdown-Datei unter den Hinweisen, mit Knöpfen zum Kopieren ihres Inhalts und ihres Pfads.
  * Der Knopf zum Löschen aller Hinweise fragt mit einem zweiten Klick nach.
  */
-function NotesFooter({
+export function NotesFooter({
   file,
   markdown,
   count,
+  claudePrompt,
   onClear,
   onClaude,
 }: {
   file: string;
   markdown: string;
   count: number;
+  /** Der fertige Prompt für Claude; mit ihm stehen die Knöpfe zum Kopieren in einem Menü. */
+  claudePrompt?: string;
   onClear: () => Promise<void>;
   /** Öffnet den Dialog „In Claude bearbeiten“ für alle Hinweise. */
   onClaude: () => void;
 }) {
-  const [copied, setCopied] = useState<'markdown' | 'path' | null>(null);
+  const [copied, setCopied] = useState<'markdown' | 'path' | 'prompt' | null>(null);
   const [confirm, setConfirm] = useState(false);
   useEffect(() => {
     if (copied === null) {
@@ -683,8 +749,9 @@ function NotesFooter({
       clearTimeout(timer);
     };
   }, [copied]);
-  const copy = (what: 'markdown' | 'path') => {
-    navigator.clipboard.writeText(what === 'markdown' ? markdown : file).then(
+  const copy = (what: 'markdown' | 'path' | 'prompt') => {
+    const content = what === 'markdown' ? markdown : what === 'path' ? file : (claudePrompt ?? '');
+    navigator.clipboard.writeText(content).then(
       () => {
         setCopied(what);
       },
@@ -699,27 +766,75 @@ function NotesFooter({
         {nameOf(file)}
       </code>
       <div className="notes-tools">
-        <button
-          type="button"
-          className="tool tool-small"
-          disabled={count === 0}
-          data-tip="Alle Hinweise als Markdown in die Zwischenablage, etwa für Claude"
-          onClick={() => {
-            copy('markdown');
-          }}
-        >
-          {copied === 'markdown' ? 'Kopiert' : 'Markdown kopieren'}
-        </button>
-        <button
-          type="button"
-          className="tool tool-small"
-          data-tip="Den Pfad der Markdown-Datei in die Zwischenablage"
-          onClick={() => {
-            copy('path');
-          }}
-        >
-          {copied === 'path' ? 'Kopiert' : 'Pfad'}
-        </button>
+        {claudePrompt === undefined ? (
+          <>
+            <button
+              type="button"
+              className="tool tool-small"
+              disabled={count === 0}
+              data-tip="Alle Hinweise als Markdown in die Zwischenablage, etwa für Claude"
+              onClick={() => {
+                copy('markdown');
+              }}
+            >
+              {copied === 'markdown' ? 'Kopiert' : 'Markdown kopieren'}
+            </button>
+            <button
+              type="button"
+              className="tool tool-small"
+              data-tip="Den Pfad der Markdown-Datei in die Zwischenablage"
+              onClick={() => {
+                copy('path');
+              }}
+            >
+              {copied === 'path' ? 'Kopiert' : 'Pfad'}
+            </button>
+          </>
+        ) : (
+          <Menu
+            button={
+              <span className="notes-copy-button">
+                {copied === null ? 'Kopieren' : 'Kopiert'}
+                <ChevronIcon open size={10} />
+              </span>
+            }
+            label="Kopieren"
+            tip="In die Zwischenablage kopieren"
+            className="tool tool-small"
+            panelClassName="notes-copy-panel"
+          >
+            {(close) => (
+              <>
+                <MenuItem
+                  main="Markdown"
+                  disabled={count === 0}
+                  tip="Alle Hinweise als Markdown"
+                  onChoose={() => {
+                    copy('markdown');
+                    close();
+                  }}
+                />
+                <MenuItem
+                  main="Pfad zur Datei"
+                  tip={file}
+                  onChoose={() => {
+                    copy('path');
+                    close();
+                  }}
+                />
+                <MenuItem
+                  main="Prompt für Claude"
+                  disabled={count === 0}
+                  tip="Prompt mit dem Auftrag, die Datei mit den Hinweisen zu lesen"
+                  onChoose={() => {
+                    copy('prompt');
+                    close();
+                  }}
+                />
+              </>
+            )}
+          </Menu>
+        )}
         <button
           type="button"
           className="tool tool-small"

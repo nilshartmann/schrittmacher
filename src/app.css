@@ -3679,3 +3679,234 @@ span.info-parent {
   border: 1px solid var(--line);
   background: repeating-conic-gradient(var(--line-soft) 0 25%, var(--surface) 0 50%) 0 0 / 16px 16px;
 }
+
+/* Prototyp: Bezug eines Hinweises in der Markdown-Ansicht */
+
+.md-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.md-body .md-scroll {
+  min-width: 0;
+}
+
+.md {
+  position: relative;
+}
+
+.md .md-heading,
+.md .md-block {
+  position: relative;
+}
+
+/*
+ * Die Knöpfe von Überschriften und Listenpunkten stehen links vom Text, auf der Höhe der ersten
+ * Zeile. Ihre Fläche ist immer da und reagiert von links, nur der Knopf darin wird eingeblendet.
+ */
+.md-gutter-tools,
+.md-item-tools {
+  top: 0;
+  bottom: 0;
+  right: 100%;
+  display: flex;
+  align-items: flex-start;
+  padding-top: calc((1lh - 22px) / 2);
+  background: transparent;
+  transform: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.md-gutter-tools .hover-tool,
+.md-item-tools .hover-tool {
+  opacity: 0;
+}
+
+.hover-tools-host:hover > .md-gutter-tools .hover-tool,
+.hover-tools-host:hover > .md-item-tools .hover-tool {
+  opacity: 1;
+}
+
+.md-gutter-tools {
+  justify-content: flex-end;
+  width: 32px;
+  padding-left: 0;
+}
+
+/*
+ * Der Knopf eines Listenpunkts steht links vom Aufzählungszeichen. Die Fläche reicht bis an den
+ * Text, damit der Listenpunkt auf dem Weg dorthin überfahren bleibt.
+ */
+.md .md-item {
+  position: relative;
+}
+
+/* Bei verschachtelten Listen gilt der Knopf des innersten Listenpunkts unter dem Zeiger. */
+.md-item:has(.md-item:hover) > .md-item-tools .hover-tool {
+  opacity: 0;
+}
+
+.md-item-tools {
+  width: 60px;
+  padding-left: 16px;
+}
+
+.md-code-line {
+  display: block;
+  min-height: 1lh;
+}
+
+.md-band {
+  position: absolute;
+  right: 6px;
+  left: 6px;
+  border-left: 3px solid var(--accent);
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  pointer-events: none;
+}
+
+.md-band-preview {
+  border: 1px dashed var(--accent);
+  border-left: 3px dashed var(--accent);
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+}
+
+.md-noting {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 24px;
+  margin-right: 8px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-icon);
+  cursor: pointer;
+}
+
+.md-noting:hover {
+  background: var(--bg-hover);
+}
+
+.md-noting[aria-pressed='true'] {
+  background: var(--accent-tint);
+  color: var(--accent);
+}
+
+.md-notes {
+  width: 320px;
+  border-left: 1px solid var(--border-divider);
+}
+
+.md-note-toggle {
+  flex: none;
+  margin-left: auto;
+}
+
+.note-paste {
+  margin: 4px 0 0;
+  color: var(--quiet);
+  font-size: 12px;
+}
+
+.md-note-path {
+  color: var(--quiet);
+  font-size: 11px;
+}
+
+.md-note-marked {
+  display: block;
+  margin: 4px 0;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--accent-tint);
+  color: var(--ink);
+  font-size: 12px;
+}
+
+/* Solange ein neuer Hinweis offen ist, lässt sich kein anderer Bezug wählen. */
+.md.md-drafting .md-gutter-tools,
+.md.md-drafting .md-item-tools {
+  display: none;
+}
+
+/* Das Menü zum Kopieren steht ganz unten in der Spalte und öffnet deshalb nach oben. */
+.notes-copy-panel {
+  top: auto;
+  bottom: calc(100% + 6px);
+  width: 220px;
+}
+
+.notes-copy-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/*
+ * Die Markierungen der Hinweise ganz links. Daneben bleibt Platz für die Knöpfe neuer Hinweise,
+ * deshalb rückt der Text bei eingeschalteten Hinweisen nach rechts.
+ */
+.md.md-with-notes {
+  padding-left: 64px;
+}
+
+.md-with-notes .md-band {
+  left: 36px;
+}
+
+.md-marks {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 32px;
+}
+
+.md-mark-bar {
+  position: absolute;
+  left: 23px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--note);
+}
+
+.md-mark {
+  position: absolute;
+  left: 16px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 1.5px solid var(--note);
+  border-radius: 8px;
+  background: var(--note);
+  color: var(--ink);
+  font-family: var(--font-menu);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.md-mark:hover {
+  background: var(--note-strong);
+}
+
+.md-mark-section {
+  left: 0;
+  background: var(--surface);
+  color: var(--note-ink);
+}
+
+.note.md-note-focused {
+  background: var(--note-tint);
+  box-shadow: 0 0 0 2px var(--note-strong);
+}

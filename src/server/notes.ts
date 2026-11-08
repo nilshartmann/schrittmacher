@@ -10,16 +10,23 @@ import { shared } from './shared';
  * Die Schreibzugriffe auf die Hinweise, nacheinander, damit keiner den anderen überschreibt. Sie
  * gelten für alle Instanzen dieses Moduls, siehe `shared`.
  */
-const queue = shared('notes-queue', () => ({ writing: Promise.resolve() as Promise<unknown> }));
+export const queue = shared('notes-queue', () => ({ writing: Promise.resolve() as Promise<unknown> }));
 
 /**
  * Der Name der Dateien zu einem Repo: sein Pfad ab dem Home-Verzeichnis, mit `-` statt `/`. Der
  * Name des Repos allein reicht nicht, weil etwa jeder Workshop ein Repo `prepare` haben kann.
  */
-function baseName(repoPath: string): string {
+export function baseName(repoPath: string): string {
   const home = homedir() + sep;
   const relative = repoPath.startsWith(home) ? repoPath.slice(home.length) : repoPath;
   return relative.split(sep).filter((part) => part !== '').join('-').replace(/^\.+/, '');
+}
+
+/** Schreibt eine Datei über eine temporäre daneben, damit nie eine halbe Fassung dasteht. */
+export async function writeAtomically(file: string, content: string): Promise<void> {
+  const temporary = `${file}.${String(process.pid)}.tmp`;
+  await writeFile(temporary, content);
+  await rename(temporary, file);
 }
 
 /**
@@ -47,12 +54,6 @@ export function createNotes(dir: string) {
     }
   }
 
-  async function write(file: string, content: string): Promise<void> {
-    const temporary = `${file}.${String(process.pid)}.tmp`;
-    await writeFile(temporary, content);
-    await rename(temporary, file);
-  }
-
   async function load(repoPath: string): Promise<Notes> {
     const notes = await read(repoPath);
     return { notes, file: files(repoPath).markdown, markdown: markdownOf(repoPath, notes) };
@@ -63,9 +64,9 @@ export function createNotes(dir: string) {
       const notes = change(await read(repoPath));
       const { json, markdown } = files(repoPath);
       await mkdir(folder, { recursive: true });
-      await write(json, `${JSON.stringify({ repo: repoPath, notes }, null, 2)}\n`);
+      await writeAtomically(json, `${JSON.stringify({ repo: repoPath, notes }, null, 2)}\n`);
       const text = markdownOf(repoPath, notes);
-      await write(markdown, text);
+      await writeAtomically(markdown, text);
       return { notes, file: markdown, markdown: text };
     });
     queue.writing = next.catch(() => undefined);
@@ -96,15 +97,15 @@ export function createNotes(dir: string) {
       const base = join(dir, `${baseName(repoPath)}-${stampOf(new Date())}`);
       const file = `${base}.md`;
       const promptFile = `${base}.prompt.txt`;
-      await write(file, markdown);
-      await write(promptFile, `Lies ${file}.\n\n${prompt.trim()}\n`);
+      await writeAtomically(file, markdown);
+      await writeAtomically(promptFile, `Lies ${file}.\n\n${prompt.trim()}\n`);
       return { dir, file, promptFile };
     },
   };
 }
 
 /** Datum und Uhrzeit für einen Dateinamen, etwa `2026-10-31-174512`. */
-function stampOf(date: Date): string {
+export function stampOf(date: Date): string {
   const two = (value: number) => String(value).padStart(2, '0');
   return `${String(date.getFullYear())}-${two(date.getMonth() + 1)}-${two(date.getDate())}-${two(date.getHours())}${two(date.getMinutes())}${two(date.getSeconds())}`;
 }
