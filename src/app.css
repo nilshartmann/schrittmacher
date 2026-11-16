@@ -4001,7 +4001,8 @@ span.info-parent {
 }
 
 /* Unter /markdown kürzt sich der Ordner der Datei, damit die Knöpfe rechts Platz haben. */
-.header:has(.md-where) .header-start {
+.header:has(.md-where) .header-start,
+.header:has(.editor-title) .header-start {
   flex: 1 1 auto;
   min-width: 0;
 }
@@ -4163,4 +4164,72 @@ span.info-parent {
 .editor-preview .editor-cursor-block {
   border-radius: 3px;
   background-color: var(--accent-tint);
+}
+
+.md-width-label {
+  padding: 0 6px 0 6px;
+  color: var(--text-label);
+  font-size: 11.5px;
+}
+
+/* Der Name der Datei im Editor, größer als der Ordner daneben, mit Knöpfen beim Überfahren */
+.editor-title {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+  padding: 0 6px;
+  overflow: hidden;
+  background: var(--bg-panel);
+}
+
+.editor-name {
+  flex: none;
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.editor-title .md-dir {
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--size-small);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editor-title .hover-tools {
+  align-items: center;
+}
+
+/* Neu laden: unauffällig, bis sich die Datei außerhalb des Editors geändert hat */
+.editor-reload {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  margin-right: 8px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-icon);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.editor-reload:hover {
+  background: var(--bg-hover);
+}
+
+.editor-reload-outdated {
+  padding: 0 8px;
+  background: #fff1d6;
+  color: var(--missing-ink);
+}
+
+.editor-reload-outdated:hover {
+  background: #ffe6b3;
 }

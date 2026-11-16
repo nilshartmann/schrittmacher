@@ -29,6 +29,12 @@ const SNAP = 16;
 /** Was die Seite am Editor auslösen kann, etwa über einen Knopf in der Kopfzeile. */
 export interface EditorHandle {
   format: () => void;
+  /** Ersetzt den Text, etwa durch den Stand der Datei, als eigenen Schritt für ⌘Z. */
+  replace: (text: string) => void;
+  /** Die oberste sichtbare Zeile im scrollenden `container`, mit dem Bruchteil schon gescrollter Höhe. */
+  topLine: (container: HTMLElement) => number;
+  /** Scrollt `container` so, dass die Zeile, mit Bruchteil, oben steht; zurück kommt die neue Höhe. */
+  scrollToLine: (container: HTMLElement, line: number) => number;
 }
 
 /**
@@ -214,7 +220,31 @@ export function MarkdownEditor({
       }),
     });
     editor.current = view;
-    handle.current = { format };
+    const topLine = (container: HTMLElement) => {
+      const height = container.getBoundingClientRect().top - view.documentTop;
+      if (height <= 0) {
+        return 1;
+      }
+      const block = view.lineBlockAtHeight(height);
+      const line = view.state.doc.lineAt(block.from).number;
+      return line + Math.min(1, Math.max(0, (height - block.top) / Math.max(1, block.height)));
+    };
+    const scrollToLine = (container: HTMLElement, line: number) => {
+      const number = Math.min(view.state.doc.lines, Math.max(1, Math.floor(line)));
+      const block = view.lineBlockAt(view.state.doc.line(number).from);
+      const offset = view.documentTop - container.getBoundingClientRect().top + container.scrollTop;
+      const part = Math.min(1, Math.max(0, line - number));
+      container.scrollTop = offset + block.top + part * block.height;
+      return container.scrollTop;
+    };
+    handle.current = {
+      format,
+      topLine,
+      scrollToLine,
+      replace: (next) => {
+        replaceText(view, next);
+      },
+    };
     view.focus();
     // Der Strich folgt dem Rand der Zeilennummern, der mit der Zahl der Stellen breiter wird.
     const gutters = view.dom.querySelector('.cm-gutters');

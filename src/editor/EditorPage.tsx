@@ -1,11 +1,22 @@
 import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
+import { CopyIcon, HoverTools } from '../viewer/HoverTools';
+import { CheckMarkIcon, FetchIcon, FolderIcon, GitClientIcon, PencilIcon } from '../viewer/Icons';
 import { MarkdownView } from '../viewer/Markdown';
 import { Tooltips } from '../viewer/Tooltips';
 import { useRequests } from '../viewer/useRequests';
-import { backupEditorText, formatEditorText, saveEditorFile } from './editor.functions';
-import type { EditorFile } from './editor.functions';
+import {
+  backupEditorText,
+  editorFileChanged,
+  formatEditorText,
+  loadEditorFile,
+  openEditorFileIn,
+  saveEditorFile,
+} from './editor.functions';
+import type { EditorApp, EditorFile } from './editor.functions';
 import { MarkdownEditor } from './MarkdownEditor';
+import { anchorsOf, lineForTop, topForLine } from './scrollSync';
 import type { EditorHandle } from './MarkdownEditor';
 
 /** Die Schriftgröße in Pixeln, mit ihren Grenzen; gemerkt wird sie im Browser. */
@@ -35,6 +46,12 @@ const MODE_KEY = 'schrittmacher.editor.mode';
  */
 const BACKUP = { pause: 5000, latest: 30000 };
 
+/** Der Abstand der Fragen, ob sich die Datei außerhalb des Editors geändert hat, in Millisekunden. */
+const CHANGE_INTERVAL = 1500;
+
+/** So lange zeigt ein Knopf nach dem Kopieren ein Häkchen, in Millisekunden. */
+const COPIED_DURATION = 1200;
+
 /** So lange zeigt die Kopfzeile nach einer Sicherung, wohin sie ging, in Millisekunden. */
 const BACKUP_FLASH = 4000;
 
@@ -50,6 +67,22 @@ const MODES: { mode: Mode; label: string; tip: string }[] = [
   { mode: 'split', label: 'Geteilt', tip: 'Text und Vorschau nebeneinander (⌘2)' },
   { mode: 'preview', label: 'Vorschau', tip: 'Nur die Vorschau (⌘3)' },
 ];
+
+/**
+ * Wie die Vorschau neben dem Text folgt: gar nicht, der Zeile des Cursors oder dem Scrollen, dann
+ * in beide Richtungen.
+ */
+type Follow = 'off' | 'cursor' | 'scroll';
+
+/** Die Arten des Folgens im Umschalter, in seiner Reihenfolge. */
+const FOLLOWS: { follow: Follow; label: string; tip: string }[] = [
+  { follow: 'off', label: 'Aus', tip: 'Die Vorschau bleibt, wo sie ist' },
+  { follow: 'cursor', label: 'Cursor', tip: 'Die Vorschau zeigt die Zeile des Cursors' },
+  { follow: 'scroll', label: 'Scrollen', tip: 'Text und Vorschau scrollen gemeinsam, in beide Richtungen' },
+];
+
+/** Unter diesem Schlüssel merkt sich der Browser, wie die Vorschau folgt. */
+const FOLLOW_KEY = 'schrittmacher.editor.follow';
 
 /** Die letzte Sicherung: wann, wohin und, in einem Repo, der Commit. */
 interface BackedUp {
@@ -117,6 +150,11 @@ function blockAt(container: Element, line: number): HTMLElement | null {
   return inside?.element ?? before?.element ?? null;
 }
 
+function storedFollow(): Follow {
+  const value = stored(FOLLOW_KEY);
+  return value === 'off' || value === 'scroll' ? value : 'cursor';
+}
+
 function storedMode(): Mode {
   const value = stored(MODE_KEY);
   return value === 'split' || value === 'preview' ? value : 'text';
@@ -155,6 +193,44 @@ export function EditorPage({ file }: { file: EditorFile }) {
   const [cursorLine, setCursorLine] = useState(1);
   const frame = useRef<HTMLDivElement>(null);
   const previewScroll = useRef<HTMLElement>(null);
+  const textScroll = useRef<HTMLElement>(null);
+  const [follow, setFollow] = useState(storedFollow);
+  const changeFollow = (next: Follow) => {
+    setFollow(next);
+    store(FOLLOW_KEY, next);
+  };
+  // Die Höhe, die das Mitscrollen zuletzt auf einer Seite gesetzt hat. Das Scrollen, das daraus
+  // folgt, löst kein Mitscrollen der anderen Seite aus, sonst schaukeln sich beide auf.
+  const expected = useRef<{ text: number | null; preview: number | null }>({ text: null, preview: null });
+  const ownScroll = (side: 'text' | 'preview', top: number) => {
+    const value = expected.current[side];
+    expected.current[side] = null;
+    return value !== null && Math.abs(value - top) < 2;
+  };
+  const syncPreview = () => {
+    const text = textScroll.current;
+    const preview = previewScroll.current;
+    if (text === null || preview === null || editor.current === null) {
+      return;
+    }
+    const top = topForLine(anchorsOf(preview), editor.current.topLine(text));
+    if (Math.abs(preview.scrollTop - top) >= 1) {
+      preview.scrollTop = top;
+      expected.current.preview = preview.scrollTop;
+    }
+  };
+  const syncText = () => {
+    const text = textScroll.current;
+    const preview = previewScroll.current;
+    if (text === null || preview === null || editor.current === null) {
+      return;
+    }
+    const before = text.scrollTop;
+    const after = editor.current.scrollToLine(text, lineForTop(anchorsOf(preview), preview.scrollTop));
+    if (Math.abs(after - before) >= 1) {
+      expected.current.text = after;
+    }
+  };
   const editor = useRef<EditorHandle | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const changeMode = (next: Mode) => {
@@ -185,10 +261,11 @@ export function EditorPage({ file }: { file: EditorFile }) {
     setRatio(next);
   };
 
-  // Nebeneinander zeigt die Vorschau den Block, in dem der Cursor steht, und hebt ihn leicht hervor.
+  // Nebeneinander hebt die Vorschau den Block, in dem der Cursor steht, leicht hervor. Beim Folgen
+  // des Cursors scrollt sie ihn außerdem in den sichtbaren Bereich.
   useEffect(() => {
     const container = previewScroll.current;
-    if (mode !== 'split' || container === null) {
+    if (mode !== 'split' || follow === 'off' || container === null) {
       return;
     }
     const block = blockAt(container, cursorLine);
@@ -196,6 +273,11 @@ export function EditorPage({ file }: { file: EditorFile }) {
       return;
     }
     block.classList.add('editor-cursor-block');
+    if (follow !== 'cursor') {
+      return () => {
+        block.classList.remove('editor-cursor-block');
+      };
+    }
     const view = container.getBoundingClientRect();
     const box = block.getBoundingClientRect();
     const margin = view.height * 0.15;
@@ -207,7 +289,13 @@ export function EditorPage({ file }: { file: EditorFile }) {
     return () => {
       block.classList.remove('editor-cursor-block');
     };
-  }, [cursorLine, edited, mode, ratio]);
+  }, [cursorLine, edited, mode, ratio, follow]);
+  // Beim gemeinsamen Scrollen folgt die Vorschau auch einer Änderung am Text und dem Umschalten.
+  useEffect(() => {
+    if (mode === 'split' && follow === 'scroll') {
+      syncPreview();
+    }
+  }, [edited, mode, ratio, follow]);
 
   // Die letzte Sicherung und seit wann es Text gibt, der noch nicht gesichert ist.
   const lastBackup = useRef<{ text: string; pendingSince: number | null }>({ text: file.text, pendingSince: null });
@@ -244,10 +332,55 @@ export function EditorPage({ file }: { file: EditorFile }) {
     };
   }, [edited]);
 
+  // Der Stand der Datei, den der Editor zuletzt gelesen oder geschrieben hat. Weicht ihre letzte
+  // Änderung davon ab, hat sie sich außerhalb des Editors geändert.
+  const known = useRef(file.changed);
+  const [outdated, setOutdated] = useState(false);
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (document.visibilityState !== 'visible') {
+        return;
+      }
+      editorFileChanged({ data: { path: file.path } }).then(
+        (changed) => {
+          setOutdated(changed !== null && changed !== known.current);
+        },
+        () => {
+          // Der Server ist kurz nicht erreichbar; die nächste Frage versucht es wieder.
+        },
+      );
+    }, CHANGE_INTERVAL);
+    return () => {
+      clearInterval(timer);
+    };
+  }, [file.path]);
+  const reload = async () => {
+    if (dirty && !window.confirm('Ungespeicherte Änderungen verwerfen und den Stand der Datei laden? Gesichert werden sie vorher.')) {
+      return;
+    }
+    try {
+      if (dirty) {
+        runBackup(edited);
+      }
+      const current = await loadEditorFile({ data: { path: file.path } });
+      // Vor dem Ersetzen gilt der neue Text als gesichert, damit er keine Sicherung auslöst.
+      lastBackup.current = { text: current.text, pendingSince: null };
+      editor.current?.replace(current.text);
+      setEdited(current.text);
+      setSaved(current.text);
+      known.current = current.changed;
+      setOutdated(false);
+      setNotice(null);
+    } catch (error) {
+      setNotice(`Laden gescheitert: ${messageOf(error)}`);
+    }
+  };
+
   const save = async () => {
     const text = edited;
     try {
-      await saveEditorFile({ data: { path: file.path, text } });
+      known.current = await saveEditorFile({ data: { path: file.path, text } });
+      setOutdated(false);
       setSaved(text);
       setNotice(null);
       runBackup(text);
@@ -299,13 +432,31 @@ export function EditorPage({ file }: { file: EditorFile }) {
     <div className="app">
       <header className="header">
         <div className="header-start">
-          <span className="md-where" data-tip={file.path}>
-            <span className="md-name">{file.name}</span>
-            <span className="md-dir">{file.dir}</span>
-          </span>
+          <FileTitle
+            file={file}
+            onError={(message) => {
+              setNotice(message);
+            }}
+          />
         </div>
         <div className="header-tools">
           <EditorStatus dirty={dirty} backedUp={backedUp} notice={notice} />
+          <button
+            type="button"
+            className={outdated ? 'editor-reload editor-reload-outdated' : 'editor-reload'}
+            aria-label="Neu laden"
+            data-tip={
+              outdated
+                ? 'Die Datei hat sich außerhalb des Editors geändert: ihren Stand laden'
+                : 'Den Stand der Datei neu laden'
+            }
+            onClick={() => {
+              void reload();
+            }}
+          >
+            <FetchIcon />
+            {outdated && <span>Datei geändert</span>}
+          </button>
           <div className="md-width" role="group" aria-label="Anzeige">
             {MODES.map((entry) => (
               <button
@@ -335,6 +486,24 @@ export function EditorPage({ file }: { file: EditorFile }) {
           )}
           {mode === 'text' && (
             <WidthControl width={editorWidth} normal={EDITOR_WIDTH.normal} onChange={changeEditorWidth} />
+          )}
+          {mode === 'split' && (
+            <div className="md-width" role="group" aria-label="Folgen">
+              <span className="md-width-label">Folgen</span>
+              {FOLLOWS.map((entry) => (
+                <button
+                  key={entry.follow}
+                  type="button"
+                  aria-pressed={follow === entry.follow}
+                  data-tip={entry.tip}
+                  onClick={() => {
+                    changeFollow(entry.follow);
+                  }}
+                >
+                  {entry.label}
+                </button>
+              ))}
+            </div>
           )}
           {mode === 'split' && <WidthControl width={splitWidth} normal={null} onChange={changeSplitWidth} />}
           <div className="font-size" role="group" aria-label="Schriftgröße">
@@ -370,6 +539,12 @@ export function EditorPage({ file }: { file: EditorFile }) {
           {/* Der Editor bleibt auch in der Vorschau bestehen, damit Cursor und Verlauf erhalten bleiben. */}
           <main
             className="md-scroll editor-text"
+            ref={textScroll}
+            onScroll={(event) => {
+              if (!ownScroll('text', event.currentTarget.scrollTop) && mode === 'split' && follow === 'scroll') {
+                syncPreview();
+              }
+            }}
             hidden={!showsText}
             style={mode === 'split' ? { flex: `0 0 ${String(ratio * 100)}%` } : undefined}
           >
@@ -420,7 +595,15 @@ export function EditorPage({ file }: { file: EditorFile }) {
             />
           )}
           {mode !== 'text' && (
-            <main className="md-scroll editor-preview" ref={previewScroll}>
+            <main
+              className="md-scroll editor-preview"
+              ref={previewScroll}
+              onScroll={(event) => {
+                if (!ownScroll('preview', event.currentTarget.scrollTop) && mode === 'split' && follow === 'scroll') {
+                  syncText();
+                }
+              }}
+            >
               <MarkdownView
                 text={edited}
                 dir={file.dir}
@@ -437,6 +620,77 @@ export function EditorPage({ file }: { file: EditorFile }) {
       </div>
       <Tooltips />
     </div>
+  );
+}
+
+/**
+ * Der Name der Datei, groß, mit ihrem Ordner daneben. Beim Überfahren erscheinen Knöpfe zum Kopieren
+ * des Pfads und zum Öffnen in ForkLift, Fork und BBEdit.
+ */
+function FileTitle({ file, onError }: { file: EditorFile; onError: (message: string) => void }) {
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (!copied) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      setCopied(false);
+    }, COPIED_DURATION);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [copied]);
+  const open = (app: EditorApp) => {
+    openEditorFileIn({ data: { path: file.path, app } }).catch((error: unknown) => {
+      onError(`Öffnen gescheitert: ${messageOf(error)}`);
+    });
+  };
+  const apps: { app: EditorApp; tip: string; icon: ReactNode }[] = [
+    { app: 'forklift', tip: 'Ordner in ForkLift öffnen', icon: <FolderIcon /> },
+    { app: 'fork', tip: 'Repo in Fork öffnen', icon: <GitClientIcon /> },
+    { app: 'bbedit', tip: 'Datei in BBEdit öffnen', icon: <PencilIcon /> },
+  ];
+  return (
+    <span className="editor-title hover-tools-host">
+      <span className="editor-name" data-tip={file.path}>
+        {file.name}
+      </span>
+      <span className="md-dir">{file.dir}</span>
+      <HoverTools>
+        <button
+          type="button"
+          className="hover-tool"
+          aria-label="Pfad kopieren"
+          data-tip={copied ? 'Kopiert' : 'Pfad kopieren'}
+          onClick={() => {
+            navigator.clipboard.writeText(file.path).then(
+              () => {
+                setCopied(true);
+              },
+              (error: unknown) => {
+                onError(`Kopieren gescheitert: ${messageOf(error)}`);
+              },
+            );
+          }}
+        >
+          {copied ? <CheckMarkIcon /> : <CopyIcon />}
+        </button>
+        {apps.map((entry) => (
+          <button
+            key={entry.app}
+            type="button"
+            className="hover-tool"
+            aria-label={entry.tip}
+            data-tip={entry.tip}
+            onClick={() => {
+              open(entry.app);
+            }}
+          >
+            {entry.icon}
+          </button>
+        ))}
+      </HoverTools>
+    </span>
   );
 }
 

@@ -9,6 +9,7 @@ Die Seite hat deshalb keinen Weg zu den Tabs und kennt keine Hinweise. Alle Teil
 - `EditorPage.tsx`: die Seite mit Kopfzeile, Text und Vorschau
 - `MarkdownEditor.tsx`: der Editor
 - `editor.functions.ts`: Laden, Speichern, Formatieren und Sichern auf dem Server
+- `scrollSync.ts`: der Abgleich von Text und Vorschau beim Scrollen
 - `backup.ts`: die automatische Sicherung
 - `format.ts`: das Formatieren mit Prettier
 
@@ -22,6 +23,8 @@ vom Kommando (`useRequests`).
 |---|---|
 | Nur Text, Text und Vorschau nebeneinander, nur Vorschau | „Text“, „Geteilt“, „Vorschau“ oder ⌘1 bis ⌘3 |
 | Speichern | ⌘S |
+| Stand der Datei neu laden | Pfeil im Kreis in der Kopfzeile |
+| Pfad kopieren, Ordner in ForkLift, Repo in Fork, Datei in BBEdit öffnen | Knöpfe beim Überfahren des Dateinamens |
 | Formatieren | ⌘⇧F oder „Formatieren“ in der Kopfzeile |
 | Breite ändern | Strich neben den Zeilennummern ziehen, Escape bricht ab |
 | Normale oder volle Breite | „Normal“ und „Voll“ in der Kopfzeile, bei „Geteilt“ nur „Voll“ |
@@ -31,10 +34,24 @@ Beim Ziehen am Strich zeigt eine graue Fläche die neue Breite und wie viele Zei
 des Texts passen. Bei „Geteilt“ gilt die Breite für Text und Vorschau zusammen. Der Trenner
 verschiebt das Verhältnis dagegen sofort.
 
-Die Vorschau zeigt den Text im Editor, auch ungespeichert. Bei „Geteilt“ zeigt sie den Block, in
-dem der Cursor steht, und hebt ihn leicht hervor. In einem Codeblock ist das die einzelne Zeile. Ein Link auf eine andere Markdown-Datei
-öffnet sie im Editor, bei ungespeicherten Änderungen nach einer Rückfrage. Anzeige, Breiten,
-Verhältnis und Schriftgröße merkt sich der Browser.
+Der Editor fragt regelmäßig nach der letzten Änderung der Datei. Hat sie sich außerhalb des
+Editors geändert, steht neben dem Knopf zum Neuladen „Datei geändert“. Neu geladen wird erst auf
+Klick, und zwar als eigener Schritt für ⌘Z. Ungespeicherte Änderungen werden vorher gesichert und
+erst nach einer Rückfrage verworfen.
+
+Die Vorschau zeigt den Text im Editor, auch ungespeichert. Bei „Geteilt“ legt der Umschalter
+„Folgen“ fest, wie sie dem Text folgt:
+
+- **Aus:** Die Vorschau bleibt, wo sie ist.
+- **Cursor:** Die Vorschau scrollt den Block der Cursorzeile in den sichtbaren Bereich. In einem
+  Codeblock ist das die einzelne Zeile.
+- **Scrollen:** Text und Vorschau scrollen gemeinsam, in beide Richtungen.
+
+Bei „Cursor“ und „Scrollen“ ist der Block der Cursorzeile leicht hervorgehoben. Abgeglichen wird
+über die erste Zeile, die jeder Block der Vorschau in der Datei hat (`src/editor/scrollSync.ts`).
+Zwischen zwei Blöcken wird gleichmäßig verteilt. Ein Link auf eine andere Markdown-Datei
+öffnet sie im Editor, bei ungespeicherten Änderungen nach einer Rückfrage. Anzeige, Folgen,
+Breiten, Verhältnis und Schriftgröße merkt sich der Browser.
 
 ## Sicherung
 
