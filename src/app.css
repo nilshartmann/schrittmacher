@@ -52,6 +52,9 @@
   --code-jsx-tag: #a56416;
   --code-jsx-attribute: #2770c0;
   --code-heading: #a44185;
+  /* Markierungen im Editor und in seiner Vorschau, wie gelber Hintergrund und rote Schrift in Word */
+  --highlight-background: rgb(255 236 0 / 0.6);
+  --highlight-text: #d0021b;
   --code-marker: #2770c0;
   --code-strong: #1d232c;
   --code-emphasis: #1d232c;
@@ -3966,6 +3969,23 @@ span.info-parent {
   padding-left: 6px;
 }
 
+/* Eine Markierung: Der Hintergrund lässt die Auswahl durchscheinen, die Farben der Syntax weichen dem Rot. */
+.md-editor .cm-highlight,
+.md-editor .cm-highlight span,
+.md-highlight,
+.md-highlight * {
+  color: var(--highlight-text);
+}
+
+.md-editor .cm-highlight,
+.md-highlight {
+  background: var(--highlight-background);
+}
+
+.md-highlight {
+  border-radius: 2px;
+}
+
 /* Die Knöpfe für normale und volle Breite der Textfläche im Editor */
 .md-width {
   display: flex;
@@ -4232,4 +4252,21 @@ span.info-parent {
 
 .editor-reload-outdated:hover {
   background: #ffe6b3;
+}
+
+/* Die Zahl der Markierungen im Editor, in ihren Farben */
+.md-width button.editor-highlight-count {
+  min-width: 28px;
+  background: var(--highlight-background);
+  color: var(--highlight-text);
+  font-weight: 600;
+}
+
+.md-width button.editor-highlight-lost {
+  color: var(--highlight-text);
+}
+
+/* Markierter Code in der Vorschau zeigt das Gelb statt seines grauen Hintergrunds. */
+.md-highlight code {
+  background: transparent;
 }

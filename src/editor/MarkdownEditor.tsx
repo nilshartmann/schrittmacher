@@ -2,11 +2,14 @@ import { defaultKeymap, history, historyKeymap, indentWithTab, isolateHistory } 
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
 import { highlightSelectionMatches, searchKeymap } from '@codemirror/search';
-import { EditorState } from '@codemirror/state';
-import { EditorView, drawSelection, keymap, lineNumbers } from '@codemirror/view';
+import { EditorSelection, EditorState, StateEffect, StateField } from '@codemirror/state';
+import { Decoration, EditorView, drawSelection, keymap, lineNumbers } from '@codemirror/view';
+import type { DecorationSet } from '@codemirror/view';
 import { tags } from '@lezer/highlight';
 import { useEffect, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent, RefObject } from 'react';
+import { normalized, without } from './highlights';
+import type { Highlight } from './highlights';
 
 /** Die Farben des Quelltexts, aus denselben Variablen wie die Hervorhebung im Diff. */
 const HIGHLIGHT = HighlightStyle.define([
@@ -23,6 +26,76 @@ const HIGHLIGHT = HighlightStyle.define([
   { tag: tags.comment, color: 'var(--code-comment)' },
 ]);
 
+/** Ersetzt alle Markierungen im Editor. */
+const setHighlights = StateEffect.define<Highlight[]>();
+
+/** Wie eine Markierung aussieht; getippter Text an ihrem Rand gehört nicht dazu. */
+const HIGHLIGHT_MARK = Decoration.mark({ class: 'cm-highlight' });
+
+/** Die Markierungen im Editor. Sie wandern mit jeder Änderung am Text mit, ein leer getippter Bereich fällt weg. */
+const highlightField = StateField.define<DecorationSet>({
+  create: () => Decoration.none,
+  update: (value, transaction) => {
+    let next = value.map(transaction.changes);
+    for (const effect of transaction.effects) {
+      if (effect.is(setHighlights)) {
+        next = Decoration.set(effect.value.map((range) => HIGHLIGHT_MARK.range(range.from, range.to)));
+      }
+    }
+    return next;
+  },
+  provide: (field) => EditorView.decorations.from(field),
+});
+
+/** Die Markierungen im Editor als Bereiche, sortiert und ohne leere. */
+function highlightsIn(state: EditorState): Highlight[] {
+  const found: Highlight[] = [];
+  const cursor = state.field(highlightField).iter();
+  for (; cursor.value !== null; cursor.next()) {
+    found.push({ from: cursor.from, to: cursor.to });
+  }
+  return normalized(found);
+}
+
+/**
+ * Markiert die Auswahl oder hebt Markierungen auf: Ohne Auswahl entfernt es die Markierung am
+ * Cursor, mit Auswahl den markierten Teil darin. Berührt die Auswahl keine Markierung, wird sie markiert.
+ */
+function toggleHighlight(view: EditorView): boolean {
+  const { from, to } = view.state.selection.main;
+  const current = highlightsIn(view.state);
+  let next: Highlight[];
+  if (from === to) {
+    const at = current.find((range) => range.from <= from && from <= range.to);
+    if (at === undefined) {
+      return false;
+    }
+    next = current.filter((range) => range !== at);
+  } else if (current.some((range) => range.from < to && range.to > from)) {
+    next = without(current, from, to);
+  } else {
+    next = normalized([...current, { from, to }]);
+  }
+  view.dispatch({ effects: setHighlights.of(next) });
+  return true;
+}
+
+/** Setzt den Cursor an den Anfang der nächsten Markierung hinter ihm, nach der letzten wieder an die erste. */
+function nextHighlight(view: EditorView): boolean {
+  const current = highlightsIn(view.state);
+  const head = view.state.selection.main.head;
+  const target = current.find((range) => range.from > head) ?? current[0];
+  if (target === undefined) {
+    return false;
+  }
+  view.dispatch({
+    selection: EditorSelection.range(target.from, target.to),
+    effects: EditorView.scrollIntoView(target.from, { y: 'center' }),
+  });
+  view.focus();
+  return true;
+}
+
 /** Wie nah eine gezogene Breite an der normalen liegen muss, damit sie dort einrastet, in Pixeln. */
 const SNAP = 16;
 
@@ -35,6 +108,10 @@ export interface EditorHandle {
   topLine: (container: HTMLElement) => number;
   /** Scrollt `container` so, dass die Zeile, mit Bruchteil, oben steht; zurück kommt die neue Höhe. */
   scrollToLine: (container: HTMLElement, line: number) => number;
+  /** Markiert die Auswahl oder hebt Markierungen darin auf, wie ⌘⇧M. */
+  toggleHighlight: () => void;
+  /** Wählt die nächste Markierung hinter dem Cursor aus. */
+  nextHighlight: () => void;
 }
 
 /**
@@ -121,6 +198,8 @@ function paddingOf(element: Element | null): number {
  */
 export function MarkdownEditor({
   text,
+  highlights,
+  onHighlights,
   width,
   resizable,
   outer,
@@ -134,6 +213,10 @@ export function MarkdownEditor({
   onSave,
 }: {
   text: string;
+  /** Die Markierungen beim Anlegen; danach gehören sie dem Editor wie der Text. */
+  highlights: Highlight[];
+  /** Die Markierungen nach jeder Änderung an ihnen oder am Text. */
+  onHighlights: (highlights: Highlight[]) => void;
   handle: RefObject<EditorHandle | null>;
   /** Formatiert den Text; zurück kommt der neue Text, bei einem Fehler der alte. */
   onFormat: (text: string) => Promise<string>;
@@ -159,8 +242,8 @@ export function MarkdownEditor({
   const [edge, setEdge] = useState<Edge | null>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
   // Die Rückrufe ändern sich mit jedem Rendern, der Editor wird aber nur einmal angelegt.
-  const callbacks = useRef({ onChange, onSave, onFormat, onCursor });
-  callbacks.current = { onChange, onSave, onFormat, onCursor };
+  const callbacks = useRef({ onChange, onSave, onFormat, onCursor, onHighlights });
+  callbacks.current = { onChange, onSave, onFormat, onCursor, onHighlights };
   useEffect(() => {
     if (host.current === null) {
       return;
@@ -179,6 +262,9 @@ export function MarkdownEditor({
       state: EditorState.create({
         doc: text,
         extensions: [
+          highlightField.init(() =>
+            Decoration.set(normalized(highlights).map((range) => HIGHLIGHT_MARK.range(range.from, range.to))),
+          ),
           lineNumbers(),
           history(),
           drawSelection(),
@@ -194,6 +280,11 @@ export function MarkdownEditor({
                 callbacks.current.onSave();
                 return true;
               },
+            },
+            {
+              key: 'Mod-Shift-m',
+              preventDefault: true,
+              run: toggleHighlight,
             },
             {
               key: 'Mod-Shift-f',
@@ -214,6 +305,9 @@ export function MarkdownEditor({
             }
             if (update.docChanged || update.selectionSet) {
               callbacks.current.onCursor(update.state.doc.lineAt(update.state.selection.main.head).number);
+            }
+            if (update.startState.field(highlightField) !== update.state.field(highlightField)) {
+              callbacks.current.onHighlights(highlightsIn(update.state));
             }
           }),
         ],
@@ -243,6 +337,13 @@ export function MarkdownEditor({
       scrollToLine,
       replace: (next) => {
         replaceText(view, next);
+      },
+      toggleHighlight: () => {
+        toggleHighlight(view);
+        view.focus();
+      },
+      nextHighlight: () => {
+        nextHighlight(view);
       },
     };
     view.focus();

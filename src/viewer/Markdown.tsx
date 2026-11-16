@@ -45,9 +45,17 @@ interface Reference {
   title: string | undefined;
 }
 
+/** Ein markierter Bereich im Text, als Positionen von Zeichen, wie im Editor (`docs/editor.md`). */
+export interface MdHighlight {
+  from: number;
+  to: number;
+}
+
 /** Was das Rendern eines Dokuments braucht. */
 interface Context {
   source: string;
+  /** Die Markierungen, sortiert und mit Positionen in `source`. */
+  highlights: readonly MdHighlight[];
   dir: string;
   references: ReadonlyMap<string, Reference>;
   /** Die schon vergebenen Anker der Überschriften, damit ein doppelter eine Nummer bekommt. */
@@ -261,6 +269,48 @@ function imageSource(url: string, dir: string): string {
   return target.kind === 'file' ? `/api/image?path=${encodeURIComponent(target.path)}` : '';
 }
 
+/** Ob zwischen `from` und `to` eine Markierung liegt. */
+function isHighlighted(context: Context, from: number, to: number): boolean {
+  return context.highlights.some((range) => range.from < to && range.to > from);
+}
+
+/** Der Text zwischen `from` und `to`, die markierten Teile darin hervorgehoben. */
+function highlightedText(context: Context, from: number, to: number): ReactNode[] {
+  const parts: ReactNode[] = [];
+  let position = from;
+  for (const range of context.highlights) {
+    const start = Math.max(range.from, position);
+    const end = Math.min(range.to, to);
+    if (end <= start) {
+      continue;
+    }
+    if (start > position) {
+      parts.push(context.source.slice(position, start));
+    }
+    parts.push(
+      <mark key={`highlight-${String(start)}`} className="md-highlight">
+        {context.source.slice(start, end)}
+      </mark>,
+    );
+    position = end;
+  }
+  if (to > position) {
+    parts.push(context.source.slice(position, to));
+  }
+  return parts;
+}
+
+/** Ein Teil ohne eigenen Text darin, etwa Code oder ein Zeichen, als Ganzes hervorgehoben, wenn er markiert ist. */
+function highlightedPart(context: Context, node: MdNode, part: ReactNode): ReactNode {
+  return isHighlighted(context, node.from, node.to) ? (
+    <mark key={`highlight-${String(node.from)}`} className="md-highlight">
+      {part}
+    </mark>
+  ) : (
+    part
+  );
+}
+
 /** Der Inhalt eines Absatzes, einer Überschrift oder einer Zelle, zwischen `from` und `to`. */
 function inline(node: MdNode, context: Context, from = node.from, to = node.to): ReactNode[] {
   const { source } = context;
@@ -268,7 +318,7 @@ function inline(node: MdNode, context: Context, from = node.from, to = node.to):
   let position = from;
   const text = (end: number) => {
     if (end > position) {
-      parts.push(source.slice(position, end));
+      parts.push(...highlightedText(context, position, end));
     }
   };
   for (const child of childrenOf(node)) {
@@ -295,7 +345,7 @@ function inline(node: MdNode, context: Context, from = node.from, to = node.to):
         if (code.length > 2 && code.startsWith(' ') && code.endsWith(' ') && code.trim() !== '') {
           code = code.slice(1, -1);
         }
-        parts.push(<code key={key}>{code}</code>);
+        parts.push(highlightedPart(context, child, <code key={key}>{code}</code>));
         break;
       }
       case 'Link': {
@@ -332,17 +382,21 @@ function inline(node: MdNode, context: Context, from = node.from, to = node.to):
         const url = urlOf(content);
         const href = /^[^@\s]+@[^@\s]+$/.test(url) ? `mailto:${url}` : SCHEME.test(url) ? url : `https://${url}`;
         parts.push(
-          <a key={key} href={href} target="_blank" rel="noreferrer">
-            {url}
-          </a>,
+          highlightedPart(
+            context,
+            child,
+            <a key={key} href={href} target="_blank" rel="noreferrer">
+              {url}
+            </a>,
+          ),
         );
         break;
       }
       case 'Escape':
-        parts.push(content.slice(1));
+        parts.push(highlightedPart(context, child, content.slice(1)));
         break;
       case 'Entity':
-        parts.push(decodeEntity(content));
+        parts.push(highlightedPart(context, child, decodeEntity(content)));
         break;
       case 'HardBreak':
         parts.push(<br key={key} />);
@@ -978,11 +1032,14 @@ export function MarkdownView({
   dir,
   onOpen,
   noting = null,
+  highlights = [],
 }: {
   text: string;
   dir: string;
   onOpen: (path: string) => void;
   noting?: MdNoting | null;
+  /** Hervorgehobene Bereiche, sortiert und mit Positionen in `text`; im Code nicht gezeigt. */
+  highlights?: readonly MdHighlight[];
 }) {
   const { front, body } = splitFrontMatter(text);
   const tree = useMemo(() => PARSER.parse(body), [body]);
@@ -1091,8 +1148,10 @@ export function MarkdownView({
       document.removeEventListener('scroll', onScroll, { capture: true });
     };
   }, [active, drafting, onScope, headings, text]);
+  const shift = text.length - body.length;
   const context: Context = {
     source: body,
+    highlights: highlights.map((range) => ({ from: range.from - shift, to: range.to - shift })),
     dir,
     references: referencesOf(tree.topNode, body),
     slugs: new Map(),

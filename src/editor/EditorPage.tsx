@@ -13,8 +13,11 @@ import {
   loadEditorFile,
   openEditorFileIn,
   saveEditorFile,
+  saveEditorHighlights,
 } from './editor.functions';
 import type { EditorApp, EditorFile } from './editor.functions';
+import { anchorsOf as highlightAnchorsOf, resolveAnchors } from './highlights';
+import type { Highlight, HighlightAnchor } from './highlights';
 import { MarkdownEditor } from './MarkdownEditor';
 import { anchorsOf, lineForTop, topForLine } from './scrollSync';
 import type { EditorHandle } from './MarkdownEditor';
@@ -51,6 +54,9 @@ const CHANGE_INTERVAL = 1500;
 
 /** So lange zeigt ein Knopf nach dem Kopieren ein Häkchen, in Millisekunden. */
 const COPIED_DURATION = 1200;
+
+/** So lange wartet das Speichern der Markierungen nach der letzten Änderung, in Millisekunden. */
+const HIGHLIGHT_SAVE_DELAY = 800;
 
 /** So lange zeigt die Kopfzeile nach einer Sicherung, wohin sie ging, in Millisekunden. */
 const BACKUP_FLASH = 4000;
@@ -191,6 +197,10 @@ export function EditorPage({ file }: { file: EditorFile }) {
   const [splitWidth, setSplitWidth] = useState(() => storedWidth(SPLIT_WIDTH.key, SPLIT_WIDTH.min, 'full'));
   const [ratio, setRatio] = useState(storedRatio);
   const [cursorLine, setCursorLine] = useState(1);
+  // Die Markierungen beim Öffnen, im Text der Datei wiedergefunden; was fehlt, bleibt gespeichert.
+  const [initialHighlights] = useState(() => resolveAnchors(file.text, file.highlights));
+  const [highlights, setHighlights] = useState<Highlight[]>(initialHighlights.found);
+  const [lostHighlights, setLostHighlights] = useState<HighlightAnchor[]>(initialHighlights.lost);
   const frame = useRef<HTMLDivElement>(null);
   const previewScroll = useRef<HTMLElement>(null);
   const textScroll = useRef<HTMLElement>(null);
@@ -398,6 +408,32 @@ export function EditorPage({ file }: { file: EditorFile }) {
     }
   };
 
+  // Die Markierungen werden kurz nach jeder Änderung an ihnen oder am Text gespeichert, mit dem Text
+  // im Editor. Ungespeicherter Text lässt sich deshalb beim nächsten Öffnen vielleicht nicht finden.
+  const savedHighlights = useRef(
+    JSON.stringify([...highlightAnchorsOf(file.text, initialHighlights.found), ...initialHighlights.lost]),
+  );
+  useEffect(() => {
+    const anchors = [...highlightAnchorsOf(edited, highlights), ...lostHighlights];
+    const json = JSON.stringify(anchors);
+    if (json === savedHighlights.current) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      saveEditorHighlights({ data: { path: file.path, highlights: anchors } }).then(
+        () => {
+          savedHighlights.current = json;
+        },
+        (error: unknown) => {
+          setNotice(`Markierungen nicht gespeichert: ${messageOf(error)}`);
+        },
+      );
+    }, HIGHLIGHT_SAVE_DELAY);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [edited, highlights, lostHighlights, file.path]);
+
   // ⌘1 bis ⌘3 wechseln die Anzeige, auch wenn der Text keinen Fokus hat.
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -472,6 +508,21 @@ export function EditorPage({ file }: { file: EditorFile }) {
               </button>
             ))}
           </div>
+          {showsText && (
+            <HighlightControl
+              count={highlights.length}
+              lost={lostHighlights}
+              onToggle={() => {
+                editor.current?.toggleHighlight();
+              }}
+              onNext={() => {
+                editor.current?.nextHighlight();
+              }}
+              onDiscardLost={() => {
+                setLostHighlights([]);
+              }}
+            />
+          )}
           {showsText && (
             <button
               type="button"
@@ -550,6 +601,8 @@ export function EditorPage({ file }: { file: EditorFile }) {
           >
             <MarkdownEditor
               text={file.text}
+              highlights={initialHighlights.found}
+              onHighlights={setHighlights}
               width={mode === 'text' && editorWidth !== 'full' ? editorWidth : null}
               resizable={showsText}
               outer={mode === 'split' ? frame : null}
@@ -608,6 +661,7 @@ export function EditorPage({ file }: { file: EditorFile }) {
                 text={edited}
                 dir={file.dir}
                 noting={null}
+                highlights={highlights}
                 onOpen={(path) => {
                   if (!dirty || window.confirm('Ungespeicherte Änderungen verwerfen? Gesichert sind sie trotzdem.')) {
                     void navigate({ to: '/edit', search: { path } });
@@ -619,6 +673,67 @@ export function EditorPage({ file }: { file: EditorFile }) {
         </div>
       </div>
       <Tooltips />
+    </div>
+  );
+}
+
+/**
+ * Der Knopf zum Markieren der Auswahl, daneben die Zahl der Markierungen, die zur nächsten springt.
+ * Markierungen, die sich beim Öffnen nicht mehr fanden, stehen dahinter und lassen sich verwerfen.
+ */
+function HighlightControl({
+  count,
+  lost,
+  onToggle,
+  onNext,
+  onDiscardLost,
+}: {
+  count: number;
+  lost: HighlightAnchor[];
+  onToggle: () => void;
+  onNext: () => void;
+  onDiscardLost: () => void;
+}) {
+  return (
+    <div className="md-width" role="group" aria-label="Markierungen">
+      <button
+        type="button"
+        data-tip="Auswahl markieren oder Markierung aufheben (⌘⇧M)"
+        // Der Knopf nimmt dem Editor nicht den Fokus, damit die Auswahl bleibt.
+        onMouseDown={(event) => {
+          event.preventDefault();
+        }}
+        onClick={onToggle}
+      >
+        Markieren
+      </button>
+      {count > 0 && (
+        <button
+          type="button"
+          className="editor-highlight-count"
+          data-tip="Zur nächsten Markierung"
+          onMouseDown={(event) => {
+            event.preventDefault();
+          }}
+          onClick={onNext}
+        >
+          {count}
+        </button>
+      )}
+      {lost.length > 0 && (
+        <button
+          type="button"
+          className="editor-highlight-lost"
+          data-tip={`Nicht wiedergefunden: ${lost.map((anchor) => `„${anchor.text}“`).join(', ')}. Klick verwirft sie.`}
+          onClick={() => {
+            if (window.confirm('Die nicht wiedergefundenen Markierungen verwerfen?')) {
+              onDiscardLost();
+            }
+          }}
+        >
+          {`${String(lost.length)} nicht gefunden`}
+        </button>
+      )}
     </div>
   );
 }

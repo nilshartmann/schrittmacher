@@ -12,6 +12,7 @@ Die Seite hat deshalb keinen Weg zu den Tabs und kennt keine Hinweise. Alle Teil
 - `scrollSync.ts`: der Abgleich von Text und Vorschau beim Scrollen
 - `backup.ts`: die automatische Sicherung
 - `format.ts`: das Formatieren mit Prettier
+- `highlights.ts`: das Speichern und Wiederfinden der Markierungen
 
 Aus dem Rest von Schrittmacher nutzt der Editor die gerenderte Vorschau (`MarkdownView`), die
 Prüfung des Pfads (`markdownPath`), den Aufruf von Git (`runGit`), die Tooltips und die Übergabe
@@ -26,6 +27,8 @@ vom Kommando (`useRequests`).
 | Stand der Datei neu laden | Pfeil im Kreis in der Kopfzeile |
 | Pfad kopieren, Ordner in ForkLift, Repo in Fork, Datei in BBEdit öffnen | Knöpfe beim Überfahren des Dateinamens |
 | Formatieren | ⌘⇧F oder „Formatieren“ in der Kopfzeile |
+| Auswahl markieren oder Markierung aufheben | ⌘⇧M oder „Markieren“ in der Kopfzeile |
+| Zur nächsten Markierung | Zahl neben „Markieren“ |
 | Breite ändern | Strich neben den Zeilennummern ziehen, Escape bricht ab |
 | Normale oder volle Breite | „Normal“ und „Voll“ in der Kopfzeile, bei „Geteilt“ nur „Voll“ |
 | Verhältnis von Text und Vorschau | Trenner zwischen beiden ziehen, Doppelklick halbiert |
@@ -52,6 +55,29 @@ Bei „Cursor“ und „Scrollen“ ist der Block der Cursorzeile leicht hervorg
 Zwischen zwei Blöcken wird gleichmäßig verteilt. Ein Link auf eine andere Markdown-Datei
 öffnet sie im Editor, bei ungespeicherten Änderungen nach einer Rückfrage. Anzeige, Folgen,
 Breiten, Verhältnis und Schriftgröße merkt sich der Browser.
+
+## Markierungen
+
+Eine Markierung hebt eine Stelle mit gelbem Hintergrund und roter Schrift hervor, etwa einen
+Platzhalter, an den noch einmal heranzugehen ist. Sie erscheint im Text und in der Vorschau, in
+einem Codeblock der Vorschau aber nicht. Es gibt nur eine Art Markierung.
+
+⌘⇧M wirkt je nach Auswahl:
+
+- Ohne Auswahl entfernt es die Markierung, in der der Cursor steht.
+- Berührt die Auswahl Markierungen, entfernt es den ausgewählten Teil daraus.
+- Sonst markiert es die Auswahl. Überlappende Markierungen werden zusammengefasst.
+
+Beim Tippen wandert eine Markierung mit dem Text mit. Text am Rand gehört nicht dazu, Text darin
+schon. Wird der markierte Text ganz gelöscht, verschwindet die Markierung.
+
+Die Markierungen liegen außerhalb der Datei unter
+`~/.config/schrittmacher/markierungen/<Pfad>.json`. Gespeichert werden sie kurz nach jeder
+Änderung, mit dem Text im Editor, also auch ungespeichert. Zu jeder Markierung gehören ihr Text, ein
+Stück Text davor und danach und ihre Position. Beim Öffnen wird jede über ihren Text
+wiedergefunden. Unter mehreren Treffern gilt der mit der passendsten Umgebung, bei Gleichstand der
+nächste zur alten Position. Eine Markierung, deren Text in der Datei fehlt, bleibt gespeichert und
+steht als „nicht gefunden“ in der Kopfzeile. Ein Klick darauf verwirft sie nach einer Rückfrage.
 
 ## Sicherung
 

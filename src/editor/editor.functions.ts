@@ -1,13 +1,16 @@
 import { execFile } from 'node:child_process';
-import { readFile, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 import { createServerFn, createServerOnlyFn } from '@tanstack/react-start';
 import { runGit } from '../git/process';
 import { markdownPath } from '../server/markdownPath';
+import { baseName, writeAtomically } from '../server/notes';
 import { requested } from '../server/requests';
 import { backup } from './backup';
 import { formatMarkdown } from './format';
+import { isHighlightAnchor } from './highlights';
+import type { HighlightAnchor } from './highlights';
 
 /** Eine Datei im Editor mit ihrem Text. */
 export interface EditorFile {
@@ -19,6 +22,8 @@ export interface EditorFile {
   text: string;
   /** Die letzte Änderung in Millisekunden, um eine Änderung außerhalb des Editors zu bemerken. */
   changed: number;
+  /** Die gespeicherten Markierungen, noch nicht im Text wiedergefunden. */
+  highlights: HighlightAnchor[];
 }
 
 /** Die Programme, in denen sich die Datei des Editors, ihr Ordner oder ihr Repo öffnen lässt. */
@@ -31,9 +36,33 @@ const EDITOR_APPS: Record<EditorApp, { name: string; opens: 'folder' | 'repo' | 
   bbedit: { name: 'BBEdit', opens: 'file' },
 };
 
-/** Der Ordner für Kopien außerhalb eines Repos: `sicherung` im Ordner aus `SCHRITTMACHER_CONFIG`. */
+/** Der Speicher: der Ordner aus `SCHRITTMACHER_CONFIG`, sonst `~/.config/schrittmacher`. */
+function configFolder(): string {
+  return process.env.SCHRITTMACHER_CONFIG ?? join(homedir(), '.config', 'schrittmacher');
+}
+
+/** Der Ordner für Kopien außerhalb eines Repos: `sicherung` im Speicher. */
 function backupFolder(): string {
-  return join(process.env.SCHRITTMACHER_CONFIG ?? join(homedir(), '.config', 'schrittmacher'), 'sicherung');
+  return join(configFolder(), 'sicherung');
+}
+
+/** Die Datei mit den Markierungen zu einer Markdown-Datei, im Ordner `markierungen` des Speichers. */
+function highlightsFile(path: string): string {
+  return join(configFolder(), 'markierungen', `${baseName(path)}.json`);
+}
+
+/** Die gespeicherten Markierungen zu einer Markdown-Datei; ohne Datei keine. */
+async function readHighlights(path: string): Promise<HighlightAnchor[]> {
+  try {
+    const raw = JSON.parse(await readFile(highlightsFile(path), 'utf8')) as unknown;
+    const list = typeof raw === 'object' && raw !== null ? (raw as { highlights?: unknown }).highlights : undefined;
+    return Array.isArray(list) ? list.filter(isHighlightAnchor) : [];
+  } catch (error) {
+    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+      return [];
+    }
+    throw new Error(`Die Markierungen zu ${path} lassen sich nicht lesen: ${String(error)}`);
+  }
 }
 
 /** Der Text aus einer Anfrage, oder ein Fehler, wenn er fehlt. */
@@ -49,8 +78,8 @@ export const loadEditorFile = createServerFn({ method: 'GET' })
   .validator((data: { path: string }) => data)
   .handler(async ({ data }): Promise<EditorFile> => {
     const path = await markdownPath(data.path);
-    const [text, found] = await Promise.all([readFile(path, 'utf8'), stat(path)]);
-    return { path, name: basename(path), dir: dirname(path), text, changed: found.mtimeMs };
+    const [text, found, highlights] = await Promise.all([readFile(path, 'utf8'), stat(path), readHighlights(path)]);
+    return { path, name: basename(path), dir: dirname(path), text, changed: found.mtimeMs, highlights };
   });
 
 /** Die letzte Änderung der Datei in Millisekunden; `null`, wenn es sie nicht mehr gibt. */
@@ -102,6 +131,21 @@ export const saveEditorFile = createServerFn({ method: 'POST' })
     const path = await markdownPath(data.path);
     await writeFile(path, textOf(data.text), 'utf8');
     return (await stat(path)).mtimeMs;
+  });
+
+/** Schreibt die Markierungen zu einer Markdown-Datei; ohne Markierungen bleibt eine leere Liste stehen. */
+export const saveEditorHighlights = createServerFn({ method: 'POST' })
+  .validator((data: { path: string; highlights: HighlightAnchor[] }) => {
+    if (!Array.isArray(data.highlights) || !data.highlights.every(isHighlightAnchor)) {
+      throw new Error('Die Markierungen sind unvollständig.');
+    }
+    return data;
+  })
+  .handler(async ({ data }): Promise<void> => {
+    const path = await markdownPath(data.path);
+    const file = highlightsFile(path);
+    await mkdir(dirname(file), { recursive: true });
+    await writeAtomically(file, `${JSON.stringify({ file: path, highlights: data.highlights }, null, 2)}\n`);
   });
 
 /** Formatiert den Text aus dem Editor mit Prettier, ohne ihn zu speichern. */
