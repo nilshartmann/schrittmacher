@@ -3,21 +3,41 @@
 # das aktuelle Verzeichnis. Eine Markdown-Datei zeigt Schrittmacher stattdessen gerendert an. Der
 # Server muss laufen; danach kommt die Web-App nach vorn.
 #
+#   schrittmacher [pfad]        Ordner als Tab, Markdown-Datei als Ansicht
+#   schrittmacher edit <datei>  Markdown-Datei im Editor (docs/editor.md)
+#
 #   SCHRITTMACHER_URL  der Server, sonst http://127.0.0.1:5310
 #   SCHRITTMACHER_APP  die Web-App, sonst Schrittmacher; leer, um sie nicht zu öffnen
 set -eu
 
 url="${SCHRITTMACHER_URL:-http://127.0.0.1:5310}"
 app="${SCHRITTMACHER_APP-Schrittmacher}"
-target="${1:-.}"
 
-if [ -f "$target" ]; then
-  path="$(cd "$(dirname "$target")" && pwd -P)/$(basename "$target")"
-  endpoint=markdown
-else
-  path="$(cd "$target" && pwd -P)"
-  endpoint=tab
-fi
+# Der absolute Pfad einer Datei, ohne symbolische Links im Ordner.
+absolute_file() {
+  echo "$(cd "$(dirname "$1")" && pwd -P)/$(basename "$1")"
+}
+
+case "${1:-}" in
+  edit)
+    if [ ! -f "${2:-}" ]; then
+      echo "schrittmacher: Für 'edit' fehlt eine Markdown-Datei." >&2
+      exit 1
+    fi
+    path="$(absolute_file "$2")"
+    endpoint=edit
+    ;;
+  *)
+    target="${1:-.}"
+    if [ -f "$target" ]; then
+      path="$(absolute_file "$target")"
+      endpoint=markdown
+    else
+      path="$(cd "$target" && pwd -P)"
+      endpoint=tab
+    fi
+    ;;
+esac
 
 # Bei einem Fehler zeigt curl nur die Meldung des Servers; ist er nicht erreichbar, fehlt sie.
 if ! message="$(curl -s --fail-with-body -X POST --data-binary "$path" "$url/api/$endpoint")"; then

@@ -1,25 +1,40 @@
 # Editor für Markdown-Dateien
 
-Die Markdown-Ansicht unter `/markdown` hat einen Editor auf Basis von CodeMirror 6. Fachlich hängt
-er nicht vom Rest von Schrittmacher ab und soll später ein eigenes Kommando werden. Die Teile
-dafür liegen deshalb getrennt:
+Der Editor auf Basis von CodeMirror 6 hat die eigene Seite `/edit`. Geöffnet wird eine Datei
+mit `schrittmacher edit <datei.md>` oder über den Stift in der Markdown-Ansicht unter `/markdown`.
+Fachlich hängt er nicht vom Rest von Schrittmacher ab und soll später ein eigenes Kommando werden.
+Die Seite hat deshalb keinen Weg zu den Tabs und kennt keine Hinweise. Alle Teile liegen unter
+`src/editor/`:
 
-- `src/viewer/MarkdownEditor.tsx`: der Editor
-- `src/editor/backup.ts`: die automatische Sicherung
-- `src/editor/format.ts`: das Formatieren mit Prettier
+- `EditorPage.tsx`: die Seite mit Kopfzeile, Text und Vorschau
+- `MarkdownEditor.tsx`: der Editor
+- `editor.functions.ts`: Laden, Speichern, Formatieren und Sichern auf dem Server
+- `backup.ts`: die automatische Sicherung
+- `format.ts`: das Formatieren mit Prettier
+
+Aus dem Rest von Schrittmacher nutzt der Editor die gerenderte Vorschau (`MarkdownView`), die
+Prüfung des Pfads (`markdownPath`), den Aufruf von Git (`runGit`), die Tooltips und die Übergabe
+vom Kommando (`useRequests`).
 
 ## Bedienung
 
 | Aktion | Auslöser |
 |---|---|
-| Editor öffnen und schließen | Stift in der Kopfzeile; beim Schließen wird gespeichert |
+| Nur Text, Text und Vorschau nebeneinander, nur Vorschau | „Text“, „Geteilt“, „Vorschau“ oder ⌘1 bis ⌘3 |
 | Speichern | ⌘S |
 | Formatieren | ⌘⇧F oder „Formatieren“ in der Kopfzeile |
 | Breite ändern | Strich neben den Zeilennummern ziehen, Escape bricht ab |
-| Normale oder volle Breite | „Normal“ und „Voll“ in der Kopfzeile |
+| Normale oder volle Breite | „Normal“ und „Voll“ in der Kopfzeile, bei „Geteilt“ nur „Voll“ |
+| Verhältnis von Text und Vorschau | Trenner zwischen beiden ziehen, Doppelklick halbiert |
 
-Beim Ziehen zeigt eine graue Fläche die neue Breite und wie viele Zeichen in eine Zeile passen.
-Die Breite merkt sich der Browser.
+Beim Ziehen am Strich zeigt eine graue Fläche die neue Breite und wie viele Zeichen in eine Zeile
+des Texts passen. Bei „Geteilt“ gilt die Breite für Text und Vorschau zusammen. Der Trenner
+verschiebt das Verhältnis dagegen sofort.
+
+Die Vorschau zeigt den Text im Editor, auch ungespeichert. Bei „Geteilt“ zeigt sie den Block, in
+dem der Cursor steht, und hebt ihn leicht hervor. In einem Codeblock ist das die einzelne Zeile. Ein Link auf eine andere Markdown-Datei
+öffnet sie im Editor, bei ungespeicherten Änderungen nach einer Rückfrage. Anzeige, Breiten,
+Verhältnis und Schriftgröße merkt sich der Browser.
 
 ## Sicherung
 

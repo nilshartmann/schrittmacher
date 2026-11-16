@@ -10,7 +10,9 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as EditRouteImport } from './routes/edit'
 import { Route as MarkdownRouteImport } from './routes/markdown'
+import { Route as ApiEditRouteImport } from './routes/api.edit'
 import { Route as ApiFileRouteImport } from './routes/api.file'
 import { Route as ApiImageRouteImport } from './routes/api.image'
 import { Route as ApiMarkdownRouteImport } from './routes/api.markdown'
@@ -21,9 +23,19 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EditRoute = EditRouteImport.update({
+  id: '/edit',
+  path: '/edit',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const MarkdownRoute = MarkdownRouteImport.update({
   id: '/markdown',
   path: '/markdown',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiEditRoute = ApiEditRouteImport.update({
+  id: '/api/edit',
+  path: '/api/edit',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiFileRoute = ApiFileRouteImport.update({
@@ -49,7 +61,9 @@ const ApiTabRoute = ApiTabRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/edit': typeof EditRoute
   '/markdown': typeof MarkdownRoute
+  '/api/edit': typeof ApiEditRoute
   '/api/file': typeof ApiFileRoute
   '/api/image': typeof ApiImageRoute
   '/api/markdown': typeof ApiMarkdownRoute
@@ -57,7 +71,9 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/edit': typeof EditRoute
   '/markdown': typeof MarkdownRoute
+  '/api/edit': typeof ApiEditRoute
   '/api/file': typeof ApiFileRoute
   '/api/image': typeof ApiImageRoute
   '/api/markdown': typeof ApiMarkdownRoute
@@ -66,7 +82,9 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/edit': typeof EditRoute
   '/markdown': typeof MarkdownRoute
+  '/api/edit': typeof ApiEditRoute
   '/api/file': typeof ApiFileRoute
   '/api/image': typeof ApiImageRoute
   '/api/markdown': typeof ApiMarkdownRoute
@@ -76,7 +94,9 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/edit'
     | '/markdown'
+    | '/api/edit'
     | '/api/file'
     | '/api/image'
     | '/api/markdown'
@@ -84,7 +104,9 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/edit'
     | '/markdown'
+    | '/api/edit'
     | '/api/file'
     | '/api/image'
     | '/api/markdown'
@@ -92,7 +114,9 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/edit'
     | '/markdown'
+    | '/api/edit'
     | '/api/file'
     | '/api/image'
     | '/api/markdown'
@@ -101,7 +125,9 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  EditRoute: typeof EditRoute
   MarkdownRoute: typeof MarkdownRoute
+  ApiEditRoute: typeof ApiEditRoute
   ApiFileRoute: typeof ApiFileRoute
   ApiImageRoute: typeof ApiImageRoute
   ApiMarkdownRoute: typeof ApiMarkdownRoute
@@ -117,11 +143,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/edit': {
+      id: '/edit'
+      path: '/edit'
+      fullPath: '/edit'
+      preLoaderRoute: typeof EditRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/markdown': {
       id: '/markdown'
       path: '/markdown'
       fullPath: '/markdown'
       preLoaderRoute: typeof MarkdownRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/edit': {
+      id: '/api/edit'
+      path: '/api/edit'
+      fullPath: '/api/edit'
+      preLoaderRoute: typeof ApiEditRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/file': {
@@ -157,7 +197,9 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  EditRoute: EditRoute,
   MarkdownRoute: MarkdownRoute,
+  ApiEditRoute: ApiEditRoute,
   ApiFileRoute: ApiFileRoute,
   ApiImageRoute: ApiImageRoute,
   ApiMarkdownRoute: ApiMarkdownRoute,

@@ -40,7 +40,6 @@ import { shared } from './shared';
 import { ADDABLE_BRANCHES, addWorktree, discardProbe, probePlan, setProbe, werkstattLabel, werkstattStatus } from './werkstatt';
 import type { AddableBranch, ProbePlan, WerkstattStatus } from './werkstatt';
 import { createStore, defaultStoreDir, expandHome, sameView } from './store';
-import { backup } from '../editor/backup';
 import type { JsonValue, Projects, SavedGist, SavedShortlink, SavedView, Store, Tab, ViewSearch } from './store';
 
 /** Was der Server einmal beim Start einrichtet. */
@@ -988,20 +987,6 @@ async function markdownNotesStore() {
 export const loadMarkdownNotes = createServerFn({ method: 'GET' })
   .validator((data: { path: string }) => ({ path: text(data.path, 'path') }))
   .handler(async ({ data }) => (await markdownNotesStore()).load(await markdownPath(data.path)));
-
-/**
- * Sichert den ungespeicherten Text einer Markdown-Datei aus dem Editor: im Repo auf dem Branch
- * `sicherung/<branch>`, sonst als Kopie im Ordner `sicherung` des Speichers (`docs/editor.md`).
- */
-export const backupMarkdown = createServerFn({ method: 'POST' })
-  .validator((data: { path: string; text: string }) => ({ path: text(data.path, 'path'), text: data.text }))
-  .handler(async ({ data }) => {
-    if (typeof data.text !== 'string') {
-      throw new Error('Der Text der Markdown-Datei fehlt.');
-    }
-    const setup = await server();
-    return backup(await markdownPath(data.path), data.text, join(setup.dir ?? defaultStoreDir(), 'sicherung'));
-  });
 
 /** Legt einen Hinweis zu einer Markdown-Datei an oder ändert ihn. */
 export const saveMarkdownNote = createServerFn({ method: 'POST' })

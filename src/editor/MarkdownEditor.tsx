@@ -26,9 +26,6 @@ const HIGHLIGHT = HighlightStyle.define([
 /** Wie nah eine gezogene Breite an der normalen liegen muss, damit sie dort einrastet, in Pixeln. */
 const SNAP = 16;
 
-/** Die normale Breite der Textfläche, auf der ein Ziehen einrastet. */
-const NORMAL_WIDTH = 900;
-
 /** Was die Seite am Editor auslösen kann, etwa über einen Knopf in der Kopfzeile. */
 export interface EditorHandle {
   format: () => void;
@@ -76,8 +73,10 @@ interface Drag {
   width: number;
   /** Die Breite, die beim Loslassen gilt; `null` für die ganze Breite. */
   next: number | null;
-  /** Die Fläche, in der die Textfläche mittig steht. */
+  /** Die Fläche, in der die gezogene Fläche mittig steht. */
   area: DOMRect;
+  /** Welcher Teil der gezogenen Fläche auf den Editor entfällt; neben der Vorschau weniger als 1. */
+  share: number;
   /** Was von der Breite nicht für Text bleibt: Rand, Zeilennummern und Abstände, in Pixeln. */
   overhead: number;
   /** Die Breite eines Zeichens der Schrift im Editor, in Pixeln. */
@@ -112,12 +111,17 @@ function paddingOf(element: Element | null): number {
  * danach gehört der Text ihm, und jede Änderung geht an `onChange`. ⌘S ruft `onSave` auf. Die
  * Breite gilt samt Zeilennummern und Rand. Der Strich neben den Zeilennummern lässt sich greifen;
  * beim Ziehen zeigt eine Fläche die neue Breite, die erst beim Loslassen gilt. Escape bricht ab.
+ * Steht der Editor neben der Vorschau, ändert das Ziehen die Breite von `outer`, die beide umfasst.
  */
 export function MarkdownEditor({
   text,
   width,
+  resizable,
+  outer,
   minWidth,
+  snapWidth,
   onWidth,
+  onCursor,
   handle,
   onFormat,
   onChange,
@@ -129,7 +133,15 @@ export function MarkdownEditor({
   onFormat: (text: string) => Promise<string>;
   /** Die größte Breite der Textfläche in Pixeln; `null` für die ganze Breite. */
   width: number | null;
+  /** Ob sich die Breite am Strich neben den Zeilennummern ziehen lässt. */
+  resizable: boolean;
+  /** Die Fläche, deren Breite das Ziehen ändert; `null` für den Editor selbst. */
+  outer: RefObject<HTMLElement | null> | null;
   minWidth: number;
+  /** Die Breite, auf der ein Ziehen einrastet; `null` ohne Einrasten. */
+  snapWidth: number | null;
+  /** Die Zeile des Cursors, gezählt ab 1, nach jeder Bewegung oder Änderung. */
+  onCursor: (line: number) => void;
   /** Die neue Breite nach dem Ziehen am Strich neben den Zeilennummern; `null` für die ganze Breite. */
   onWidth: (width: number | null) => void;
   onChange: (text: string) => void;
@@ -141,8 +153,8 @@ export function MarkdownEditor({
   const [edge, setEdge] = useState<Edge | null>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
   // Die Rückrufe ändern sich mit jedem Rendern, der Editor wird aber nur einmal angelegt.
-  const callbacks = useRef({ onChange, onSave, onFormat });
-  callbacks.current = { onChange, onSave, onFormat };
+  const callbacks = useRef({ onChange, onSave, onFormat, onCursor });
+  callbacks.current = { onChange, onSave, onFormat, onCursor };
   useEffect(() => {
     if (host.current === null) {
       return;
@@ -194,6 +206,9 @@ export function MarkdownEditor({
             if (update.docChanged) {
               callbacks.current.onChange(update.state.doc.toString());
             }
+            if (update.docChanged || update.selectionSet) {
+              callbacks.current.onCursor(update.state.doc.lineAt(update.state.selection.main.head).number);
+            }
           }),
         ],
       }),
@@ -226,20 +241,22 @@ export function MarkdownEditor({
     // Der Text gilt nur beim Anlegen, siehe oben.
   }, []);
   const startDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
-    const area = frame.current?.parentElement?.getBoundingClientRect();
-    const current = frame.current?.getBoundingClientRect().width;
+    const target = outer?.current ?? frame.current;
+    const area = target?.parentElement?.getBoundingClientRect();
+    const current = target?.getBoundingClientRect().width;
+    const own = frame.current?.getBoundingClientRect().width;
     const view = editor.current;
-    if (area === undefined || current === undefined || view === null) {
+    if (area === undefined || current === undefined || own === undefined || view === null) {
       return;
     }
     // Für Text bleibt die Breite des Inhalts ohne seine Abstände und die der Zeilen.
     const content = view.contentDOM;
     const text = content.clientWidth - paddingOf(content) - paddingOf(content.querySelector('.cm-line'));
-    const overhead = current - text;
+    const overhead = own - text;
     const charWidth = charWidthIn(content);
     event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
-    setDrag({ x: event.clientX, width: current, next: width, area, overhead, charWidth });
+    setDrag({ x: event.clientX, width: current, next: width, area, share: own / current, overhead, charWidth });
   };
   const moveDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (drag === null) {
@@ -248,7 +265,7 @@ export function MarkdownEditor({
     // Die Fläche steht mittig, also wächst sie auf beiden Seiten um den Weg der Maus.
     const wanted = drag.width - 2 * (event.clientX - drag.x);
     const clamped = Math.max(minWidth, Math.min(drag.area.width, wanted));
-    const snapped = Math.abs(clamped - NORMAL_WIDTH) <= SNAP ? NORMAL_WIDTH : Math.round(clamped);
+    const snapped = snapWidth !== null && Math.abs(clamped - snapWidth) <= SNAP ? snapWidth : Math.round(clamped);
     setDrag({ ...drag, next: snapped >= drag.area.width ? null : snapped });
   };
   const endDrag = (apply: boolean) => {
@@ -272,11 +289,12 @@ export function MarkdownEditor({
     };
   }, [drag]);
   const preview = drag === null ? null : (drag.next ?? drag.area.width);
-  const columns = drag === null || preview === null ? 0 : Math.floor((preview - drag.overhead) / drag.charWidth);
+  const columns =
+    drag === null || preview === null ? 0 : Math.floor((preview * drag.share - drag.overhead) / drag.charWidth);
   return (
     <div className="md-editor" ref={frame} style={{ maxWidth: width === null ? 'none' : `${String(width)}px` }}>
       <div ref={host} />
-      {edge !== null && (
+      {resizable && edge !== null && (
         <div
           className={drag === null ? 'md-editor-edge' : 'md-editor-edge md-editor-edge-dragging'}
           style={{ left: `${String(edge.left)}px`, top: `${String(edge.top)}px`, height: `${String(edge.height)}px` }}
@@ -303,7 +321,7 @@ export function MarkdownEditor({
         >
           <span className="md-editor-preview-label">
             {`${String(columns)} Zeichen`}
-            {drag.next === null ? ', volle Breite' : drag.next === NORMAL_WIDTH ? ', normal' : ''}
+            {drag.next === null ? ', volle Breite' : drag.next === snapWidth ? ', normal' : ''}
           </span>
         </div>
       )}

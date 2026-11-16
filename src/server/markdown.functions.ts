@@ -1,7 +1,6 @@
-import { readFile, stat, writeFile } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, resolve } from 'node:path';
 import { createServerFn, createServerOnlyFn } from '@tanstack/react-start';
-import { formatMarkdown } from '../editor/format';
 import { imageTypeOf } from '../git/images';
 import { markdownPath } from './markdownPath';
 import { requested } from './requests';
@@ -52,26 +51,3 @@ export const readImage = createServerOnlyFn(
     return bytes === null ? null : { bytes, type };
   },
 );
-
-/** Schreibt den Text einer Markdown-Datei aus dem Editor; zurück kommt die neue letzte Änderung. */
-export const saveMarkdown = createServerFn({ method: 'POST' })
-  .validator((data: { path: string; text: string }) => data)
-  .handler(async ({ data }): Promise<number> => {
-    const path = await markdownPath(data.path);
-    if (typeof data.text !== 'string') {
-      throw new Error('Der Text der Markdown-Datei fehlt.');
-    }
-    await writeFile(path, data.text, 'utf8');
-    return (await stat(path)).mtimeMs;
-  });
-
-/** Formatiert den Text einer Markdown-Datei mit Prettier, ohne ihn zu speichern. */
-export const formatMarkdownText = createServerFn({ method: 'POST' })
-  .validator((data: { path: string; text: string }) => data)
-  .handler(async ({ data }): Promise<string> => {
-    const path = await markdownPath(data.path);
-    if (typeof data.text !== 'string') {
-      throw new Error('Der Text der Markdown-Datei fehlt.');
-    }
-    return formatMarkdown(path, data.text);
-  });

@@ -8,7 +8,8 @@ const REQUEST_INTERVAL = 1500;
 
 /**
  * Holt die Ansichten ab, die das Kommando `schrittmacher <pfad>` beim Server anfordert. Ein Tab
- * geht an `openTab`, eine Markdown-Datei öffnet die Ansicht unter `/markdown`. Gefragt wird beim
+ * geht an `openTab`, eine Markdown-Datei öffnet die Ansicht unter `/markdown`, eine Datei für
+ * den Editor die Seite unter `/edit`. Gefragt wird beim
  * Start, regelmäßig, solange das Fenster sichtbar ist, und sofort, wenn es sichtbar wird, weil das
  * Kommando die Web-App danach nach vorn holt.
  */
@@ -29,6 +30,8 @@ export function useRequests(openTab: (target: ViewSearch) => Promise<void>) {
           await latest.current.openTab(requested.view);
         } else if (requested?.kind === 'markdown') {
           await latest.current.navigate({ to: '/markdown', search: { path: requested.path } });
+        } else if (requested?.kind === 'edit') {
+          await latest.current.navigate({ to: '/edit', search: { path: requested.path } });
         }
       } catch {
         // Der Server ist kurz nicht erreichbar; die nächste Frage versucht es wieder.

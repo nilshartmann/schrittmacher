@@ -4099,3 +4099,68 @@ span.info-parent {
     opacity: 0;
   }
 }
+
+/* Der Editor unter /edit: Text, Vorschau oder beides nebeneinander, mittig in seiner Breite */
+.editor-frame {
+  display: flex;
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  margin: 0 auto;
+}
+
+.editor-frame > .md-scroll {
+  min-width: 0;
+}
+
+/* Neben einer schmaleren Fläche bleibt der Grund weiß wie bei „Text“. */
+.md-body.editor-split {
+  background: var(--surface);
+}
+
+.editor-split .editor-text .md-editor {
+  padding-right: 16px;
+  padding-left: 16px;
+}
+
+/* Der Trenner zwischen Text und Vorschau: eine feine Linie, breiter greifbar als sichtbar */
+.editor-divider {
+  position: relative;
+  z-index: 2;
+  flex: none;
+  width: 1px;
+  background: var(--line-soft);
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.editor-divider::before {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -5px;
+  width: 11px;
+  content: '';
+}
+
+.editor-divider::after {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -1px;
+  width: 3px;
+  background: transparent;
+  content: '';
+  transition: background 0.1s;
+}
+
+.editor-divider:hover::after,
+.editor-divider-dragging::after {
+  background: var(--accent);
+}
+
+/* Der Block der Vorschau, in dem der Cursor steht */
+.editor-preview .editor-cursor-block {
+  border-radius: 3px;
+  background-color: var(--accent-tint);
+}
