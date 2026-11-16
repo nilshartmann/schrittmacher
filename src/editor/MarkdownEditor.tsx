@@ -124,6 +124,24 @@ export interface EditorHandle {
   toggleHighlight: () => void;
   /** Wählt die nächste Markierung hinter dem Cursor aus. */
   nextHighlight: () => void;
+  /** Setzt Text an die Stelle der Auswahl, etwa den Link auf eine eingefügte Abbildung. */
+  insert: (text: string) => void;
+}
+
+/**
+ * Das Bild aus der Zwischenablage, wenn sie eins und keinen Text enthält. Mit Text gilt der Text,
+ * etwa bei Inhalt aus einem Textprogramm, das ein Bild dazulegt.
+ */
+function pastedImage(data: DataTransfer | null): File | null {
+  if (data === null || data.types.includes('text/plain')) {
+    return null;
+  }
+  for (const item of data.items) {
+    if (item.kind === 'file' && item.type.startsWith('image/')) {
+      return item.getAsFile();
+    }
+  }
+  return null;
 }
 
 /**
@@ -224,6 +242,7 @@ export function MarkdownEditor({
   onFormat,
   onChange,
   onSave,
+  onPasteImage,
 }: {
   /** Der Pfad der Datei; seine Endung bestimmt die Hervorhebung. */
   path: string;
@@ -250,6 +269,8 @@ export function MarkdownEditor({
   onWidth: (width: number | null) => void;
   onChange: (text: string) => void;
   onSave: () => void;
+  /** Ein Bild aus der Zwischenablage statt Text; ohne fügt der Editor es nicht ein. */
+  onPasteImage?: (image: File) => void;
 }) {
   const frame = useRef<HTMLDivElement>(null);
   const host = useRef<HTMLDivElement>(null);
@@ -257,8 +278,8 @@ export function MarkdownEditor({
   const [edge, setEdge] = useState<Edge | null>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
   // Die Rückrufe ändern sich mit jedem Rendern, der Editor wird aber nur einmal angelegt.
-  const callbacks = useRef({ onChange, onSave, onFormat, onCursor, onHighlights });
-  callbacks.current = { onChange, onSave, onFormat, onCursor, onHighlights };
+  const callbacks = useRef({ onChange, onSave, onFormat, onCursor, onHighlights, onPasteImage });
+  callbacks.current = { onChange, onSave, onFormat, onCursor, onHighlights, onPasteImage };
   useEffect(() => {
     if (host.current === null) {
       return;
@@ -314,6 +335,18 @@ export function MarkdownEditor({
             ...historyKeymap,
             ...searchKeymap,
           ]),
+          EditorView.domEventHandlers({
+            paste: (event) => {
+              const image = pastedImage(event.clipboardData);
+              const handle = callbacks.current.onPasteImage;
+              if (image === null || handle === undefined) {
+                return false;
+              }
+              event.preventDefault();
+              handle(image);
+              return true;
+            },
+          }),
           EditorView.updateListener.of((update) => {
             if (update.docChanged) {
               callbacks.current.onChange(update.state.doc.toString());
@@ -359,6 +392,10 @@ export function MarkdownEditor({
       },
       nextHighlight: () => {
         nextHighlight(view);
+      },
+      insert: (text) => {
+        view.dispatch(view.state.replaceSelection(text));
+        view.focus();
       },
     };
     view.focus();

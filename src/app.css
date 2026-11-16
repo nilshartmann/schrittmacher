@@ -4500,3 +4500,34 @@ span.info-parent {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Der Dialog für ein Bild aus der Zwischenablage im Editor */
+.figure-dialog {
+  width: min(480px, calc(100vw - 32px));
+}
+
+.figure-preview {
+  display: block;
+  max-width: 100%;
+  max-height: 220px;
+  margin: 0 auto 4px;
+  border: 1px solid var(--line);
+  background: repeating-conic-gradient(var(--line-soft) 0 25%, var(--surface) 0 50%) 0 0 / 16px 16px;
+}
+
+.figure-name {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.figure-name .menu-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.figure-ending {
+  color: var(--text-secondary);
+  font-family: var(--font-code);
+  font-size: 12px;
+}

@@ -14,6 +14,7 @@ import {
 } from './editor.functions';
 import type { EditorApp, EditorFile } from './editor.functions';
 import { DirtyContext, RecentMenu, useOpen } from './EditorLayout';
+import { FigureDialog } from './FigureDialog';
 import { anchorsOf as highlightAnchorsOf, resolveAnchors } from './highlights';
 import type { Highlight, HighlightAnchor } from './highlights';
 import { isMarkdownPath } from './languages';
@@ -250,6 +251,8 @@ export function EditorPage({ file, root }: { file: EditorFile; root: string | nu
   };
   const editor = useRef<EditorHandle | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // Ein Bild aus der Zwischenablage, für das der Dialog nach dem Namen der neuen Datei fragt.
+  const [pastedImage, setPastedImage] = useState<File | null>(null);
   const changeMode = (next: Mode) => {
     if (!markdown) {
       return;
@@ -655,6 +658,7 @@ export function EditorPage({ file, root }: { file: EditorFile; root: string | nu
               onSave={() => {
                 void save();
               }}
+              onPasteImage={markdown ? setPastedImage : undefined}
             />
           </main>
           {mode === 'split' && (
@@ -707,6 +711,24 @@ export function EditorPage({ file, root }: { file: EditorFile; root: string | nu
           )}
         </div>
       </div>
+      {pastedImage !== null && (
+        <FigureDialog
+          image={pastedImage}
+          path={file.path}
+          dir={
+            root !== null && (file.dir === root || file.dir.startsWith(`${root}/`))
+              ? root.slice(root.lastIndexOf('/') + 1) + file.dir.slice(root.length)
+              : file.dir
+          }
+          root={root}
+          onInsert={(text) => {
+            editor.current?.insert(text);
+          }}
+          onClose={() => {
+            setPastedImage(null);
+          }}
+        />
+      )}
     </div>
   );
 }

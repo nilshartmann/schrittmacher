@@ -19,8 +19,10 @@ import {
   editorPath,
   kindOf,
   listWorkspace,
+  nextFigureName,
   recentEntries,
   removeRecent,
+  saveImageBeside,
   workspaceOf,
   workspacePath,
 } from './workspace';
@@ -246,6 +248,30 @@ export const newWorkspaceFile = createServerFn({ method: 'POST' })
       throw new Error('Der Pfad der neuen Datei fehlt.');
     }
     return createWorkspaceFile(await workspacePath(data.root), data.path);
+  });
+
+/** Der Name für eine neue Abbildung zur Datei, etwa `abb-013`, gezählt im Workspace `root`. */
+export const suggestFigureName = createServerFn({ method: 'GET' })
+  .validator((data: { path: string; root: string | null }) => data)
+  .handler(async ({ data }): Promise<string> => {
+    const path = await editorPath(data.path);
+    return nextFigureName(path, data.root === null ? null : await workspacePath(data.root));
+  });
+
+/**
+ * Speichert ein Bild aus der Zwischenablage im Ordner der Datei, als Base64 geschickt. Zurück kommt
+ * der Name der neuen Datei mit Endung.
+ */
+export const saveFigure = createServerFn({ method: 'POST' })
+  .validator((data: { path: string; name: string; type: string; base64: string }) => {
+    if (typeof data.name !== 'string' || typeof data.type !== 'string' || typeof data.base64 !== 'string') {
+      throw new Error('Name, Typ oder Inhalt des Bildes fehlen.');
+    }
+    return data;
+  })
+  .handler(async ({ data }): Promise<string> => {
+    const path = await editorPath(data.path);
+    return saveImageBeside(path, data.name, data.type, Buffer.from(data.base64, 'base64'));
   });
 
 /**

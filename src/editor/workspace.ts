@@ -372,3 +372,69 @@ export async function recentEntries(): Promise<{ workspaces: RecentEntry[]; file
   const drafts = { path: draftsRoot(), name: 'Entwürfe', dir: 'Schnelle Notizen', exists: true, root: null };
   return { workspaces: [drafts, ...workspaces], files };
 }
+
+/** Der Name einer Abbildung: `abb-` und ihre Nummer am Anfang, danach beliebiger Suffix. */
+const FIGURE_NAME = /^abb-(\d+)/i;
+
+/** So viele Stellen hat die Nummer einer neuen Abbildung mindestens. */
+const FIGURE_DIGITS = 3;
+
+/**
+ * Der Name für eine neue Abbildung ohne Endung, etwa `abb-013`. Gezählt wird über alle Dateien
+ * `abb-<nr>…` im Workspace, ohne Workspace im Ordner der Datei; vorgeschlagen wird die höchste
+ * Nummer plus eins.
+ */
+export async function nextFigureName(file: string, root: string | null): Promise<string> {
+  const names =
+    root === null
+      ? await readdir(dirname(file)).catch(() => [] as string[])
+      : (await listWorkspace(root)).files.map((path) => basename(path));
+  const highest = Math.max(0, ...names.map((name) => Number(FIGURE_NAME.exec(name)?.[1] ?? 0)));
+  return `abb-${String(highest + 1).padStart(FIGURE_DIGITS, '0')}`;
+}
+
+/** Die Endungen, unter denen ein Bild aus der Zwischenablage gespeichert wird, nach seinem Typ. */
+const IMAGE_ENDINGS: Record<string, string> = {
+  'image/png': '.png',
+  'image/jpeg': '.jpg',
+  'image/gif': '.gif',
+  'image/webp': '.webp',
+  'image/svg+xml': '.svg',
+};
+
+/** Die Endung zu einem Bildtyp; `null` für einen Typ, den der Editor nicht speichert. */
+export function imageEnding(type: string): string | null {
+  return IMAGE_ENDINGS[type] ?? null;
+}
+
+/** Das größte Bild, das der Editor aus der Zwischenablage speichert, in Bytes. */
+const MAX_IMAGE_SIZE = 25 * 1024 * 1024;
+
+/**
+ * Speichert ein Bild neben einer Datei unter `name` mit der Endung zu seinem Typ. Der Name darf
+ * keinen Ordner enthalten; eine Datei, die es schon gibt, bleibt unberührt. Zurück kommt der Name
+ * mit Endung.
+ */
+export async function saveImageBeside(file: string, name: string, type: string, bytes: Buffer): Promise<string> {
+  const ending = imageEnding(type);
+  if (ending === null) {
+    throw new Error(`Bilder vom Typ ${type} speichert der Editor nicht.`);
+  }
+  const cleaned = name.trim();
+  if (cleaned === '' || cleaned.includes('/') || cleaned.startsWith('.')) {
+    throw new Error(`'${name}' ist kein gültiger Dateiname.`);
+  }
+  if (bytes.length > MAX_IMAGE_SIZE) {
+    throw new Error('Das Bild ist zu groß.');
+  }
+  const fileName = cleaned.toLowerCase().endsWith(ending) ? cleaned : cleaned + ending;
+  try {
+    await writeFile(join(dirname(file), fileName), bytes, { flag: 'wx' });
+  } catch (error) {
+    if (error instanceof Error && 'code' in error && error.code === 'EEXIST') {
+      throw new Error(`Die Datei ${fileName} gibt es schon.`);
+    }
+    throw error;
+  }
+  return fileName;
+}

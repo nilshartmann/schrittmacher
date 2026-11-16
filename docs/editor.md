@@ -33,6 +33,7 @@ Aufruf von Git (`runGit`), das Menü, die Tooltips und die Übergabe vom Kommand
 | Stand der Datei neu laden | Pfeil im Kreis in der Kopfzeile |
 | Pfad kopieren, Ordner in ForkLift, Repo in Fork, Datei in BBEdit öffnen | Knöpfe beim Überfahren des Dateinamens |
 | Formatieren | ⌘⇧F oder „Formatieren“ in der Kopfzeile |
+| Bild aus der Zwischenablage als Abbildung einfügen (bei Markdown) | ⌘V |
 | Auswahl markieren oder Markierung aufheben | ⌘⇧M oder „Markieren“ in der Kopfzeile |
 | Zur nächsten Markierung | Zahl neben „Markieren“ |
 | Breite ändern | Strich neben den Zeilennummern ziehen, Escape bricht ab |
@@ -61,6 +62,21 @@ Bei „Cursor“ und „Scrollen“ ist der Block der Cursorzeile leicht hervorg
 Zwischen zwei Blöcken wird gleichmäßig verteilt. Ein Link auf eine andere Markdown-Datei
 öffnet sie im Editor, bei ungespeicherten Änderungen nach einer Rückfrage. Anzeige, Folgen,
 Breiten, Verhältnis und Schriftgröße merkt sich der Browser.
+
+## Abbildungen einfügen
+
+Liegt ein Bild in der Zwischenablage, etwa ein Screenshot, fragt ⌘V in einer Markdown-Datei nach
+dem Namen einer neuen Datei. Enthält die Zwischenablage außerdem Text, wird wie gewohnt der Text
+eingefügt.
+
+- Vorgeschlagen wird die nächste freie Nummer, etwa `abb-013`. Gezählt werden alle Dateien, deren
+  Name mit `abb-<nr>` beginnt, auch mit Suffix wie `abb-012-listing-ts-query-beispiel.png`. In
+  einem Workspace zählt der ganze Workspace, sonst der Ordner der Datei.
+- Der Cursor steht hinter der Nummer, sodass sich gleich ein Suffix anhängen lässt. Die Endung
+  ergibt sich aus dem Bild.
+- Das Bild landet im Ordner der Markdown-Datei. Eine Datei, die es schon gibt, wird nicht
+  überschrieben.
+- An der Stelle des Cursors steht danach der Link, etwa `![](abb-013.png)`.
 
 ## Markierungen
 
