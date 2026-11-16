@@ -37,7 +37,7 @@ Der ursprüngliche Auftrag steht in `docs/auftrag-klick-dummy.md`, offene Punkte
 - `pnpm screenshots`: Screenshots mit WebKit in der Fenstergröße unter Sidecar, gegen den Server
   mit Testdaten (anderer Server mit `URL=…`)
 
-Frag vor jeder Bibliothek, die über TanStack, React, Vite und Lezer hinausgeht.
+Frag vor jeder Bibliothek, die über TanStack, React, Vite, Lezer, CodeMirror und Prettier hinausgeht.
 
 ## Vorgaben
 
@@ -56,7 +56,9 @@ Frag vor jeder Bibliothek, die über TanStack, React, Vite und Lezer hinausgeht.
   es den Stand eines Folien-Repos per Fast-Forward, committet dort nur PowerPoint-Datei und PDF des
   Vortrags und pusht. In einer Werkstatt (`docs/werkstatt.md`) legt es Worktrees für `main` und
   `schritte` an und legt den Branch `probe` samt Worktree an, setzt ihn hart zurück oder entfernt
-  ihn.
+  ihn. Der Editor für Markdown (`docs/editor.md`) schreibt die Datei beim Speichern und sichert
+  ungespeicherten Text als Commit auf dem Branch `sicherung/<branch>`, ohne Worktree, Index oder
+  `HEAD` anzufassen.
 - Fenstergröße zum Prüfen: 1194 × 764 pt (Sidecar abzüglich Menü- und Titelleiste der Web-App)
 - Bedienung mit Maus oder Trackpad des MacBooks, nicht mit dem Pencil; mit dem Finger wird nur
   gescrollt.
