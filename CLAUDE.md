@@ -20,7 +20,8 @@ Der ursprüngliche Auftrag steht in `docs/auftrag-klick-dummy.md`, offene Punkte
   zum Pfad als Tab wie `fork <pfad>` und holt die Web-App nach vorn; anderer Server mit
   `SCHRITTMACHER_URL=…`, ohne Web-App mit leerem `SCHRITTMACHER_APP`. Eine Markdown-Datei als
   Pfad zeigt die Web-App gerendert unter `/markdown` an (`src/viewer/Markdown.tsx`).
-- `schrittmacher edit <datei.md>`: öffnet die Datei im Editor unter `/edit` (`docs/editor.md`)
+- `schrittmacher edit <pfad>`: öffnet eine Datei oder einen Ordner als Workspace im Editor unter
+  `/edit`, `schrittmacher edit --neu` einen neuen Entwurf (`docs/editor.md`)
 - `bin/schrittmacher-markdown-installieren`: baut die Helfer-App für „Öffnen mit …“ auf Markdown-Dateien;
   Hinweise zu Markdown-Dateien beschreibt `docs/markdown-hinweise.md`
 - `schrittmacher-start` (`bin/schrittmacher-start`, verlinkt nach `~/.local/bin`): startet
@@ -57,9 +58,9 @@ Frag vor jeder Bibliothek, die über TanStack, React, Vite, Lezer, CodeMirror un
   es den Stand eines Folien-Repos per Fast-Forward, committet dort nur PowerPoint-Datei und PDF des
   Vortrags und pusht. In einer Werkstatt (`docs/werkstatt.md`) legt es Worktrees für `main` und
   `schritte` an und legt den Branch `probe` samt Worktree an, setzt ihn hart zurück oder entfernt
-  ihn. Der Editor für Markdown (`docs/editor.md`) schreibt die Datei beim Speichern und sichert
-  ungespeicherten Text als Commit auf dem Branch `sicherung/<branch>`, ohne Worktree, Index oder
-  `HEAD` anzufassen.
+  ihn. Der Editor (`docs/editor.md`) schreibt die Datei beim Speichern, legt im Workspace neue
+  Dateien an und sichert ungespeicherten Text als Commit auf dem Branch `sicherung/<branch>`, ohne
+  Worktree, Index oder `HEAD` anzufassen.
 - Fenstergröße zum Prüfen: 1194 × 764 pt (Sidecar abzüglich Menü- und Titelleiste der Web-App)
 - Bedienung mit Maus oder Trackpad des MacBooks, nicht mit dem Pencil; mit dem Finger wird nur
   gescrollt.

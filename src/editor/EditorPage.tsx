@@ -1,11 +1,8 @@
-import { useNavigate } from '@tanstack/react-router';
-import { useEffect, useRef, useState } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { CopyIcon, HoverTools } from '../viewer/HoverTools';
 import { CheckMarkIcon, FetchIcon, FolderIcon, GitClientIcon, PencilIcon } from '../viewer/Icons';
 import { MarkdownView } from '../viewer/Markdown';
-import { Tooltips } from '../viewer/Tooltips';
-import { useRequests } from '../viewer/useRequests';
 import {
   backupEditorText,
   editorFileChanged,
@@ -16,8 +13,10 @@ import {
   saveEditorHighlights,
 } from './editor.functions';
 import type { EditorApp, EditorFile } from './editor.functions';
+import { DirtyContext, RecentMenu, useOpen } from './EditorLayout';
 import { anchorsOf as highlightAnchorsOf, resolveAnchors } from './highlights';
 import type { Highlight, HighlightAnchor } from './highlights';
+import { isMarkdownPath } from './languages';
 import { MarkdownEditor } from './MarkdownEditor';
 import { anchorsOf, lineForTop, topForLine } from './scrollSync';
 import type { EditorHandle } from './MarkdownEditor';
@@ -177,19 +176,27 @@ function messageOf(error: unknown): string {
 }
 
 /**
- * Der Editor für eine Markdown-Datei unter `/edit`: Text, Vorschau oder beides nebeneinander, mit
- * Speichern, automatischer Sicherung und Formatieren (`docs/editor.md`). Die Seite hängt nicht an
- * den Tabs von Schrittmacher und kennt keine Hinweise.
+ * Der Editor für eine Textdatei unter `/edit`, mit Speichern, automatischer Sicherung und
+ * Formatieren (`docs/editor.md`). Eine Markdown-Datei zeigt Text, Vorschau oder beides
+ * nebeneinander, jede andere nur den Text. Die Seite hängt nicht an den Tabs von Schrittmacher und
+ * kennt keine Hinweise. `root` ist der Workspace, in dem die Datei offen ist.
  */
-export function EditorPage({ file }: { file: EditorFile }) {
-  const navigate = useNavigate();
-  useRequests(async (view) => {
-    await navigate({ to: '/', search: view });
-  });
+export function EditorPage({ file, root }: { file: EditorFile; root: string | null }) {
+  const open = useOpen();
+  const dirtyRef = useContext(DirtyContext);
+  const markdown = isMarkdownPath(file.path);
   const [edited, setEdited] = useState(file.text);
   const [saved, setSaved] = useState(file.text);
+  const [exists, setExists] = useState(file.exists);
   const dirty = edited !== saved;
-  const [mode, setMode] = useState(storedMode);
+  useEffect(() => {
+    if (dirtyRef !== null) {
+      dirtyRef.current = dirty;
+    }
+  }, [dirty]);
+  const [chosenMode, setMode] = useState(storedMode);
+  // Nur Markdown hat eine Vorschau; jede andere Datei zeigt den Text.
+  const mode: Mode = markdown ? chosenMode : 'text';
   const [fontSize, setFontSize] = useState(storedFontSize);
   const [editorWidth, setEditorWidth] = useState(() =>
     storedWidth(EDITOR_WIDTH.key, EDITOR_WIDTH.min, EDITOR_WIDTH.normal),
@@ -244,6 +251,9 @@ export function EditorPage({ file }: { file: EditorFile }) {
   const editor = useRef<EditorHandle | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const changeMode = (next: Mode) => {
+    if (!markdown) {
+      return;
+    }
     setMode(next);
     store(MODE_KEY, next);
   };
@@ -341,6 +351,21 @@ export function EditorPage({ file }: { file: EditorFile }) {
       clearTimeout(timer);
     };
   }, [edited]);
+  // Beim Verlassen der Datei wird gesichert, was noch nicht gesichert ist. Danach gilt die Seite
+  // nicht mehr als ungespeichert.
+  const latestText = useRef(edited);
+  latestText.current = edited;
+  useEffect(
+    () => () => {
+      if (latestText.current !== lastBackup.current.text) {
+        runBackup(latestText.current);
+      }
+      if (dirtyRef !== null) {
+        dirtyRef.current = false;
+      }
+    },
+    [],
+  );
 
   // Der Stand der Datei, den der Editor zuletzt gelesen oder geschrieben hat. Weicht ihre letzte
   // Änderung davon ab, hat sie sich außerhalb des Editors geändert.
@@ -392,6 +417,7 @@ export function EditorPage({ file }: { file: EditorFile }) {
       known.current = await saveEditorFile({ data: { path: file.path, text } });
       setOutdated(false);
       setSaved(text);
+      setExists(true);
       setNotice(null);
       runBackup(text);
     } catch (error) {
@@ -399,6 +425,10 @@ export function EditorPage({ file }: { file: EditorFile }) {
     }
   };
   const formatText = async (text: string): Promise<string> => {
+    if (!file.formattable) {
+      setNotice('Formatieren nicht möglich: Für diese Art von Datei kennt Prettier keine Formatierung.');
+      return text;
+    }
     try {
       setNotice(null);
       return await formatEditorText({ data: { path: file.path, text } });
@@ -437,6 +467,9 @@ export function EditorPage({ file }: { file: EditorFile }) {
   // ⌘1 bis ⌘3 wechseln die Anzeige, auch wenn der Text keinen Fokus hat.
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      if (!markdown) {
+        return;
+      }
       const index = ['1', '2', '3'].indexOf(event.key);
       const entry = MODES[index];
       if (event.metaKey && !event.shiftKey && !event.altKey && entry !== undefined) {
@@ -468,6 +501,7 @@ export function EditorPage({ file }: { file: EditorFile }) {
     <div className="app">
       <header className="header">
         <div className="header-start">
+          <RecentMenu />
           <FileTitle
             file={file}
             onError={(message) => {
@@ -476,7 +510,7 @@ export function EditorPage({ file }: { file: EditorFile }) {
           />
         </div>
         <div className="header-tools">
-          <EditorStatus dirty={dirty} backedUp={backedUp} notice={notice} />
+          <EditorStatus dirty={dirty} exists={exists} backedUp={backedUp} notice={notice} />
           <button
             type="button"
             className={outdated ? 'editor-reload editor-reload-outdated' : 'editor-reload'}
@@ -493,21 +527,23 @@ export function EditorPage({ file }: { file: EditorFile }) {
             <FetchIcon />
             {outdated && <span>Datei geändert</span>}
           </button>
-          <div className="md-width" role="group" aria-label="Anzeige">
-            {MODES.map((entry) => (
-              <button
-                key={entry.mode}
-                type="button"
-                aria-pressed={mode === entry.mode}
-                data-tip={entry.tip}
-                onClick={() => {
-                  changeMode(entry.mode);
-                }}
-              >
-                {entry.label}
-              </button>
-            ))}
-          </div>
+          {markdown && (
+            <div className="md-width" role="group" aria-label="Anzeige">
+              {MODES.map((entry) => (
+                <button
+                  key={entry.mode}
+                  type="button"
+                  aria-pressed={mode === entry.mode}
+                  data-tip={entry.tip}
+                  onClick={() => {
+                    changeMode(entry.mode);
+                  }}
+                >
+                  {entry.label}
+                </button>
+              ))}
+            </div>
+          )}
           {showsText && (
             <HighlightControl
               count={highlights.length}
@@ -523,7 +559,7 @@ export function EditorPage({ file }: { file: EditorFile }) {
               }}
             />
           )}
-          {showsText && (
+          {showsText && file.formattable && (
             <button
               type="button"
               className="md-format"
@@ -600,6 +636,7 @@ export function EditorPage({ file }: { file: EditorFile }) {
             style={mode === 'split' ? { flex: `0 0 ${String(ratio * 100)}%` } : undefined}
           >
             <MarkdownEditor
+              path={file.path}
               text={file.text}
               highlights={initialHighlights.found}
               onHighlights={setHighlights}
@@ -663,16 +700,13 @@ export function EditorPage({ file }: { file: EditorFile }) {
                 noting={null}
                 highlights={highlights}
                 onOpen={(path) => {
-                  if (!dirty || window.confirm('Ungespeicherte Änderungen verwerfen? Gesichert sind sie trotzdem.')) {
-                    void navigate({ to: '/edit', search: { path } });
-                  }
+                  open(path, root !== null && path.startsWith(`${root}/`) ? root : null);
                 }}
               />
             </main>
           )}
         </div>
       </div>
-      <Tooltips />
     </div>
   );
 }
@@ -813,7 +847,18 @@ function FileTitle({ file, onError }: { file: EditorFile; onError: (message: str
  * Der Stand im Editor: ob es ungespeicherte Änderungen gibt, wann und wohin zuletzt gesichert
  * wurde, und eine Meldung, wenn Speichern, Sichern oder Formatieren gescheitert ist.
  */
-function EditorStatus({ dirty, backedUp, notice }: { dirty: boolean; backedUp: BackedUp | null; notice: string | null }) {
+function EditorStatus({
+  dirty,
+  exists,
+  backedUp,
+  notice,
+}: {
+  dirty: boolean;
+  /** Ob es die Datei gibt; eine neue entsteht erst beim Speichern. */
+  exists: boolean;
+  backedUp: BackedUp | null;
+  notice: string | null;
+}) {
   // Nach jeder Sicherung steht kurz da, wohin sie ging; danach wieder der gewohnte Stand.
   const [flash, setFlash] = useState(false);
   useEffect(() => {
@@ -851,6 +896,13 @@ function EditorStatus({ dirty, backedUp, notice }: { dirty: boolean; backedUp: B
             Gesichert auf {backedUp.where} <code>{backedUp.commit.slice(0, 7)}</code>
           </>
         )}
+      </span>
+    );
+  }
+  if (!exists) {
+    return (
+      <span className="md-save-state" data-tip="Die Datei gibt es noch nicht; ⌘S legt sie an">
+        Neue Datei, ⌘S
       </span>
     );
   }

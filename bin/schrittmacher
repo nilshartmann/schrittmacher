@@ -3,8 +3,10 @@
 # das aktuelle Verzeichnis. Eine Markdown-Datei zeigt Schrittmacher stattdessen gerendert an. Der
 # Server muss laufen; danach kommt die Web-App nach vorn.
 #
-#   schrittmacher [pfad]        Ordner als Tab, Markdown-Datei als Ansicht
-#   schrittmacher edit <datei>  Markdown-Datei im Editor (docs/editor.md)
+#   schrittmacher [pfad]          Ordner als Tab, Markdown-Datei als Ansicht
+#   schrittmacher edit <datei>    Datei im Editor, auch eine, die es noch nicht gibt (docs/editor.md)
+#   schrittmacher edit <ordner>   Ordner als Workspace im Editor
+#   schrittmacher edit --neu      neuer Entwurf im Workspace „Entwürfe“
 #
 #   SCHRITTMACHER_URL  der Server, sonst http://127.0.0.1:5310
 #   SCHRITTMACHER_APP  die Web-App, sonst Schrittmacher; leer, um sie nicht zu öffnen
@@ -18,13 +20,24 @@ absolute_file() {
   echo "$(cd "$(dirname "$1")" && pwd -P)/$(basename "$1")"
 }
 
+query=""
 case "${1:-}" in
   edit)
-    if [ ! -f "${2:-}" ]; then
-      echo "schrittmacher: Für 'edit' fehlt eine Markdown-Datei." >&2
+    target="${2:-}"
+    if [ -z "$target" ]; then
+      echo "schrittmacher: Für 'edit' fehlt eine Datei, ein Ordner oder --neu." >&2
+      exit 1
+    elif [ "$target" = "--neu" ]; then
+      path=""
+      query="?neu"
+    elif [ -d "$target" ]; then
+      path="$(cd "$target" && pwd -P)"
+    elif [ -d "$(dirname "$target")" ]; then
+      path="$(absolute_file "$target")"
+    else
+      echo "schrittmacher: Den Ordner '$(dirname "$target")' gibt es nicht." >&2
       exit 1
     fi
-    path="$(absolute_file "$2")"
     endpoint=edit
     ;;
   *)
@@ -40,8 +53,8 @@ case "${1:-}" in
 esac
 
 # Bei einem Fehler zeigt curl nur die Meldung des Servers; ist er nicht erreichbar, fehlt sie.
-if ! message="$(curl -s --fail-with-body -X POST --data-binary "$path" "$url/api/$endpoint")"; then
-  echo "schrittmacher: '$path' ließ sich nicht öffnen. ${message:-Läuft der Server unter $url?}" >&2
+if ! message="$(curl -s --fail-with-body -X POST --data-binary "$path" "$url/api/$endpoint$query")"; then
+  echo "schrittmacher: '${path:-Entwurf}' ließ sich nicht öffnen. ${message:-Läuft der Server unter $url?}" >&2
   exit 1
 fi
 if [ -n "$app" ]; then

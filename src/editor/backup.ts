@@ -2,7 +2,7 @@ import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { basename, dirname, join, relative, sep } from 'node:path';
+import { basename, dirname, extname, join, relative, sep } from 'node:path';
 import { runGit } from '../git/process';
 
 /**
@@ -102,15 +102,16 @@ function stamp(date: Date): string {
 }
 
 /**
- * Sichert den Text als Kopie in `<folder>/<Name>-<Hash des Pfads>/<Zeitpunkt>.md` und löscht die
- * ältesten über `KEPT_COPIES`.
+ * Sichert den Text als Kopie in `<folder>/<Name>-<Hash des Pfads>/<Zeitpunkt>.<Endung>` und löscht
+ * die ältesten über `KEPT_COPIES`. Die Endung ist die der Datei, ohne Endung `.txt`.
  */
 async function backupToFile(path: string, text: string, folder: string): Promise<Backup> {
   const key = createHash('sha256').update(path).digest('hex').slice(0, 12);
   const target = join(folder, `${basename(path)}-${key}`);
   await mkdir(target, { recursive: true });
-  const copies = (await readdir(target)).filter((name) => name.endsWith('.md')).sort();
-  const file = join(target, `${stamp(new Date())}.md`);
+  const ending = extname(path) || '.txt';
+  const copies = (await readdir(target)).filter((name) => name.endsWith(ending)).sort();
+  const file = join(target, `${stamp(new Date())}${ending}`);
   await writeFile(file, text, 'utf8');
   for (const old of copies.slice(0, Math.max(0, copies.length + 1 - KEPT_COPIES))) {
     await rm(join(target, old), { force: true });

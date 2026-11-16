@@ -1,5 +1,4 @@
 import { defaultKeymap, history, historyKeymap, indentWithTab, isolateHistory } from '@codemirror/commands';
-import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
 import { highlightSelectionMatches, searchKeymap } from '@codemirror/search';
 import { EditorSelection, EditorState, StateEffect, StateField } from '@codemirror/state';
@@ -10,8 +9,9 @@ import { useEffect, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent, RefObject } from 'react';
 import { normalized, without } from './highlights';
 import type { Highlight } from './highlights';
+import { languageFor } from './languages';
 
-/** Die Farben des Quelltexts, aus denselben Variablen wie die Hervorhebung im Diff. */
+/** Die Farben des Texts, aus denselben Variablen wie die Hervorhebung im Diff, für Markdown und Code. */
 const HIGHLIGHT = HighlightStyle.define([
   { tag: tags.heading, color: 'var(--code-heading)', fontWeight: '600' },
   { tag: tags.processingInstruction, color: 'var(--code-marker)' },
@@ -24,6 +24,18 @@ const HIGHLIGHT = HighlightStyle.define([
   { tag: tags.quote, color: 'var(--code-quote)' },
   { tag: tags.contentSeparator, color: 'var(--code-marker)' },
   { tag: tags.comment, color: 'var(--code-comment)' },
+  { tag: tags.keyword, color: 'var(--code-keyword)' },
+  { tag: [tags.typeName, tags.className, tags.namespace], color: 'var(--code-type)' },
+  { tag: tags.string, color: 'var(--code-string)' },
+  { tag: tags.number, color: 'var(--code-number)' },
+  { tag: [tags.bool, tags.null, tags.atom], color: 'var(--code-constant)' },
+  { tag: tags.regexp, color: 'var(--code-regexp)' },
+  { tag: tags.escape, color: 'var(--code-escape)' },
+  { tag: [tags.function(tags.variableName), tags.function(tags.propertyName)], color: 'var(--code-function)' },
+  { tag: tags.definition(tags.propertyName), color: 'var(--code-property)' },
+  { tag: tags.annotation, color: 'var(--code-annotation)' },
+  { tag: tags.tagName, color: 'var(--code-jsx-tag)' },
+  { tag: tags.attributeName, color: 'var(--code-jsx-attribute)' },
 ]);
 
 /** Ersetzt alle Markierungen im Editor. */
@@ -190,13 +202,14 @@ function paddingOf(element: Element | null): number {
 }
 
 /**
- * Der Quelltext einer Markdown-Datei in CodeMirror. Der Editor übernimmt `text` nur beim Anlegen;
- * danach gehört der Text ihm, und jede Änderung geht an `onChange`. ⌘S ruft `onSave` auf. Die
- * Breite gilt samt Zeilennummern und Rand. Der Strich neben den Zeilennummern lässt sich greifen;
+ * Der Text einer Datei in CodeMirror, mit der Hervorhebung zu ihrer Endung. Der Editor übernimmt
+ * `text` und `path` nur beim Anlegen; danach gehört der Text ihm, und jede Änderung geht an
+ * `onChange`. ⌘S ruft `onSave` auf. Die Breite gilt samt Zeilennummern und Rand. Der Strich neben den Zeilennummern lässt sich greifen;
  * beim Ziehen zeigt eine Fläche die neue Breite, die erst beim Loslassen gilt. Escape bricht ab.
  * Steht der Editor neben der Vorschau, ändert das Ziehen die Breite von `outer`, die beide umfasst.
  */
 export function MarkdownEditor({
+  path,
   text,
   highlights,
   onHighlights,
@@ -212,6 +225,8 @@ export function MarkdownEditor({
   onChange,
   onSave,
 }: {
+  /** Der Pfad der Datei; seine Endung bestimmt die Hervorhebung. */
+  path: string;
   text: string;
   /** Die Markierungen beim Anlegen; danach gehören sie dem Editor wie der Text. */
   highlights: Highlight[];
@@ -270,7 +285,7 @@ export function MarkdownEditor({
           drawSelection(),
           highlightSelectionMatches(),
           EditorView.lineWrapping,
-          markdown({ base: markdownLanguage }),
+          languageFor(path),
           syntaxHighlighting(HIGHLIGHT),
           keymap.of([
             {

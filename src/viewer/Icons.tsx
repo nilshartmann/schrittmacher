@@ -349,3 +349,13 @@ export function ChainIcon() {
     </Outline>
   );
 }
+
+/** Eine Uhr: zuletzt geöffnet. */
+export function ClockIcon() {
+  return (
+    <Outline size={14}>
+      <circle cx="8" cy="8" r="6" />
+      <path d="M8 4.5V8l2.5 1.5" />
+    </Outline>
+  );
+}
