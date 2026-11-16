@@ -27,6 +27,7 @@ Aufruf von Git (`runGit`), das Menü, die Tooltips und die Übergabe vom Kommand
 |---|---|
 | Nur Text, Text und Vorschau nebeneinander, nur Vorschau (bei Markdown) | „Text“, „Geteilt“, „Vorschau“ oder ⌘1 bis ⌘3 |
 | Zuletzt geöffnete Workspaces und Dateien | Uhr links in der Kopfzeile |
+| Zur vorherigen Datei, mit jedem weiteren E eine weiter zurück | ⌘E, ⌘ gedrückt halten; ⇧E geht wieder vor, Loslassen von ⌘ öffnet, Escape bricht ab |
 | Neue Datei im Workspace, neuer Entwurf | Plus über dem Baum |
 | Speichern | ⌘S |
 | Stand der Datei neu laden | Pfeil im Kreis in der Kopfzeile |

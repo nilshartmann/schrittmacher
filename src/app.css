@@ -4438,3 +4438,65 @@ span.info-parent {
   border: 1px solid var(--line);
   background: repeating-conic-gradient(var(--line-soft) 0 25%, var(--surface) 0 50%) 0 0 / 16px 16px;
 }
+
+/* Der Wechsel mit ⌘E: die zuletzt geöffneten Dateien mittig über allem */
+.editor-switcher {
+  position: fixed;
+  top: 15vh;
+  left: 50%;
+  z-index: 50;
+  width: 440px;
+  max-height: 60vh;
+  padding: 6px;
+  overflow: auto;
+  transform: translateX(-50%);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 12px 40px rgb(0 0 0 / 0.18);
+  font-family: var(--font-menu);
+}
+
+.editor-switcher-head {
+  margin: 4px 8px 6px;
+  color: var(--quiet);
+  font-size: 11px;
+}
+
+.editor-switcher-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.editor-switcher-row[aria-selected='true'] {
+  background: var(--selected-focus);
+  color: var(--selected-focus-ink);
+}
+
+.editor-switcher-name {
+  flex: none;
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editor-switcher-dir {
+  min-width: 0;
+  overflow: hidden;
+  color: inherit;
+  font-size: 11.5px;
+  opacity: 0.7;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

@@ -59,6 +59,7 @@ export function EditorLayout({ root, current, children }: { root: string | null;
         {root !== null && <WorkspaceTree key={root} root={root} current={current} />}
         {children}
       </div>
+      <RecentSwitcher current={current} />
       <Tooltips />
     </DirtyContext.Provider>
   );
@@ -503,6 +504,105 @@ export function FilePane({ file }: { file: EditorFile }) {
           {file.kind === 'large' ? 'Die Datei ist zu groß für den Editor.' : 'Die Datei ist kein Text und lässt sich nicht öffnen.'}
         </p>
       )}
+    </div>
+  );
+}
+
+/**
+ * Der Wechsel zu zuletzt geöffneten Dateien mit ⌘E, wie ⌘Tab zwischen Programmen: Jedes E bei
+ * gedrückter ⌘-Taste geht eine Datei weiter zurück, ⇧E wieder vor. Beim Loslassen von ⌘ öffnet sich
+ * die gewählte Datei, Escape bricht ab. Solange ⌘ gedrückt ist, zeigt eine Liste die Wahl.
+ */
+function RecentSwitcher({ current }: { current: string | null }) {
+  const open = useOpen();
+  // Die Liste wird bei jedem Wechsel der Datei vorab geladen, damit ⌘E sofort wirkt.
+  const files = useRef<RecentEntry[]>([]);
+  useEffect(() => {
+    loadRecent().then(
+      (recent) => {
+        files.current = recent.files.filter((entry) => entry.exists && entry.path !== current);
+      },
+      () => {
+        // Ohne Liste bleibt ⌘E ohne Wirkung, bis die nächste Datei sie lädt.
+      },
+    );
+  }, [current]);
+  const [choice, setChoice] = useState<{ list: RecentEntry[]; at: number } | null>(null);
+  const latest = useRef(choice);
+  latest.current = choice;
+  const finish = useRef(open);
+  finish.current = open;
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() !== 'e' || !event.metaKey || event.altKey || event.ctrlKey) {
+        if (event.key === 'Escape' && latest.current !== null) {
+          event.preventDefault();
+          setChoice(null);
+        }
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      const step = event.shiftKey ? -1 : 1;
+      const now = latest.current;
+      if (now === null) {
+        const list = files.current;
+        if (list.length > 0) {
+          setChoice({ list, at: event.shiftKey ? list.length - 1 : 0 });
+        }
+        return;
+      }
+      setChoice({ list: now.list, at: (now.at + step + now.list.length) % now.list.length });
+    };
+    const onKeyUp = (event: KeyboardEvent) => {
+      const now = latest.current;
+      if (event.key !== 'Meta' || now === null) {
+        return;
+      }
+      setChoice(null);
+      const entry = now.list[now.at];
+      if (entry !== undefined) {
+        finish.current(entry.path, entry.root);
+      }
+    };
+    const onBlur = () => {
+      setChoice(null);
+    };
+    // In der Phase davor, damit der Editor ⌘E nicht vorher bekommt.
+    window.addEventListener('keydown', onKeyDown, true);
+    window.addEventListener('keyup', onKeyUp, true);
+    window.addEventListener('blur', onBlur);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown, true);
+      window.removeEventListener('keyup', onKeyUp, true);
+      window.removeEventListener('blur', onBlur);
+    };
+  }, []);
+
+  if (choice === null) {
+    return null;
+  }
+  return (
+    <div className="editor-switcher" role="listbox" aria-label="Zuletzt geöffnete Dateien">
+      <p className="editor-switcher-head">Zuletzt geöffnet, ⌘ loslassen öffnet</p>
+      {choice.list.map((entry, at) => (
+        <button
+          key={entry.path}
+          type="button"
+          role="option"
+          className="editor-switcher-row"
+          aria-selected={at === choice.at}
+          onMouseDown={(event) => {
+            event.preventDefault();
+            setChoice(null);
+            open(entry.path, entry.root);
+          }}
+        >
+          <span className="editor-switcher-name">{entry.name}</span>
+          <span className="editor-switcher-dir">{entry.dir}</span>
+        </button>
+      ))}
     </div>
   );
 }
