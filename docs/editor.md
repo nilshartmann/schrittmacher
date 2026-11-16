@@ -108,3 +108,61 @@ und ist ein eigener Schritt für ⌘Z. Gespeichert wird erst mit ⌘S.
 
 Prettier vereinheitlicht dabei die Schreibweise, etwa `*` zu `-` in Listen und `*kursiv*` zu
 `_kursiv_`, und richtet Tabellen aus.
+
+## Workspaces (geplant)
+
+Der Abschnitt beschreibt den ersten Schritt, der noch nicht umgesetzt ist. Gedacht ist der Editor
+zum Schreiben von Artikeln und Büchern in Markdown. Ein Kapitel ist dann eine Datei. Daneben
+braucht es das Material, über das geschrieben wird, etwa JavaScript-Dateien.
+
+Ein Workspace ist ein Ordner, wie in VS Code. Der Begriff „Projekt“ ist in Schrittmacher schon
+für gespeicherte Sammlungen von Tabs vergeben, der Begriff „Ordner“ für die Gruppen im Menü der
+Repos.
+
+### Kommandos
+
+| Kommando | Wirkung |
+|---|---|
+| `schrittmacher edit <ordner>` | öffnet den Ordner als Workspace |
+| `schrittmacher edit <datei>` | öffnet die Datei; liegt sie in einem bekannten Workspace, mit dessen Baum |
+| `schrittmacher edit <neue-datei>` | öffnet einen leeren Editor; die Datei entsteht beim ersten ⌘S |
+| `schrittmacher edit --neu` | legt einen Entwurf im Workspace „Entwürfe“ an und öffnet ihn |
+
+### Baum und Dateien
+
+- Links steht der Baum des Workspace mit allen Dateien. Es fehlt nur, was Git ignoriert. In einem
+  Repo liefert das `git ls-files --cached --others --exclude-standard`. Außerhalb eines Repos
+  überspringt der Server versteckte Ordner und `node_modules`.
+- Jede Textdatei lässt sich öffnen und speichern. Als Text gilt eine Datei, die in den ersten
+  Kilobytes kein Null-Byte enthält und unter einer Größengrenze bleibt.
+- Markdown ist das Dokument, an dem geschrieben wird, und behält Vorschau und Folgen. Alle anderen
+  Textdateien sind Material. Sie zeigen nur den Text, mit Hervorhebung über die Pakete
+  `@codemirror/lang-*`, sofern es eins für die Sprache gibt.
+- Formatieren gibt es für alle Dateien, die Prettier kennt. Markierungen und Sicherung hängen nur am
+  Pfad und gelten deshalb für jede Textdatei.
+- Bilder öffnen sich als Ansicht. Andere Binärdateien stehen im Baum, lassen sich aber nicht öffnen.
+- „Neue Datei“ legt eine Datei im markierten Ordner an. Ein Pfad wie `kapitel/03-zustand.md` legt
+  fehlende Ordner mit an.
+
+### Entwürfe
+
+Der Workspace „Entwürfe“ sammelt schnelle Notizen. Seine Wurzel ist
+`~/.config/schrittmacher/entwuerfe/`. Er steht immer im Menü „Zuletzt geöffnet“ und lässt sich
+nicht entfernen.
+
+- Ein Entwurf ist eine Datei, benannt nach dem Zeitpunkt, etwa `2026-11-16-1432.md`.
+- Im Baum zeigt er seine erste Überschrift oder Zeile, darunter das Datum. Der neueste steht oben.
+- ⌘S speichert ihn an seinem Ort, ohne Rückfrage.
+
+### Zuletzt geöffnet
+
+Das Menü „Zuletzt geöffnet“ in der Kopfzeile listet oben Workspaces, darunter Dateien. Entwürfe
+zählen als Dateien. Die Liste liegt in `state.json`, damit auch `schrittmacher edit` sie ergänzt.
+Eine Datei, die es nicht mehr gibt, steht ausgegraut darin. Ein Klick darauf nimmt sie heraus.
+Ein eigenes Menü zum Wechseln der Workspaces gibt es nicht, weil es dieselbe Liste wäre.
+
+### Zugriff
+
+Jede Seite im Browser kann die Funktionen des Servers aufrufen. Lesen und Schreiben gehen deshalb
+nur innerhalb bekannter Workspaces und bei Dateien, die per `schrittmacher edit` geöffnet wurden.
+Andere Dateien, etwa `~/.zshrc`, bleiben unerreichbar.
