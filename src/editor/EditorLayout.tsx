@@ -38,6 +38,9 @@ function messageOf(error: unknown): string {
  */
 export const DirtyContext = createContext<RefObject<boolean> | null>(null);
 
+/** Die offene Datei und ihr Workspace, damit ein Klick auf dieselbe Datei nichts verwirft. */
+const ShownContext = createContext<{ path: string | null; root: string | null }>({ path: null, root: null });
+
 /**
  * Wechselt im Editor zu einer Datei, einem Workspace oder beidem. Bei ungespeicherten Änderungen
  * fragt es vorher; gesichert werden sie beim Verlassen trotzdem.
@@ -45,7 +48,12 @@ export const DirtyContext = createContext<RefObject<boolean> | null>(null);
 export function useOpen() {
   const navigate = useNavigate();
   const dirty = useContext(DirtyContext);
+  const shown = useContext(ShownContext);
   return (path: string | null, root: string | null) => {
+    // Die Datei ist schon offen: nichts zu tun, und ungespeicherte Änderungen bleiben stehen.
+    if (path !== null && path === shown.path && root === shown.root) {
+      return;
+    }
     if (dirty?.current === true && !window.confirm('Ungespeicherte Änderungen verwerfen? Gesichert sind sie trotzdem.')) {
       return;
     }
@@ -94,14 +102,17 @@ export function EditorLayout({ root, current, children }: { root: string | null;
     await navigate({ to: '/', search: view });
   });
   const dirty = useRef(false);
+  const shown = useMemo(() => ({ path: current, root }), [current, root]);
   return (
     <DirtyContext.Provider value={dirty}>
-      <div className="editor-layout">
-        {root !== null && <WorkspaceTree key={root} root={root} current={current} />}
-        {children}
-      </div>
-      <RecentSwitcher current={current} />
-      <Tooltips />
+      <ShownContext.Provider value={shown}>
+        <div className="editor-layout">
+          {root !== null && <WorkspaceTree key={root} root={root} current={current} />}
+          {children}
+        </div>
+        <RecentSwitcher current={current} />
+        <Tooltips />
+      </ShownContext.Provider>
     </DirtyContext.Provider>
   );
 }
