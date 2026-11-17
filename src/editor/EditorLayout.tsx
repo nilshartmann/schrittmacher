@@ -1,11 +1,11 @@
 import { useNavigate } from '@tanstack/react-router';
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode, RefObject } from 'react';
-import { ChevronIcon, ClockIcon, PlusIcon } from '../viewer/Icons';
+import { ChevronIcon, ClockIcon, CloseIcon, PlusIcon } from '../viewer/Icons';
 import { Menu, MenuDivider, MenuItem, MenuNote, MenuSection } from '../viewer/Menu';
 import { Tooltips } from '../viewer/Tooltips';
 import { editSearch, useRequests } from '../viewer/useRequests';
-import { forgetRecent, loadRecent, loadWorkspace, newDraft, newWorkspaceFile, touchWorkspace } from './editor.functions';
+import { closeEditorFile, forgetRecent, loadRecent, loadWorkspace, newDraft, newWorkspaceFile, touchWorkspace } from './editor.functions';
 import type { Draft, EditorFile, RecentEntry, WorkspaceListing } from './editor.functions';
 
 /** Der Abstand der Fragen nach dem Inhalt des Workspace, in Millisekunden. */
@@ -41,6 +41,37 @@ export function useOpen() {
     }
     void navigate({ to: '/edit', search: editSearch(path, root) });
   };
+}
+
+/**
+ * Das × zum Schließen der offenen Datei. Sie verschwindet aus „Zuletzt geöffnet“, ein leerer Entwurf
+ * wird gelöscht, und es öffnet sich die nächste Datei der Liste. Ungespeicherte Änderungen fragt es
+ * vorher ab wie beim Wechsel. Ist die Liste leer, bleibt der Workspace offen.
+ */
+export function CloseButton({ path, root }: { path: string; root: string | null }) {
+  const navigate = useNavigate();
+  const dirty = useContext(DirtyContext);
+  const close = () => {
+    if (dirty?.current === true && !window.confirm('Ungespeicherte Änderungen verwerfen? Gesichert sind sie trotzdem.')) {
+      return;
+    }
+    closeEditorFile({ data: { path } }).then(
+      (next) => {
+        if (dirty !== null) {
+          dirty.current = false;
+        }
+        void navigate({ to: '/edit', search: next === null ? editSearch(null, root) : editSearch(next.path, next.root) });
+      },
+      (failure: unknown) => {
+        window.alert(messageOf(failure));
+      },
+    );
+  };
+  return (
+    <button type="button" className="bar-tool" aria-label="Schließen" data-tip="Datei schließen" onClick={close}>
+      <CloseIcon />
+    </button>
+  );
 }
 
 /**
@@ -174,6 +205,8 @@ function WorkspaceTree({ root, current }: { root: string; current: string | null
       window.removeEventListener('focus', refresh);
     };
   }, [root]);
+  // Nach dem Wechsel der Datei neu laden, etwa weil ein leerer Entwurf beim Schließen verschwunden ist.
+  useEffect(refresh, [current]);
   // Die Ordner über der offenen Datei klappen auf, damit sie im Baum zu sehen ist.
   useEffect(() => {
     if (currentRelative === null) {
@@ -466,7 +499,7 @@ function RecentList({ close }: { close: () => void }) {
 }
 
 /** Die Kopfzeile einer Seite ohne Editor: das Menü „Zuletzt geöffnet“ und ein Titel. */
-function PaneHeader({ title, sub }: { title: string; sub?: string }) {
+function PaneHeader({ title, sub, close }: { title: string; sub?: string; close?: { path: string; root: string | null } }) {
   return (
     <header className="header">
       <div className="header-start">
@@ -476,6 +509,11 @@ function PaneHeader({ title, sub }: { title: string; sub?: string }) {
           {sub !== undefined && <span className="md-dir">{sub}</span>}
         </span>
       </div>
+      {close !== undefined && (
+        <div className="header-tools">
+          <CloseButton path={close.path} root={close.root} />
+        </div>
+      )}
     </header>
   );
 }
@@ -491,10 +529,10 @@ export function EmptyPane({ message }: { message: string }) {
 }
 
 /** Eine Datei, die sich nicht als Text bearbeiten lässt: ein Bild als Ansicht, sonst eine Meldung. */
-export function FilePane({ file }: { file: EditorFile }) {
+export function FilePane({ file, root }: { file: EditorFile; root: string | null }) {
   return (
     <div className="app">
-      <PaneHeader title={file.name} sub={file.dir} />
+      <PaneHeader title={file.name} sub={file.dir} close={{ path: file.path, root }} />
       {file.kind === 'image' ? (
         <div className="editor-image">
           <img src={`/api/image?${new URLSearchParams({ path: file.path }).toString()}`} alt={file.name} />

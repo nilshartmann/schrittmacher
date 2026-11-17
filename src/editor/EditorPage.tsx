@@ -13,7 +13,7 @@ import {
   saveEditorHighlights,
 } from './editor.functions';
 import type { EditorApp, EditorFile } from './editor.functions';
-import { DirtyContext, RecentMenu, useOpen } from './EditorLayout';
+import { CloseButton, DirtyContext, RecentMenu, useOpen } from './EditorLayout';
 import { FigureDialog } from './FigureDialog';
 import { anchorsOf as highlightAnchorsOf, resolveAnchors } from './highlights';
 import type { Highlight, HighlightAnchor } from './highlights';
@@ -618,6 +618,7 @@ export function EditorPage({ file, root }: { file: EditorFile; root: string | nu
               A+
             </button>
           </div>
+          <CloseButton path={file.path} root={root} />
         </div>
       </header>
       <div className={`md-body editor-${mode}`} style={{ fontSize: `${String(fontSize)}px` }}>

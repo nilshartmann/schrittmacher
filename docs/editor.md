@@ -29,6 +29,7 @@ Aufruf von Git (`runGit`), das Menü, die Tooltips und die Übergabe vom Kommand
 | Zuletzt geöffnete Workspaces und Dateien | Uhr links in der Kopfzeile |
 | Zur vorherigen Datei, mit jedem weiteren E eine weiter zurück | ⌘E, ⌘ gedrückt halten; ⇧E geht wieder vor, Loslassen von ⌘ öffnet, Escape bricht ab |
 | Neue Datei im Workspace, neuer Entwurf | Plus über dem Baum |
+| Datei schließen | × rechts in der Kopfzeile |
 | Speichern | ⌘S |
 | Stand der Datei neu laden | Pfeil im Kreis in der Kopfzeile |
 | Pfad kopieren, Ordner in ForkLift, Repo in Fork, Datei in BBEdit öffnen | Knöpfe beim Überfahren des Dateinamens |
@@ -178,6 +179,8 @@ nicht entfernen.
 - Ein Entwurf ist eine Datei, benannt nach dem Zeitpunkt, etwa `2026-11-16-1432.md`.
 - Im Baum zeigt er seine erste Überschrift oder Zeile, darunter das Datum. Der neueste steht oben.
 - ⌘S speichert ihn an seinem Ort, ohne Rückfrage. Das Plus über dem Baum legt einen neuen an.
+- Ein leerer Entwurf wird beim Schließen gelöscht, damit ein versehentlicher Klick auf das Plus
+  keine Spuren hinterlässt.
 
 ### Zuletzt geöffnet
 
@@ -187,6 +190,17 @@ zählen als Dateien. Je Liste merkt sich der Server die letzten 20. Die Liste li
 Schrittmacher abhängen soll. Auch `schrittmacher edit` ergänzt sie.
 Eine Datei, die es nicht mehr gibt, steht ausgegraut darin. Ein Klick darauf nimmt sie heraus.
 Ein eigenes Menü zum Wechseln der Workspaces gibt es nicht, weil es dieselbe Liste wäre.
+
+Das × in der Kopfzeile schließt die offene Datei. Ungespeicherte Änderungen fragt es vorher ab. Beim
+Schließen passiert Folgendes:
+
+1. Die Datei verschwindet aus der Liste der Dateien und damit auch aus ⌘E.
+2. Ist sie ein leerer Entwurf, wird sie gelöscht.
+3. Es öffnet sich die nächste Datei der Liste. Ist die Liste leer, bleibt der Workspace ohne Datei
+   offen.
+
+Weil die geschlossene Datei aus der Liste verschwindet, geht jedes weitere Schließen eine Datei
+weiter zurück. Ein ⌘W gibt es nicht, weil Safari damit das Fenster der Web-App schließt.
 
 ### Zugriff
 

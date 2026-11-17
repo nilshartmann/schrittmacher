@@ -32,7 +32,7 @@ export const Route = createFileRoute('/edit')({
         ) : file.kind === 'text' ? (
           <EditorPage key={file.path} file={file} root={root ?? null} />
         ) : (
-          <FilePane file={file} />
+          <FilePane file={file} root={root ?? null} />
         )}
       </EditorLayout>
     );

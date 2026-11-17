@@ -153,6 +153,10 @@ export async function workspacePath(value: unknown): Promise<string> {
   if (!(await knownWorkspaces()).includes(root)) {
     throw new Error(`'${root}' ist kein bekannter Workspace. Öffne ihn mit 'schrittmacher edit <ordner>'.`);
   }
+  if (root === draftsRoot()) {
+    // Den Ordner der Entwürfe gibt es erst nach dem ersten Entwurf; bis dahin ist er leer.
+    await mkdir(root, { recursive: true });
+  }
   const found = await stat(root).catch(() => null);
   if (found === null || !found.isDirectory()) {
     throw new Error(`Den Ordner '${root}' gibt es nicht.`);

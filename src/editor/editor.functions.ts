@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 import { createServerFn, createServerOnlyFn } from '@tanstack/react-start';
 import { imageTypeOf } from '../git/images';
@@ -233,6 +233,24 @@ export const forgetRecent = createServerFn({ method: 'POST' })
   .validator((data: { path: string }) => data)
   .handler(async ({ data }): Promise<void> => {
     await removeRecent(data.path);
+  });
+
+/**
+ * Schließt eine Datei: Sie verschwindet aus „Zuletzt geöffnet“, ein leerer Entwurf wird gelöscht.
+ * Zurück kommt die nächste Datei der Liste, die es noch gibt, oder `null`.
+ */
+export const closeEditorFile = createServerFn({ method: 'POST' })
+  .validator((data: { path: string }) => data)
+  .handler(async ({ data }): Promise<RecentEntry | null> => {
+    const path = await editorPath(data.path);
+    await removeRecent(path);
+    if ((await workspaceOf(path)) === draftsRoot()) {
+      const found = await stat(path).catch(() => null);
+      if (found !== null && found.isFile() && found.size === 0) {
+        await rm(path);
+      }
+    }
+    return (await recentEntries()).files.find((entry) => entry.exists) ?? null;
   });
 
 /** Legt einen leeren Entwurf an; zurück kommen sein Pfad und die Wurzel der Entwürfe. */
