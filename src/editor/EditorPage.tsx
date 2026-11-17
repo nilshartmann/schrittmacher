@@ -15,12 +15,13 @@ import {
 import type { EditorApp, EditorFile } from './editor.functions';
 import { CloseButton, DirtyContext, RecentMenu, useOpen } from './EditorLayout';
 import { FigureDialog } from './FigureDialog';
+import { RenameDialog } from './RenameDialog';
 import { anchorsOf as highlightAnchorsOf, resolveAnchors } from './highlights';
 import type { Highlight, HighlightAnchor } from './highlights';
 import { isMarkdownPath } from './languages';
 import { MarkdownEditor } from './MarkdownEditor';
 import { anchorsOf, lineForTop, topForLine } from './scrollSync';
-import type { EditorHandle } from './MarkdownEditor';
+import type { EditorHandle, Reference } from './MarkdownEditor';
 
 /** Die Schriftgröße in Pixeln, mit ihren Grenzen; gemerkt wird sie im Browser. */
 const FONT_SIZE = { initial: 16, min: 12, max: 28, key: 'schrittmacher.editor.fontSize' };
@@ -253,6 +254,8 @@ export function EditorPage({ file, root }: { file: EditorFile; root: string | nu
   const [notice, setNotice] = useState<string | null>(null);
   // Ein Bild aus der Zwischenablage, für das der Dialog nach dem Namen der neuen Datei fragt.
   const [pastedImage, setPastedImage] = useState<File | null>(null);
+  // Die markierte Referenz, deren Datei der Dialog nach F2 umbenennt.
+  const [renaming, setRenaming] = useState<Reference | null>(null);
   const changeMode = (next: Mode) => {
     if (!markdown) {
       return;
@@ -660,6 +663,7 @@ export function EditorPage({ file, root }: { file: EditorFile; root: string | nu
                 void save();
               }}
               onPasteImage={markdown ? setPastedImage : undefined}
+              onRenameReference={setRenaming}
             />
           </main>
           {mode === 'split' && (
@@ -712,6 +716,18 @@ export function EditorPage({ file, root }: { file: EditorFile; root: string | nu
           )}
         </div>
       </div>
+      {renaming !== null && (
+        <RenameDialog
+          reference={renaming}
+          path={file.path}
+          onRenamed={(next) => {
+            editor.current?.replaceReference(renaming, next);
+          }}
+          onClose={() => {
+            setRenaming(null);
+          }}
+        />
+      )}
       {pastedImage !== null && (
         <FigureDialog
           image={pastedImage}

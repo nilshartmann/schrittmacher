@@ -29,7 +29,8 @@ Aufruf von Git (`runGit`), das Menü, die Tooltips und die Übergabe vom Kommand
 | Zuletzt geöffnete Workspaces und Dateien | Uhr links in der Kopfzeile |
 | Zur vorherigen Datei, mit jedem weiteren E eine weiter zurück | ⌘E, ⌘ gedrückt halten; ⇧E geht wieder vor, Loslassen von ⌘ öffnet, Escape bricht ab |
 | Neue Datei im Workspace, neuer Entwurf | Plus über dem Baum |
-| Datei im Baum umbenennen | Datei anklicken, dann Enter; Enter oder Klick daneben benennt um, Escape bricht ab |
+| Datei im Baum umbenennen | Datei anklicken, dann Enter oder F2; Enter oder Klick daneben benennt um, Escape bricht ab |
+| Datei hinter einem markierten Pfad umbenennen, etwa einem Bild | F2 |
 | Datei schließen | × rechts in der Kopfzeile |
 | Speichern | ⌘S |
 | Stand der Datei neu laden | Pfeil im Kreis in der Kopfzeile |
@@ -79,6 +80,18 @@ eingefügt.
 - Das Bild landet im Ordner der Markdown-Datei. Eine Datei, die es schon gibt, wird nicht
   überschrieben.
 - An der Stelle des Cursors steht danach der Link, etwa `![](abb-013.png)`.
+
+## Umbenennen über eine Referenz
+
+Ist im Text ein Pfad markiert, etwa `abb-002.png` in `![](abb-002.png)`, öffnet F2 einen Dialog
+für den neuen Namen der Datei. Der Pfad gilt relativ zum Ordner der offenen Datei.
+
+- Umbenannt wird nur im selben Ordner. Die Datei muss in einem bekannten Workspace liegen.
+- Danach ändern sich die Markierung und jedes Ziel eines Links `](…)` mit demselben Pfad im Text.
+  Ein Name mit Leerzeichen steht in spitzen Klammern.
+- Die Änderung am Text ist ein Schritt für ⌘Z und wird erst mit ⌘S gespeichert. ⌘Z nimmt nur den
+  Text zurück, die Datei behält ihren neuen Namen.
+- Links in anderen Dateien bleiben unverändert.
 
 ## Markierungen
 

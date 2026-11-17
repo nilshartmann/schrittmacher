@@ -126,6 +126,29 @@ export interface EditorHandle {
   nextHighlight: () => void;
   /** Setzt Text an die Stelle der Auswahl, etwa den Link auf eine eingefügte Abbildung. */
   insert: (text: string) => void;
+  /**
+   * Ersetzt eine Referenz nach dem Umbenennen ihrer Datei: an der Stelle `from` bis `to` und überall,
+   * wo sie als Ziel eines Links `](…)` steht. Alles zusammen ist ein Schritt für ⌘Z.
+   */
+  replaceReference: (reference: Reference, next: string) => void;
+}
+
+/** Eine markierte Referenz auf eine Datei, etwa `abb-002.png` in einem Bild. */
+export interface Reference {
+  text: string;
+  from: number;
+  to: number;
+}
+
+/** Die Stellen im Text, an denen `reference` als Ziel eines Links steht, mit oder ohne `<…>`. */
+function linkTargets(doc: string, reference: string): { from: number; to: number }[] {
+  const bare = reference.replace(/^<(.*)>$/, '$1');
+  const escaped = bare.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const pattern = new RegExp(`\\]\\((<${escaped}>|${escaped})(?=[\\s)])`, 'g');
+  return [...doc.matchAll(pattern)].map((match) => {
+    const from = match.index + 2;
+    return { from, to: from + (match[1] ?? '').length };
+  });
 }
 
 /**
@@ -243,6 +266,7 @@ export function MarkdownEditor({
   onChange,
   onSave,
   onPasteImage,
+  onRenameReference,
 }: {
   /** Der Pfad der Datei; seine Endung bestimmt die Hervorhebung. */
   path: string;
@@ -271,6 +295,8 @@ export function MarkdownEditor({
   onSave: () => void;
   /** Ein Bild aus der Zwischenablage statt Text; ohne fügt der Editor es nicht ein. */
   onPasteImage?: (image: File) => void;
+  /** F2 mit einer Auswahl in einer Zeile: Die Auswahl ist eine Referenz auf eine Datei zum Umbenennen. */
+  onRenameReference?: (reference: Reference) => void;
 }) {
   const frame = useRef<HTMLDivElement>(null);
   const host = useRef<HTMLDivElement>(null);
@@ -278,8 +304,8 @@ export function MarkdownEditor({
   const [edge, setEdge] = useState<Edge | null>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
   // Die Rückrufe ändern sich mit jedem Rendern, der Editor wird aber nur einmal angelegt.
-  const callbacks = useRef({ onChange, onSave, onFormat, onCursor, onHighlights, onPasteImage });
-  callbacks.current = { onChange, onSave, onFormat, onCursor, onHighlights, onPasteImage };
+  const callbacks = useRef({ onChange, onSave, onFormat, onCursor, onHighlights, onPasteImage, onRenameReference });
+  callbacks.current = { onChange, onSave, onFormat, onCursor, onHighlights, onPasteImage, onRenameReference };
   useEffect(() => {
     if (host.current === null) {
       return;
@@ -321,6 +347,20 @@ export function MarkdownEditor({
               key: 'Mod-Shift-m',
               preventDefault: true,
               run: toggleHighlight,
+            },
+            {
+              key: 'F2',
+              preventDefault: true,
+              run: (target) => {
+                const { from, to } = target.state.selection.main;
+                const text = target.state.sliceDoc(from, to);
+                const handle = callbacks.current.onRenameReference;
+                if (handle === undefined || text.trim() === '' || text.includes('\n')) {
+                  return false;
+                }
+                handle({ text, from, to });
+                return true;
+              },
             },
             {
               key: 'Mod-Shift-f',
@@ -395,6 +435,19 @@ export function MarkdownEditor({
       },
       insert: (text) => {
         view.dispatch(view.state.replaceSelection(text));
+        view.focus();
+      },
+      replaceReference: (reference, next) => {
+        const doc = view.state.doc.toString();
+        const ranges = linkTargets(doc, reference.text).filter((range) => range.to <= reference.from || range.from >= reference.to);
+        // Die Auswahl selbst, falls der Text dort noch derselbe ist.
+        const changes = ranges.map((range) => ({ ...range, insert: next }));
+        if (view.state.sliceDoc(reference.from, reference.to) === reference.text) {
+          // Steht die Auswahl schon in `<…>`, kommen keine zweiten Klammern dazu.
+          const wrapped = view.state.sliceDoc(reference.from - 1, reference.from) === '<';
+          changes.push({ from: reference.from, to: reference.to, insert: wrapped ? next.replace(/^<(.*)>$/, '$1') : next });
+        }
+        view.dispatch({ changes });
         view.focus();
       },
     };

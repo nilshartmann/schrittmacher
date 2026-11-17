@@ -281,19 +281,60 @@ export const renameEditorFile = createServerFn({ method: 'POST' })
     }
     return data;
   })
-  .handler(async ({ data }): Promise<string> => {
-    const root = await workspacePath(data.root);
-    const from = await editorPath(data.path);
-    const to = await renameWorkspaceFile(root, from, data.name);
-    if (to !== from) {
-      await rename(highlightsFile(from), highlightsFile(to)).catch((error: unknown) => {
-        if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) {
-          throw error;
-        }
-      });
-      await renameRecent(from, to);
+  .handler(async ({ data }): Promise<string> => renameWithState(await workspacePath(data.root), await editorPath(data.path), data.name));
+
+/** Benennt eine Datei im Workspace um; ihre Markierungen und ihr Eintrag in „Zuletzt geöffnet“ gehen mit. */
+async function renameWithState(root: string, from: string, name: string): Promise<string> {
+  const to = await renameWorkspaceFile(root, from, name);
+  if (to !== from) {
+    await rename(highlightsFile(from), highlightsFile(to)).catch((error: unknown) => {
+      if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) {
+        throw error;
+      }
+    });
+    await renameRecent(from, to);
+  }
+  return to;
+}
+
+/** Der Pfad hinter einer Referenz im Text, relativ zum Ordner der Datei; ohne `<…>` und mit `%20` als Leerzeichen. */
+function referencedPath(file: string, reference: string): string {
+  let cleaned = reference.trim().replace(/^<(.*)>$/, '$1');
+  try {
+    cleaned = decodeURI(cleaned);
+  } catch {
+    // Ein Pfad mit einzelnem `%` bleibt, wie er ist.
+  }
+  if (cleaned === '' || /^[a-z][a-z0-9+.-]*:/i.test(cleaned)) {
+    throw new Error(`'${reference}' ist kein Pfad einer Datei.`);
+  }
+  return resolve(dirname(file), cleaned.replace(/[?#].*$/, ''));
+}
+
+/**
+ * Benennt die Datei um, auf die eine Referenz im Text zeigt, etwa ein Bild in `![](abb-002.png)`.
+ * Sie muss in einem bekannten Workspace liegen. Zurück kommt die Referenz mit dem neuen Namen, der
+ * Ordner bleibt so geschrieben wie vorher.
+ */
+export const renameReferencedFile = createServerFn({ method: 'POST' })
+  .validator((data: { path: string; reference: string; name: string }) => {
+    if (typeof data.reference !== 'string' || typeof data.name !== 'string') {
+      throw new Error('Referenz oder neuer Name fehlen.');
     }
-    return to;
+    return data;
+  })
+  .handler(async ({ data }): Promise<string> => {
+    const file = await editorPath(data.path);
+    const target = referencedPath(file, data.reference);
+    const root = await workspaceOf(target);
+    if (root === null) {
+      throw new Error(`'${target}' liegt in keinem bekannten Workspace.`);
+    }
+    const to = await renameWithState(await workspacePath(root), target, data.name);
+    const reference = data.reference.trim().replace(/^<(.*)>$/, '$1');
+    const folder = reference.slice(0, reference.lastIndexOf('/') + 1);
+    const next = folder + basename(to);
+    return next.includes(' ') ? `<${next}>` : next;
   });
 
 /** Der Name für eine neue Abbildung zur Datei, etwa `abb-013`, gezählt im Workspace `root`. */

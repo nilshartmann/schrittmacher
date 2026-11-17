@@ -456,7 +456,7 @@ function FolderRows({ folder, depth, rows }: { folder: Folder; depth: number; ro
               open(`${root}/${file}`, root);
             }}
             onKeyDown={(event) => {
-              if (event.key === 'Enter' && !event.metaKey && !event.altKey && !event.ctrlKey && !event.shiftKey) {
+              if ((event.key === 'Enter' || event.key === 'F2') && !event.metaKey && !event.altKey && !event.ctrlKey && !event.shiftKey) {
                 // Sonst löst Enter einen Klick aus und öffnet die Datei.
                 event.preventDefault();
                 rows.onStartRename(file);
