@@ -398,7 +398,10 @@ export function MarkdownEditor({
         view.focus();
       },
     };
-    view.focus();
+    // Hat ein anderes Element den Fokus, etwa die Zeile im Baum nach einem Klick, bleibt er dort.
+    if (document.activeElement === null || document.activeElement === document.body) {
+      view.focus();
+    }
     // Der Strich folgt dem Rand der Zeilennummern, der mit der Zahl der Stellen breiter wird.
     const gutters = view.dom.querySelector('.cm-gutters');
     const measure = () => {

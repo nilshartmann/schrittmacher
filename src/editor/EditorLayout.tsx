@@ -5,7 +5,16 @@ import { ChevronIcon, ClockIcon, CloseIcon, PlusIcon } from '../viewer/Icons';
 import { Menu, MenuDivider, MenuItem, MenuNote, MenuSection } from '../viewer/Menu';
 import { Tooltips } from '../viewer/Tooltips';
 import { editSearch, useRequests } from '../viewer/useRequests';
-import { closeEditorFile, forgetRecent, loadRecent, loadWorkspace, newDraft, newWorkspaceFile, touchWorkspace } from './editor.functions';
+import {
+  closeEditorFile,
+  forgetRecent,
+  loadRecent,
+  loadWorkspace,
+  newDraft,
+  newWorkspaceFile,
+  renameEditorFile,
+  touchWorkspace,
+} from './editor.functions';
 import type { Draft, EditorFile, RecentEntry, WorkspaceListing } from './editor.functions';
 import { TreeFileIcon, TreeFolderIcon } from './TreeIcons';
 
@@ -183,6 +192,23 @@ function relativeTo(root: string, path: string | null): string | null {
   return path !== null && path.startsWith(`${root}/`) ? path.slice(root.length + 1) : null;
 }
 
+/** Was die Zeilen des Baums vom Baum brauchen, über alle Ebenen gleich. */
+interface TreeRows {
+  root: string;
+  /** Die offene Datei relativ zur Wurzel. */
+  current: string | null;
+  expanded: Set<string>;
+  onToggle: (folder: string) => void;
+  /** Die Datei relativ zur Wurzel, deren Name gerade bearbeitet wird. */
+  renaming: string | null;
+  onStartRename: (file: string) => void;
+  onCancelRename: () => void;
+  /** Benennt die Datei um; ein Fehler bleibt im Feld stehen. */
+  onRename: (file: string, name: string) => Promise<void>;
+  /** Die Datei, deren Zeile beim nächsten Erscheinen den Fokus bekommt. */
+  focusNext: RefObject<string | null>;
+}
+
 /** Ein Zeitpunkt wie `16.11., 14:32`. */
 function dateOf(millis: number): string {
   return new Date(millis).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
@@ -199,6 +225,10 @@ function WorkspaceTree({ root, current }: { root: string; current: string | null
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(() => storedExpanded(root));
   const [creating, setCreating] = useState<string | null>(null);
+  const [renaming, setRenaming] = useState<string | null>(null);
+  const focusNext = useRef<string | null>(null);
+  const dirty = useContext(DirtyContext);
+  const navigate = useNavigate();
   const currentRelative = relativeTo(root, current);
 
   const refresh = () => {
@@ -268,6 +298,42 @@ function WorkspaceTree({ root, current }: { root: string; current: string | null
     setCreating(folder);
   };
 
+  const rename = async (file: string, name: string) => {
+    const from = `${root}/${file}`;
+    const isCurrent = from === current;
+    if (isCurrent && dirty?.current === true && !window.confirm('Ungespeicherte Änderungen verwerfen? Gesichert sind sie trotzdem.')) {
+      setRenaming(null);
+      focusNext.current = file;
+      return;
+    }
+    const to = await renameEditorFile({ data: { root, path: from, name } });
+    const renamed = to.slice(root.length + 1);
+    // Der neue Name steht sofort im Baum, nicht erst nach der nächsten Frage an den Server.
+    setListing((before) => (before === null ? null : { ...before, files: before.files.map((other) => (other === file ? renamed : other)) }));
+    setRenaming(null);
+    focusNext.current = renamed;
+    if (isCurrent && to !== from) {
+      if (dirty !== null) {
+        dirty.current = false;
+      }
+      void navigate({ to: '/edit', search: editSearch(to, root) });
+    }
+  };
+  const rows: TreeRows = {
+    root,
+    current: currentRelative,
+    expanded,
+    onToggle: toggle,
+    renaming,
+    onStartRename: setRenaming,
+    onCancelRename: () => {
+      focusNext.current = renaming;
+      setRenaming(null);
+    },
+    onRename: rename,
+    focusNext,
+  };
+
   return (
     <nav className="editor-tree" style={{ width: `${String(TREE_WIDTH)}px` }} aria-label="Workspace">
       <div className="editor-tree-head">
@@ -302,7 +368,7 @@ function WorkspaceTree({ root, current }: { root: string; current: string | null
         {error !== null && <p className="editor-tree-error">{error}</p>}
         {drafts !== null && <DraftList drafts={drafts} root={root} current={currentRelative} />}
         {tree !== null && drafts === null && (
-          <FolderRows folder={tree} depth={0} root={root} current={currentRelative} expanded={expanded} onToggle={toggle} />
+          <FolderRows folder={tree} depth={0} rows={rows} />
         )}
         {listing?.truncated === true && <p className="editor-tree-note">Zu viele Dateien, der Baum ist unvollständig.</p>}
         {drafts !== null && drafts.length === 0 && <p className="editor-tree-note">Noch keine Entwürfe.</p>}
@@ -311,23 +377,14 @@ function WorkspaceTree({ root, current }: { root: string; current: string | null
   );
 }
 
-/** Die Zeilen eines Ordners im Baum: erst die Ordner, aufklappbar, dann die Dateien. */
-function FolderRows({
-  folder,
-  depth,
-  root,
-  current,
-  expanded,
-  onToggle,
-}: {
-  folder: Folder;
-  depth: number;
-  root: string;
-  current: string | null;
-  expanded: Set<string>;
-  onToggle: (folder: string) => void;
-}) {
+/**
+ * Die Zeilen eines Ordners im Baum: erst die Ordner, aufklappbar, dann die Dateien. Ein Klick auf
+ * eine Zeile gibt ihr den Fokus, wie im Explorer von VS Code. Enter auf einer Datei öffnet dann das
+ * Feld für ihren neuen Namen.
+ */
+function FolderRows({ folder, depth, rows }: { folder: Folder; depth: number; rows: TreeRows }) {
   const open = useOpen();
+  const { root, current, expanded, onToggle } = rows;
   const indent = { paddingLeft: `${String(TREE_START + depth * TREE_INDENT)}px` };
   return (
     <>
@@ -341,7 +398,9 @@ function FolderRows({
               style={indent}
               aria-expanded={isOpen}
               data-tip={child.path}
-              onClick={() => {
+              onClick={(event) => {
+                // Safari gibt einem Knopf beim Klick keinen Fokus.
+                event.currentTarget.focus();
                 onToggle(child.path);
               }}
             >
@@ -357,14 +416,7 @@ function FolderRows({
                 className="editor-tree-children"
                 style={{ ['--guide' as string]: `${String(TREE_START + depth * TREE_INDENT + TREE_TWISTIE / 2)}px` }}
               >
-                <FolderRows
-                  folder={child}
-                  depth={depth + 1}
-                  root={root}
-                  current={current}
-                  expanded={expanded}
-                  onToggle={onToggle}
-                />
+                <FolderRows folder={child} depth={depth + 1} rows={rows} />
               </div>
             )}
           </div>
@@ -372,16 +424,43 @@ function FolderRows({
       })}
       {folder.files.map((file) => {
         const name = file.slice(file.lastIndexOf('/') + 1);
+        if (file === rows.renaming) {
+          return (
+            <div key={file} className="editor-tree-row editor-tree-file" style={indent} aria-current={file === current ? 'true' : undefined}>
+              <span className="editor-tree-twistie" />
+              <TreeFileIcon name={name} />
+              <RenameField
+                initial={name}
+                onCancel={rows.onCancelRename}
+                onRename={(next) => rows.onRename(file, next)}
+              />
+            </div>
+          );
+        }
         return (
           <button
             key={file}
+            ref={(button) => {
+              if (button !== null && rows.focusNext.current === file) {
+                rows.focusNext.current = null;
+                button.focus();
+              }
+            }}
             type="button"
             className="editor-tree-row editor-tree-file"
             style={indent}
             aria-current={file === current ? 'true' : undefined}
             data-tip={file}
-            onClick={() => {
+            onClick={(event) => {
+              event.currentTarget.focus();
               open(`${root}/${file}`, root);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && !event.metaKey && !event.altKey && !event.ctrlKey && !event.shiftKey) {
+                // Sonst löst Enter einen Klick aus und öffnet die Datei.
+                event.preventDefault();
+                rows.onStartRename(file);
+              }
             }}
           >
             <span className="editor-tree-twistie" />
@@ -466,6 +545,91 @@ function NewFileField({
       />
       {error !== null && <p className="editor-tree-error">{error}</p>}
     </form>
+  );
+}
+
+/**
+ * Das Feld für den neuen Namen einer Datei im Baum, an der Stelle ihrer Zeile. Ausgewählt ist der
+ * Name ohne Endung. Enter und das Verlassen des Felds benennen um, Escape bricht ab.
+ */
+function RenameField({
+  initial,
+  onRename,
+  onCancel,
+}: {
+  initial: string;
+  onRename: (name: string) => Promise<void>;
+  onCancel: () => void;
+}) {
+  const [value, setValue] = useState(initial);
+  const [error, setError] = useState<string | null>(null);
+  const input = useRef<HTMLInputElement>(null);
+  const busy = useRef(false);
+  // Abgebrochen oder umbenannt: Ein Blur beim Verschwinden des Felds benennt nicht noch einmal um.
+  const done = useRef(false);
+  const cancel = () => {
+    done.current = true;
+    onCancel();
+  };
+  useEffect(() => {
+    const field = input.current;
+    if (field === null) {
+      return;
+    }
+    field.focus();
+    const dot = initial.lastIndexOf('.');
+    field.setSelectionRange(0, dot > 0 ? dot : initial.length);
+  }, []);
+  const submit = () => {
+    if (busy.current || done.current) {
+      return;
+    }
+    if (value.trim() === '' || value === initial) {
+      cancel();
+      return;
+    }
+    busy.current = true;
+    onRename(value).then(
+      () => {
+        busy.current = false;
+        done.current = true;
+      },
+      (failure: unknown) => {
+        busy.current = false;
+        setError(messageOf(failure));
+      },
+    );
+  };
+  return (
+    <span className="editor-tree-rename">
+      <input
+        ref={input}
+        className="editor-tree-input"
+        value={value}
+        aria-label="Neuer Name der Datei"
+        aria-invalid={error !== null}
+        onChange={(event) => {
+          setValue(event.target.value);
+          setError(null);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            submit();
+          } else if (event.key === 'Escape') {
+            event.preventDefault();
+            cancel();
+          }
+        }}
+        onBlur={() => {
+          // Nach einem Fehler bleibt das Feld offen, bis Escape abbricht.
+          if (error === null) {
+            submit();
+          }
+        }}
+      />
+      {error !== null && <span className="editor-tree-rename-error">{error}</span>}
+    </span>
   );
 }
 

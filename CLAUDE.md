@@ -59,7 +59,7 @@ Frag vor jeder Bibliothek, die über TanStack, React, Vite, Lezer, CodeMirror un
   Vortrags und pusht. In einer Werkstatt (`docs/werkstatt.md`) legt es Worktrees für `main` und
   `schritte` an und legt den Branch `probe` samt Worktree an, setzt ihn hart zurück oder entfernt
   ihn. Der Editor (`docs/editor.md`) schreibt die Datei beim Speichern, legt im Workspace neue
-  Dateien an und sichert ungespeicherten Text als Commit auf dem Branch `sicherung/<branch>`, ohne
+  Dateien an, benennt Dateien darin um und sichert ungespeicherten Text als Commit auf dem Branch `sicherung/<branch>`, ohne
   Worktree, Index oder `HEAD` anzufassen.
 - Fenstergröße zum Prüfen: 1194 × 764 pt (Sidecar abzüglich Menü- und Titelleiste der Web-App)
 - Bedienung mit Maus oder Trackpad des MacBooks, nicht mit dem Pencil; mit dem Finger wird nur

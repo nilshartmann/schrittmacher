@@ -1,4 +1,4 @@
-import { mkdir, open, readdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { mkdir, open, readdir, readFile, rename, stat, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { runGit } from '../git/process';
@@ -109,6 +109,14 @@ export function removeRecent(path: string): Promise<void> {
   return changeRecent((current) => ({
     workspaces: current.workspaces.filter((other) => other !== path),
     files: current.files.filter((other) => other !== path),
+  }));
+}
+
+/** Ersetzt in der Liste „Zuletzt geöffnet“ eine umbenannte Datei durch ihren neuen Pfad, an derselben Stelle. */
+export function renameRecent(from: string, to: string): Promise<void> {
+  return changeRecent((current) => ({
+    workspaces: current.workspaces,
+    files: current.files.filter((other) => other !== to).map((other) => (other === from ? to : other)),
   }));
 }
 
@@ -326,6 +334,37 @@ export async function createWorkspaceFile(root: string, relativePath: string): P
     throw error;
   }
   return path;
+}
+
+/**
+ * Benennt eine Datei im Workspace um, ohne sie in einen anderen Ordner zu verschieben. Der neue Name
+ * darf keinen Ordner enthalten, und eine andere Datei mit dem Namen bleibt unberührt. Eine Änderung
+ * nur der Groß- und Kleinschreibung geht trotzdem. Zurück kommt der neue absolute Pfad.
+ */
+export async function renameWorkspaceFile(root: string, from: string, name: string): Promise<string> {
+  const path = resolve(from);
+  if (!inside(path, root) || path === root) {
+    throw new Error(`'${from}' liegt nicht im Workspace.`);
+  }
+  const cleaned = name.trim();
+  if (cleaned === '' || cleaned === '.' || cleaned === '..' || cleaned.includes('/')) {
+    throw new Error(`'${name}' ist kein gültiger Dateiname.`);
+  }
+  const target = join(dirname(path), cleaned);
+  if (target === path) {
+    return path;
+  }
+  const source = await stat(path).catch(() => null);
+  if (source === null || !source.isFile()) {
+    throw new Error(`Die Datei '${relative(root, path)}' gibt es nicht.`);
+  }
+  const existing = await stat(target).catch(() => null);
+  // Auf dem Mac findet `stat` bei anderer Groß- und Kleinschreibung dieselbe Datei.
+  if (existing !== null && existing.ino !== source.ino) {
+    throw new Error(`Die Datei '${relative(root, target)}' gibt es schon.`);
+  }
+  await rename(path, target);
+  return target;
 }
 
 /** Ein Eintrag der Liste „Zuletzt geöffnet“, wie sie das Menü zeigt. */

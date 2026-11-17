@@ -29,6 +29,7 @@ Aufruf von Git (`runGit`), das Menü, die Tooltips und die Übergabe vom Kommand
 | Zuletzt geöffnete Workspaces und Dateien | Uhr links in der Kopfzeile |
 | Zur vorherigen Datei, mit jedem weiteren E eine weiter zurück | ⌘E, ⌘ gedrückt halten; ⇧E geht wieder vor, Loslassen von ⌘ öffnet, Escape bricht ab |
 | Neue Datei im Workspace, neuer Entwurf | Plus über dem Baum |
+| Datei im Baum umbenennen | Datei anklicken, dann Enter; Enter oder Klick daneben benennt um, Escape bricht ab |
 | Datei schließen | × rechts in der Kopfzeile |
 | Speichern | ⌘S |
 | Stand der Datei neu laden | Pfeil im Kreis in der Kopfzeile |
@@ -167,6 +168,12 @@ Repos.
 - Das Plus über dem Baum öffnet ein Feld für den Pfad einer neuen Datei, vorbelegt mit dem Ordner
   der offenen Datei. Enter legt sie an, Escape bricht ab. Ein Pfad wie `kapitel/03-zustand.md` legt
   fehlende Ordner mit an.
+- Ein Klick auf eine Zeile im Baum gibt ihr den Fokus, wie im Explorer von VS Code. Der Editor
+  übernimmt ihn erst nach einem Klick in den Text. Enter auf einer Datei öffnet ein Feld mit ihrem
+  Namen, in dem der Name ohne Endung ausgewählt ist. Umbenannt wird nur im selben Ordner, und eine
+  vorhandene Datei bleibt unberührt. Markierungen und der Eintrag in „Zuletzt geöffnet“ gehen mit.
+  Ist die Datei offen, öffnet sie sich unter dem neuen Namen, bei ungespeicherten Änderungen nach
+  einer Rückfrage.
 - Der Baum fragt alle paar Sekunden nach neuen Dateien. Die aufgeklappten Ordner merkt sich der
   Browser je Workspace.
 

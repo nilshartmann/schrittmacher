@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 import { createServerFn, createServerOnlyFn } from '@tanstack/react-start';
 import { imageTypeOf } from '../git/images';
@@ -22,6 +22,8 @@ import {
   nextFigureName,
   recentEntries,
   removeRecent,
+  renameRecent,
+  renameWorkspaceFile,
   saveImageBeside,
   workspaceOf,
   workspacePath,
@@ -266,6 +268,32 @@ export const newWorkspaceFile = createServerFn({ method: 'POST' })
       throw new Error('Der Pfad der neuen Datei fehlt.');
     }
     return createWorkspaceFile(await workspacePath(data.root), data.path);
+  });
+
+/**
+ * Benennt eine Datei im Workspace um, im selben Ordner. Ihre Markierungen und ihr Eintrag in
+ * „Zuletzt geöffnet“ gehen mit. Zurück kommt der neue absolute Pfad.
+ */
+export const renameEditorFile = createServerFn({ method: 'POST' })
+  .validator((data: { root: string; path: string; name: string }) => {
+    if (typeof data.path !== 'string' || typeof data.name !== 'string') {
+      throw new Error('Pfad oder neuer Name der Datei fehlen.');
+    }
+    return data;
+  })
+  .handler(async ({ data }): Promise<string> => {
+    const root = await workspacePath(data.root);
+    const from = await editorPath(data.path);
+    const to = await renameWorkspaceFile(root, from, data.name);
+    if (to !== from) {
+      await rename(highlightsFile(from), highlightsFile(to)).catch((error: unknown) => {
+        if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) {
+          throw error;
+        }
+      });
+      await renameRecent(from, to);
+    }
+    return to;
   });
 
 /** Der Name für eine neue Abbildung zur Datei, etwa `abb-013`, gezählt im Workspace `root`. */
