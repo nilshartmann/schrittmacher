@@ -4322,19 +4322,19 @@ span.info-parent {
 .editor-tree-scroll {
   flex: 1;
   min-height: 0;
-  padding: 6px;
+  padding: 4px 0;
   overflow: auto;
 }
 
 .editor-tree-row {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   width: 100%;
-  min-height: 22px;
-  padding: 0 6px;
+  min-height: 26px;
+  padding: 0 8px 0 4px;
   border: 0;
-  border-radius: 5px;
+  border-radius: 0;
   background: transparent;
   color: var(--ink);
   font-size: 13px;
@@ -4350,14 +4350,36 @@ span.info-parent {
   background: var(--selected);
 }
 
-.editor-tree-folder svg {
+/* Der Platz für den Pfeil eines Ordners; eine Datei lässt ihn frei, damit die Symbole untereinander stehen. */
+.editor-tree-twistie {
+  display: flex;
   flex: none;
-  color: var(--sign);
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  margin-right: -2px;
+  color: var(--ink);
 }
 
-/* Eine Datei steht so weit eingerückt wie der Name eines Ordners neben seinem Pfeil. */
-.editor-tree-file {
-  padding-left: 20px;
+.tree-icon {
+  flex: none;
+  color: var(--quiet);
+}
+
+/* Die Kinder eines offenen Ordners mit einer Linie unter seinem Pfeil, wie im Explorer von VS Code. */
+.editor-tree-children {
+  position: relative;
+}
+
+.editor-tree-children::before {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--guide);
+  width: 1px;
+  background: var(--line);
+  content: '';
+  pointer-events: none;
 }
 
 .editor-tree-label {
@@ -4371,8 +4393,7 @@ span.info-parent {
   flex-direction: column;
   align-items: stretch;
   gap: 0;
-  padding-top: 4px;
-  padding-bottom: 4px;
+  padding: 4px 12px;
 }
 
 .editor-tree-sub {

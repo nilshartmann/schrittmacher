@@ -7,12 +7,22 @@ import { Tooltips } from '../viewer/Tooltips';
 import { editSearch, useRequests } from '../viewer/useRequests';
 import { closeEditorFile, forgetRecent, loadRecent, loadWorkspace, newDraft, newWorkspaceFile, touchWorkspace } from './editor.functions';
 import type { Draft, EditorFile, RecentEntry, WorkspaceListing } from './editor.functions';
+import { TreeFileIcon, TreeFolderIcon } from './TreeIcons';
 
 /** Der Abstand der Fragen nach dem Inhalt des Workspace, in Millisekunden. */
 const TREE_INTERVAL = 3000;
 
 /** Die Breite des Baums in Pixeln. */
 const TREE_WIDTH = 260;
+
+/** Der Abstand der Zeilen ganz links vom Rand des Baums, in Pixeln. */
+const TREE_START = 4;
+
+/** Die Einrückung je Ebene des Baums, in Pixeln. */
+const TREE_INDENT = 16;
+
+/** Die Breite des Platzes für den Pfeil eines Ordners, in Pixeln. */
+const TREE_TWISTIE = 16;
 
 /** Unter diesem Schlüssel und der Wurzel merkt sich der Browser die aufgeklappten Ordner. */
 const EXPANDED_KEY = 'schrittmacher.editor.expanded:';
@@ -307,7 +317,7 @@ function FolderRows({
   onToggle: (folder: string) => void;
 }) {
   const open = useOpen();
-  const indent = { paddingLeft: `${String(8 + depth * 14)}px` };
+  const indent = { paddingLeft: `${String(TREE_START + depth * TREE_INDENT)}px` };
   return (
     <>
       {folder.folders.map((child) => {
@@ -319,41 +329,56 @@ function FolderRows({
               className="editor-tree-row editor-tree-folder"
               style={indent}
               aria-expanded={isOpen}
+              data-tip={child.path}
               onClick={() => {
                 onToggle(child.path);
               }}
             >
-              <ChevronIcon open={isOpen} size={10} />
+              <span className="editor-tree-twistie">
+                <ChevronIcon open={isOpen} size={12} />
+              </span>
+              <TreeFolderIcon />
               <span className="editor-tree-label">{child.name}</span>
             </button>
             {isOpen && (
-              <FolderRows
-                folder={child}
-                depth={depth + 1}
-                root={root}
-                current={current}
-                expanded={expanded}
-                onToggle={onToggle}
-              />
+              // Die Linie am Rand der Kinder steht unter dem Pfeil des Ordners.
+              <div
+                className="editor-tree-children"
+                style={{ ['--guide' as string]: `${String(TREE_START + depth * TREE_INDENT + TREE_TWISTIE / 2)}px` }}
+              >
+                <FolderRows
+                  folder={child}
+                  depth={depth + 1}
+                  root={root}
+                  current={current}
+                  expanded={expanded}
+                  onToggle={onToggle}
+                />
+              </div>
             )}
           </div>
         );
       })}
-      {folder.files.map((file) => (
-        <button
-          key={file}
-          type="button"
-          className="editor-tree-row editor-tree-file"
-          style={indent}
-          aria-current={file === current ? 'true' : undefined}
-          data-tip={file}
-          onClick={() => {
-            open(`${root}/${file}`, root);
-          }}
-        >
-          <span className="editor-tree-label">{file.slice(file.lastIndexOf('/') + 1)}</span>
-        </button>
-      ))}
+      {folder.files.map((file) => {
+        const name = file.slice(file.lastIndexOf('/') + 1);
+        return (
+          <button
+            key={file}
+            type="button"
+            className="editor-tree-row editor-tree-file"
+            style={indent}
+            aria-current={file === current ? 'true' : undefined}
+            data-tip={file}
+            onClick={() => {
+              open(`${root}/${file}`, root);
+            }}
+          >
+            <span className="editor-tree-twistie" />
+            <TreeFileIcon name={name} />
+            <span className="editor-tree-label">{name}</span>
+          </button>
+        );
+      })}
     </>
   );
 }
