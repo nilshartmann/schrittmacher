@@ -1,7 +1,7 @@
 import { useNavigate } from '@tanstack/react-router';
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode, RefObject } from 'react';
-import { ChevronIcon, ClockIcon, CloseIcon, PlusIcon } from '../viewer/Icons';
+import { ChevronIcon, ClockIcon, CloseIcon, FolderIcon, GitClientIcon, PlusIcon, TerminalIcon } from '../viewer/Icons';
 import { Menu, MenuDivider, MenuItem, MenuNote, MenuSection } from '../viewer/Menu';
 import { Tooltips } from '../viewer/Tooltips';
 import { editSearch, useRequests } from '../viewer/useRequests';
@@ -12,10 +12,11 @@ import {
   loadWorkspace,
   newDraft,
   newWorkspaceFile,
+  openWorkspaceIn,
   renameEditorFile,
   touchWorkspace,
 } from './editor.functions';
-import type { Draft, EditorFile, RecentEntry, WorkspaceListing } from './editor.functions';
+import type { Draft, EditorApp, EditorFile, RecentEntry, WorkspaceListing } from './editor.functions';
 import { TreeFileIcon, TreeFolderIcon } from './TreeIcons';
 
 /** Der Abstand der Fragen nach dem Inhalt des Workspace, in Millisekunden. */
@@ -340,6 +341,7 @@ function WorkspaceTree({ root, current }: { root: string; current: string | null
         <span className="editor-tree-name" data-tip={root}>
           {listing?.name ?? root.slice(root.lastIndexOf('/') + 1)}
         </span>
+        {drafts === null && <WorkspaceMenu root={root} />}
         <button
           type="button"
           className="bar-tool"
@@ -374,6 +376,55 @@ function WorkspaceTree({ root, current }: { root: string; current: string | null
         {drafts !== null && drafts.length === 0 && <p className="editor-tree-note">Noch keine Entwürfe.</p>}
       </div>
     </nav>
+  );
+}
+
+/** Die Programme im Menü des Workspace, in der Reihenfolge, in der sie dort stehen. */
+const WORKSPACE_APPS: { app: EditorApp; label: string; icon: ReactNode }[] = [
+  { app: 'fork', label: 'In Fork öffnen', icon: <GitClientIcon /> },
+  { app: 'forklift', label: 'In ForkLift öffnen', icon: <FolderIcon /> },
+  { app: 'iterm', label: 'In iTerm2 öffnen', icon: <TerminalIcon /> },
+];
+
+/**
+ * Das Menü neben dem Namen des Workspace: Es öffnet seinen Ordner in ForkLift und iTerm2, Fork
+ * öffnet das Repo darum. Scheitert das, bleibt das Menü mit der Meldung offen.
+ */
+function WorkspaceMenu({ root }: { root: string }) {
+  return (
+    <Menu
+      button={<ChevronIcon open size={12} />}
+      label="Workspace öffnen in"
+      tip="Workspace in Fork, ForkLift oder iTerm2 öffnen"
+      className="bar-tool"
+      panelClassName="editor-workspace-menu"
+    >
+      {(close) => <WorkspaceApps root={root} close={close} />}
+    </Menu>
+  );
+}
+
+function WorkspaceApps({ root, close }: { root: string; close: () => void }) {
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <>
+      <MenuSection>
+        {WORKSPACE_APPS.map(({ app, label, icon }) => (
+          <MenuItem
+            key={app}
+            main={label}
+            icon={icon}
+            onChoose={() => {
+              setError(null);
+              openWorkspaceIn({ data: { root, app } }).then(close, (failure: unknown) => {
+                setError(messageOf(failure));
+              });
+            }}
+          />
+        ))}
+      </MenuSection>
+      {error !== null && <MenuNote error>{error}</MenuNote>}
+    </>
   );
 }
 

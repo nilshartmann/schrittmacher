@@ -28,6 +28,7 @@ Aufruf von Git (`runGit`), das Menü, die Tooltips und die Übergabe vom Kommand
 | Nur Text, Text und Vorschau nebeneinander, nur Vorschau (bei Markdown) | „Text“, „Geteilt“, „Vorschau“ oder ⌘1 bis ⌘3 |
 | Zuletzt geöffnete Workspaces und Dateien | Uhr links in der Kopfzeile |
 | Zur vorherigen Datei, mit jedem weiteren E eine weiter zurück | ⌘E, ⌘ gedrückt halten; ⇧E geht wieder vor, Loslassen von ⌘ öffnet, Escape bricht ab |
+| Workspace in Fork (sein Repo), ForkLift oder iTerm2 öffnen | Pfeil neben dem Namen des Workspace |
 | Neue Datei im Workspace, neuer Entwurf | Plus über dem Baum |
 | Datei im Baum umbenennen | Datei anklicken, dann Enter oder F2; Enter oder Klick daneben benennt um, Escape bricht ab |
 | Datei hinter einem markierten Pfad umbenennen, etwa einem Bild | F2 |

@@ -59,14 +59,38 @@ export interface EditorFile {
 }
 
 /** Die Programme, in denen sich die Datei des Editors, ihr Ordner oder ihr Repo öffnen lässt. */
-export type EditorApp = 'forklift' | 'fork' | 'bbedit';
+export type EditorApp = 'forklift' | 'fork' | 'bbedit' | 'iterm';
 
 /** Der Name des Programms für `open -a` und was es öffnet. */
 const EDITOR_APPS: Record<EditorApp, { name: string; opens: 'folder' | 'repo' | 'file' }> = {
   forklift: { name: 'ForkLift', opens: 'folder' },
   fork: { name: 'Fork', opens: 'repo' },
   bbedit: { name: 'BBEdit', opens: 'file' },
+  iterm: { name: 'iTerm', opens: 'folder' },
 };
+
+/** Das Repo, in dem ein Ordner liegt, für Fork; ohne Repo ein Fehler. */
+async function repoOf(folder: string, what: string): Promise<string> {
+  const top = (await runGit(folder, ['rev-parse', '--show-toplevel']).catch(() => '')).trim();
+  if (top === '') {
+    throw new Error(`${what} liegt in keinem Repo.`);
+  }
+  return top;
+}
+
+/** Öffnet `target` mit `open -a` im Programm. */
+function openWith(app: EditorApp, target: string): Promise<void> {
+  const name = EDITOR_APPS[app].name;
+  return new Promise<void>((resolve, reject) => {
+    execFile('open', ['-a', name, target], (error, _stdout, stderr) => {
+      if (error !== null) {
+        reject(new Error(`${name} ließ sich nicht öffnen: ${stderr.trim() || error.message}`));
+        return;
+      }
+      resolve();
+    });
+  });
+}
 
 /** Der Ordner für Kopien außerhalb eines Repos: `sicherung` im Speicher. */
 function backupFolder(): string {
@@ -153,25 +177,25 @@ export const openEditorFileIn = createServerFn({ method: 'POST' })
   })
   .handler(async ({ data }): Promise<void> => {
     const path = await editorPath(data.path);
-    const app = EDITOR_APPS[data.app];
-    let target = path;
-    if (app.opens === 'folder') {
-      target = dirname(path);
-    } else if (app.opens === 'repo') {
-      target = (await runGit(dirname(path), ['rev-parse', '--show-toplevel']).catch(() => '')).trim();
-      if (target === '') {
-        throw new Error(`Die Datei liegt in keinem Repo.`);
-      }
+    const opens = EDITOR_APPS[data.app].opens;
+    const target = opens === 'folder' ? dirname(path) : opens === 'repo' ? await repoOf(dirname(path), 'Die Datei') : path;
+    await openWith(data.app, target);
+  });
+
+/**
+ * Öffnet den Ordner eines Workspace in einem Programm auf dem Mac: ForkLift und iTerm den Ordner
+ * selbst, Fork das Repo, in dem er liegt.
+ */
+export const openWorkspaceIn = createServerFn({ method: 'POST' })
+  .validator((data: { root: string; app: EditorApp }) => {
+    if (!(data.app in EDITOR_APPS) || EDITOR_APPS[data.app].opens === 'file') {
+      throw new Error(`Das Programm '${String(data.app)}' öffnet keinen Workspace.`);
     }
-    await new Promise<void>((resolve, reject) => {
-      execFile('open', ['-a', app.name, target], (error, _stdout, stderr) => {
-        if (error !== null) {
-          reject(new Error(`${app.name} ließ sich nicht öffnen: ${stderr.trim() || error.message}`));
-          return;
-        }
-        resolve();
-      });
-    });
+    return data;
+  })
+  .handler(async ({ data }): Promise<void> => {
+    const root = await workspacePath(data.root);
+    await openWith(data.app, EDITOR_APPS[data.app].opens === 'repo' ? await repoOf(root, 'Der Workspace') : root);
   });
 
 /** Schreibt den Text aus dem Editor in die Datei; gibt es sie noch nicht, entsteht sie mit ihrem Ordner. */

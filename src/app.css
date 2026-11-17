@@ -4309,7 +4309,7 @@ span.info-parent {
 }
 
 .editor-tree-name {
-  flex: 1;
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   color: var(--text-primary);
@@ -4317,6 +4317,15 @@ span.info-parent {
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Das Plus steht rechts, das Menü des Workspace direkt hinter seinem Namen. */
+.editor-tree-head > .bar-tool:last-child {
+  margin-left: auto;
+}
+
+.editor-workspace-menu {
+  width: 220px;
 }
 
 .editor-tree-scroll {
