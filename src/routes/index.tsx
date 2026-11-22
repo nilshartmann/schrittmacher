@@ -137,7 +137,7 @@ function Opened({ data, search }: { data: LoadedView | MissingData; search: View
       });
     }
   });
-  useRequests(tabs.openNew);
+  useRequests('viewer', tabs.openNew);
   useSaveView(view === null ? null : search);
 
   const tabBar = (
@@ -415,7 +415,7 @@ function useTabs(
 function NoView({ message }: { message?: string }) {
   const { show } = useOpen();
   // Auch ohne Tab öffnet das Kommando `schrittmacher <pfad>` einen.
-  useRequests(async (target) => {
+  useRequests('viewer', async (target) => {
     show(target);
   });
   return (

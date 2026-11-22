@@ -34,8 +34,8 @@ import { addRedirect, checkPath, checkUrl, isLive, qrSvg, readDomain, readTalks,
 import type { ShortlinkData, ShortlinkDomain } from './shortlink';
 import { checkSlidesName, openInAcrobat, slideRepoOf, suggestSlidesName, uploadSlides } from './slides';
 import type { SlideRepo, UploadResult } from './slides';
-import { requested } from './requests';
-import type { PageRequest } from './requests';
+import { requested, takeFor } from './requests';
+import type { PageRequest, WindowKind } from './requests';
 import { shared } from './shared';
 import { ADDABLE_BRANCHES, addWorktree, discardProbe, probePlan, setProbe, werkstattLabel, werkstattStatus } from './werkstatt';
 import type { AddableBranch, ProbePlan, WerkstattStatus } from './werkstatt';
@@ -1223,12 +1223,10 @@ export const requestTab = createServerOnlyFn(async (path: string): Promise<void>
   requested.next = { kind: 'tab', view };
 });
 
-/** Liefert die angeforderte Ansicht einmal und vergisst sie dann; ohne Anforderung `null`. */
-export const takeRequest = createServerFn({ method: 'POST' }).handler((): PageRequest | null => {
-  const next = requested.next;
-  requested.next = null;
-  return next;
-});
+/** Liefert dem fragenden Fenster die angeforderte Ansicht einmal, siehe `takeFor`. */
+export const takeRequest = createServerFn({ method: 'POST' })
+  .validator((data: { window: WindowKind }) => ({ window: data.window === 'editor' ? ('editor' as const) : ('viewer' as const) }))
+  .handler(({ data }): PageRequest | null => takeFor(data.window));
 
 /** Die gemerkten Ansichten, die neueste zuerst, mit ihren Teilen für die URL. */
 export const listViews = createServerFn({ method: 'GET' }).handler(async () =>

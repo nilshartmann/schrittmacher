@@ -192,7 +192,7 @@ function Frame({
 }) {
   const navigate = useNavigate();
   const [fontSize, setFontSize] = useState(storedFontSize);
-  useRequests(async (view) => {
+  useRequests('viewer', async (view) => {
     await navigate({ to: '/', search: view });
   });
   const changeFontSize = (step: number) => {

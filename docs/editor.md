@@ -67,6 +67,21 @@ Zwischen zwei Blöcken wird gleichmäßig verteilt. Ein Link auf eine andere Mar
 öffnet sie im Editor, bei ungespeicherten Änderungen nach einer Rückfrage. Anzeige, Folgen,
 Breiten, Verhältnis und Schriftgröße merkt sich der Browser.
 
+## Editor und Viewer in zwei Fenstern
+
+Mit ⌘N öffnet die Web-App ein zweites Fenster, etwa für eine Werkstatt im Viewer neben dem Artikel
+im Editor. Jedes Fenster sagt beim Abholen der Anforderungen, ob es Viewer oder Editor ist
+(`useRequests`, `src/server/requests.ts`). Danach verteilen sie sich so:
+
+- `schrittmacher edit …` geht an den Editor.
+- `schrittmacher <ordner>` und `schrittmacher <datei.md>` gehen an den Viewer.
+- Hat sich einige Sekunden lang kein Fenster der passenden Art gemeldet, nimmt das andere die
+  Anforderung und wechselt die Ansicht. Mit einem einzigen Fenster bleibt es deshalb beim
+  Wechsel.
+
+Gefragt wird auch im Hintergrund, damit ein verdecktes Fenster seine Anforderung bekommt. Nach vorn
+holt das Kommando nur das zuletzt benutzte Fenster der Web-App.
+
 ## Abbildungen einfügen
 
 Liegt ein Bild in der Zwischenablage, etwa ein Screenshot, fragt ⌘V in einer Markdown-Datei nach

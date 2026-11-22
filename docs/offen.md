@@ -21,16 +21,6 @@
 - Beim Öffnen einer Datei im Editor die neuere Sicherung anbieten, wenn sie vom Stand der Datei
   abweicht. Lädt Vite den Code neu, legt es den Editor neu an und holt den Text von der Platte;
   ungespeicherte Änderungen stehen dann nur noch in der Sicherung.
-- Viewer und Editor gleichzeitig in zwei Fenstern der Web-App, etwa eine Werkstatt im Viewer und
-  einen Artikel im Editor. Heute holen alle Fenster dieselbe Warteschlange ab (`useRequests`), und
-  jede Anforderung des Kommandos landet in dem Fenster, das als nächstes fragt. Der Editor wechselt
-  bei `schrittmacher <ordner>` sogar zum Viewer. Die Idee:
-  1. Beim Abholen sagt jedes Fenster, ob es Viewer oder Editor ist. `schrittmacher <ordner>` und
-     `schrittmacher <datei.md>` gehen an den Viewer, `schrittmacher edit …` an den Editor.
-  2. Hat sich einige Sekunden lang kein Fenster der passenden Art gemeldet, nimmt das andere die
-     Anforderung wie bisher und wechselt die Ansicht. Mit einem Fenster bleibt alles beim Alten.
-  3. Das zweite Fenster entsteht in der Web-App mit ⌘N, falls Safari-Web-Apps das können
-     (ungeprüft).
-  4. Später holt `schrittmacher` das passende Fenster nach vorn. Mit `open -a` kommt nur das
-     zuletzt benutzte nach vorn; ein bestimmtes geht über System Events mit Rechten für die
-     Bedienungshilfen.
+- Bei Viewer und Editor in zwei Fenstern (`docs/editor.md`) holt `schrittmacher` das passende
+  Fenster nach vorn. Mit `open -a` kommt nur das zuletzt benutzte nach vorn; ein bestimmtes geht
+  über System Events mit Rechten für die Bedienungshilfen.

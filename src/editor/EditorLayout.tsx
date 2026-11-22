@@ -108,7 +108,7 @@ export function CloseButton({ path, root }: { path: string; root: string | null 
  */
 export function EditorLayout({ root, current, children }: { root: string | null; current: string | null; children: ReactNode }) {
   const navigate = useNavigate();
-  useRequests(async (view) => {
+  useRequests('editor', async (view) => {
     await navigate({ to: '/', search: view });
   });
   const dirty = useRef(false);
