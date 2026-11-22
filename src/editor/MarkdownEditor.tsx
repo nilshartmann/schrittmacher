@@ -60,6 +60,27 @@ const highlightField = StateField.define<DecorationSet>({
 });
 
 /** Die Markierungen im Editor als Bereiche, sortiert und ohne leere. */
+/** Die Beschriftungen des Suchfelds von CodeMirror auf Deutsch. */
+const SUCHE_DEUTSCH = EditorState.phrases.of({
+  Find: 'Suchen',
+  Replace: 'Ersetzen',
+  next: 'Weiter',
+  previous: 'Zurück',
+  all: 'Alle',
+  'match case': 'Groß-/Kleinschreibung',
+  regexp: 'Regex',
+  'by word': 'Ganzes Wort',
+  replace: 'Ersetzen',
+  'replace all': 'Alle ersetzen',
+  close: 'Schließen',
+  'current match': 'Aktueller Treffer',
+  'on line': 'in Zeile',
+  'replaced $ matches': '$ Treffer ersetzt',
+  'replaced match on line $': 'Treffer in Zeile $ ersetzt',
+  'Go to line': 'Gehe zu Zeile',
+  go: 'Los',
+});
+
 function highlightsIn(state: EditorState): Highlight[] {
   const found: Highlight[] = [];
   const cursor = state.field(highlightField).iter();
@@ -327,6 +348,7 @@ export function MarkdownEditor({
           highlightField.init(() =>
             Decoration.set(normalized(highlights).map((range) => HIGHLIGHT_MARK.range(range.from, range.to))),
           ),
+          SUCHE_DEUTSCH,
           lineNumbers(),
           history(),
           drawSelection(),
