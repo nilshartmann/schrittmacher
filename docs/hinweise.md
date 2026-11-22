@@ -49,6 +49,12 @@ Hinweisen ab, je Aufruf mit Zeitstempel im Namen. Daneben liegt der Prompt, dem 
 nur für diesen Aufruf. Danach öffnet sich ein Fenster in iTerm, und Claude Code startet dort mit dem
 Prompt, der sofort abgeschickt wird. Lesen darf es den Ordner `claude` über `--add-dir`.
 
+Claude Code fragt bei jedem Start, ob es dem Ordner aus `--add-dir` vertraut, solange er nicht
+dauerhaft als vertrauenswürdig eingetragen ist. Ein „Yes“ in dieser Frage gilt nur für die Session.
+Einmal dauerhaft bestätigt wird es mit `cd ~/.config/schrittmacher && claude`, bei einem anderen
+Speicher (`SCHRITTMACHER_CONFIG`) in dessen Ordner. Das Vertrauen gilt dann auch für alle
+Unterordner und steht in `~/.claude.json`.
+
 Claude Code startet in einer Werkstatt im Worktree von `werkstatt`, weil es nur dort deren
 `CLAUDE.md` findet (`docs/werkstatt.md`), sonst im Worktree des Tabs.
 
