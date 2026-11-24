@@ -123,6 +123,8 @@ einem Codeblock der Vorschau aber nicht. Es gibt nur eine Art Markierung.
 
 Beim Tippen wandert eine Markierung mit dem Text mit. Text am Rand gehört nicht dazu, Text darin
 schon. Wird der markierte Text ganz gelöscht, verschwindet die Markierung.
+Beim Formatieren und beim Neuladen der Datei wird jede Markierung über ihren Text
+wiedergefunden, wie beim Öffnen. ⌘Z stellt danach Text und Markierungen zusammen wieder her.
 
 Die Markierungen liegen außerhalb der Datei unter
 `~/.config/schrittmacher/markierungen/<Pfad>.json`. Gespeichert werden sie kurz nach jeder

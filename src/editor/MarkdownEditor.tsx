@@ -1,4 +1,4 @@
-import { defaultKeymap, history, historyKeymap, indentWithTab, isolateHistory } from '@codemirror/commands';
+import { defaultKeymap, history, historyKeymap, indentWithTab, invertedEffects, isolateHistory } from '@codemirror/commands';
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
 import { highlightSelectionMatches, searchKeymap } from '@codemirror/search';
 import { EditorSelection, EditorState, StateEffect, StateField } from '@codemirror/state';
@@ -7,7 +7,7 @@ import type { DecorationSet } from '@codemirror/view';
 import { tags } from '@lezer/highlight';
 import { useEffect, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent, RefObject } from 'react';
-import { normalized, without } from './highlights';
+import { anchorsOf, normalized, resolveAnchors, without } from './highlights';
 import type { Highlight } from './highlights';
 import { languageFor } from './languages';
 
@@ -38,8 +38,23 @@ const HIGHLIGHT = HighlightStyle.define([
   { tag: tags.attributeName, color: 'var(--code-jsx-attribute)' },
 ]);
 
-/** Ersetzt alle Markierungen im Editor. */
-const setHighlights = StateEffect.define<Highlight[]>();
+/** Ersetzt alle Markierungen im Editor; spätere Änderungen am Text verschieben die Bereiche mit. */
+const setHighlights = StateEffect.define<Highlight[]>({
+  map: (value, mapping) =>
+    value
+      .map((range) => ({ from: mapping.mapPos(range.from, 1), to: mapping.mapPos(range.to, -1) }))
+      .filter((range) => range.to > range.from),
+});
+
+/**
+ * Ersetzt der Text alle Markierungen zugleich, etwa beim Formatieren, stellt ⌘Z die vorigen wieder
+ * her. Ein bloßes Markieren ohne Änderung am Text bleibt außerhalb des Verlaufs.
+ */
+const restoreHighlights = invertedEffects.of((transaction) =>
+  transaction.docChanged && transaction.effects.some((effect) => effect.is(setHighlights))
+    ? [setHighlights.of(highlightsIn(transaction.startState))]
+    : [],
+);
 
 /** Wie eine Markierung aussieht; getippter Text an ihrem Rand gehört nicht dazu. */
 const HIGHLIGHT_MARK = Decoration.mark({ class: 'cm-highlight' });
@@ -210,8 +225,16 @@ function replaceText(view: EditorView, next: string) {
   ) {
     end++;
   }
+  const changes = view.state.changes({ from: start, to: before.length - end, insert: next.slice(start, next.length - end) });
+  // Markierungen im ersetzten Bereich fielen sonst weg. Sie werden über ihren Text im neuen
+  // wiedergefunden, ausgehend von der Stelle, an die die Änderung ihren Anfang schiebt.
+  const anchors = anchorsOf(before, highlightsIn(view.state)).map((anchor) => ({
+    ...anchor,
+    from: changes.mapPos(anchor.from),
+  }));
   view.dispatch({
-    changes: { from: start, to: before.length - end, insert: next.slice(start, next.length - end) },
+    changes,
+    effects: setHighlights.of(resolveAnchors(next, anchors).found),
     // Ein eigener Schritt im Verlauf, auch wenn kurz davor getippt wurde.
     annotations: isolateHistory.of('full'),
   });
@@ -348,6 +371,7 @@ export function MarkdownEditor({
           highlightField.init(() =>
             Decoration.set(normalized(highlights).map((range) => HIGHLIGHT_MARK.range(range.from, range.to))),
           ),
+          restoreHighlights,
           SUCHE_DEUTSCH,
           lineNumbers(),
           history(),
