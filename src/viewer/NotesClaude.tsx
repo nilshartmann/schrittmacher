@@ -50,6 +50,7 @@ export function ClaudeDialog({
   load,
   start: startClaude,
   onClose,
+  promptLabel = 'Prompt, davor steht „Lies <Datei mit den Hinweisen>.“',
 }: {
   title: string;
   rows: { label: string; value: string }[];
@@ -57,6 +58,8 @@ export function ClaudeDialog({
   load: () => Promise<{ cwd: string; markdown: string }>;
   start: (prompt: string, markdown: string) => Promise<unknown>;
   onClose: () => void;
+  /** Die Beschriftung über dem Prompt, etwa wenn Schrittmacher danach noch etwas ergänzt. */
+  promptLabel?: string;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [cwd, setCwd] = useState<string | null>(null);
@@ -110,7 +113,7 @@ export function ClaudeDialog({
         ))}
       </dl>
       <label className="claude-field">
-        <span className="sync-label">Prompt, davor steht „Lies &lt;Datei mit den Hinweisen&gt;.“</span>
+        <span className="sync-label">{promptLabel}</span>
         <textarea
           rows={3}
           value={prompt}

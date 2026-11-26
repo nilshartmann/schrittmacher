@@ -4724,9 +4724,8 @@ span.info-parent {
 
 .md-editor .cm-note-gutter .cm-gutterElement {
   display: flex;
-  align-items: center;
-  height: 100%;
-  padding: 0 2px 0 4px;
+  align-items: flex-start;
+  padding: calc((1.55em - 16px) / 2) 2px 0 4px;
 }
 
 .cm-note-counts {
@@ -4780,6 +4779,11 @@ span.info-parent {
   background: var(--note-tint);
 }
 
+.md-editor .cm-comment-scope {
+  box-shadow: inset 3px 0 0 var(--comment);
+  background: var(--comment-tint);
+}
+
 .md-editor .cm-comment-range {
   border-bottom: 2px solid var(--comment);
   background: var(--comment-tint);
@@ -4799,4 +4803,54 @@ span.info-parent {
 .cm-note-tooltip .note-button {
   position: static;
   margin-top: 4px;
+}
+
+/* Die Anmerkungen von Claude oben in der Spalte, in Violett statt im Gelb der Hinweise */
+.comments {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.comments-heading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 2px 0;
+  color: var(--comment-ink);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.comments-count {
+  padding: 0 6px;
+  border-radius: 8px;
+  background: var(--comment-tint);
+  font-size: 11px;
+}
+
+.note.comment {
+  border-left-color: var(--comment);
+}
+
+.note.comment-focused {
+  background: var(--comment-tint);
+  box-shadow: 0 0 0 2px var(--comment-strong);
+}
+
+.comment-done {
+  margin-left: auto;
+}
+
+.comment-quote {
+  display: block;
+  margin: 4px 0;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--comment-tint);
+  color: var(--ink);
+  font-size: 12px;
 }

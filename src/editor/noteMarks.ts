@@ -26,7 +26,7 @@ export interface TextMark {
 /** Was der Editor zeigt: die Stellen und den gewählten oder überfahrenen Bezug. */
 export interface NoteLayer {
   marks: TextMark[];
-  scope: { from: number; to: number } | null;
+  scope: { from: number; to: number; kind: 'note' | 'comment' } | null;
 }
 
 /** Ersetzt, was der Editor an Hinweisen und Anmerkungen zeigt. */
@@ -37,6 +37,7 @@ export const setNoting = StateEffect.define<boolean>();
 
 const NOTE_LINE = Decoration.line({ class: 'cm-note-line' });
 const SCOPE_LINE = Decoration.line({ class: 'cm-note-scope' });
+const COMMENT_SCOPE_LINE = Decoration.line({ class: 'cm-comment-scope' });
 const COMMENT_RANGE = Decoration.mark({ class: 'cm-comment-range' });
 
 /** Die Zahlen am Rand einer Zeile: für Hinweise und für Anmerkungen, jeweils mit ihren Schlüsseln. */
@@ -99,7 +100,7 @@ function build(state: EditorState, layer: NoteLayer): { decorations: DecorationS
     byLine.set(mark.from, entry);
   }
   if (layer.scope !== null) {
-    lines(layer.scope.from, layer.scope.to, SCOPE_LINE);
+    lines(layer.scope.from, layer.scope.to, layer.scope.kind === 'note' ? SCOPE_LINE : COMMENT_SCOPE_LINE);
   }
   const sum = (marks: TextMark[]) => marks.reduce((total, mark) => total + mark.count, 0);
   const markers = [...byLine.entries()]

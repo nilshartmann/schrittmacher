@@ -1,6 +1,8 @@
-import { randomBytes, randomUUID } from 'node:crypto';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { copyFile, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { commentOf } from '../notes/markdownComments';
+import type { MdComment, MdComments } from '../notes/markdownComments';
 import { isMdNote, mdMarkdownOf } from '../notes/markdownNotes';
 import type { MdNote, MdNoteInput, MdNotes } from '../notes/markdownNotes';
 import { isRecord } from '../notes/notes';
@@ -13,6 +15,14 @@ const IMAGE_ENDINGS: ReadonlyMap<string, string> = new Map([
   ['image/gif', 'gif'],
   ['image/webp', 'webp'],
 ]);
+
+/** So viele Sicherungen der Anmerkungen bleiben je Datei liegen. */
+const COMMENT_BACKUPS = 20;
+
+/** Die `id` einer Anmerkung aus ihrem Inhalt; gleicher Inhalt hat dieselbe. */
+function commentId(comment: Omit<MdComment, 'id'>): string {
+  return createHash('sha1').update(JSON.stringify([comment.quote, comment.before, comment.text])).digest('hex').slice(0, 12);
+}
 
 /** So groß darf ein eingefügtes Bild höchstens sein, in Bytes. */
 const IMAGE_LIMIT = 25 * 1024 * 1024;
@@ -68,9 +78,74 @@ export function createMarkdownNotes(dir: string) {
     return next;
   }
 
+  // Die Anmerkungen von Claude liegen unter `claude`, weil Claude Code nur diesen Ordner über
+  // `--add-dir` erreicht, siehe `docs/editor.md`.
+  const commentsFolder = join(dir, 'hinweise', 'claude', 'anmerkungen');
+  const commentsFile = (path: string) => join(commentsFolder, `${baseName(path)}.json`);
+
+  /** Die Einträge der Datei mit den Anmerkungen, wie Claude sie geschrieben hat; ohne Datei `null`. */
+  async function readComments(path: string): Promise<{ raw: unknown[]; changed: number } | null> {
+    const file = commentsFile(path);
+    const found = await stat(file).catch(() => null);
+    if (found === null) {
+      return null;
+    }
+    const raw = JSON.parse(await readFile(file, 'utf8')) as unknown;
+    return { raw: isRecord(raw) && Array.isArray(raw.comments) ? raw.comments : [], changed: found.mtimeMs };
+  }
+
+  async function loadComments(path: string): Promise<MdComments> {
+    const file = commentsFile(path);
+    try {
+      const read = await readComments(path);
+      const comments = (read?.raw ?? [])
+        .map(commentOf)
+        .filter((comment) => comment !== null)
+        .map((comment) => ({ ...comment, id: commentId(comment) }));
+      return { comments, file, changed: read?.changed ?? null, error: null };
+    } catch (error) {
+      const changed = (await stat(file).catch(() => null))?.mtimeMs ?? null;
+      return { comments: [], file, changed, error: `Die Anmerkungen lassen sich nicht lesen: ${String(error)}` };
+    }
+  }
+
   return {
     load,
     textOf,
+    commentsFile,
+    loadComments,
+    /** Die letzte Änderung der Datei mit den Anmerkungen; `null`, solange es sie nicht gibt. */
+    commentsChanged: async (path: string) => (await stat(commentsFile(path)).catch(() => null))?.mtimeMs ?? null,
+    /** Verwirft eine Anmerkung als erledigt; die übrigen bleiben, wie Claude sie geschrieben hat. */
+    dismissComment: async (path: string, id: string): Promise<MdComments> => {
+      const read = await readComments(path);
+      if (read !== null) {
+        const rest = read.raw.filter((entry) => {
+          const comment = commentOf(entry);
+          return comment === null || commentId(comment) !== id;
+        });
+        await writeAtomically(commentsFile(path), `${JSON.stringify({ file: path, comments: rest }, null, 2)}\n`);
+      }
+      return loadComments(path);
+    },
+    /**
+     * Sichert die Anmerkungen vor einer neuen Prüfung unter `sicherung` mit Zeitstempel und entfernt
+     * sie danach, damit der Editor bis zum Ergebnis keine alten zeigt. Je Datei bleiben die letzten
+     * Sicherungen liegen.
+     */
+    backupComments: async (path: string): Promise<void> => {
+      const file = commentsFile(path);
+      if ((await stat(file).catch(() => null)) === null) {
+        return;
+      }
+      const backups = join(commentsFolder, 'sicherung');
+      await mkdir(backups, { recursive: true });
+      const prefix = `${baseName(path)}-`;
+      await copyFile(file, join(backups, `${prefix}${stampOf(new Date())}.json`));
+      await rm(file);
+      const old = (await readdir(backups)).filter((name) => name.startsWith(prefix) && name.endsWith('.json')).sort();
+      await Promise.all(old.slice(0, -COMMENT_BACKUPS).map((name) => rm(join(backups, name))));
+    },
     /** Legt einen Hinweis an oder ändert den mit derselben `id`. */
     save: (path: string, input: MdNoteInput) =>
       update(path, (notes) => {

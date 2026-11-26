@@ -18,7 +18,9 @@ Kommando werden. Die Seite hat deshalb keinen Weg zu den Tabs. Alle Teile liegen
 - `backup.ts`: die automatische Sicherung
 - `format.ts`: das Formatieren mit Prettier
 - `highlights.ts`: das Speichern und Wiederfinden der Markierungen
-- `noteMarks.ts`: Hinweise im Text, also Zahlen am Rand, unterlegte Stellen und der Knopf „Hinweis“
+- `noteMarks.ts`: Hinweise und Anmerkungen im Text, also Zahlen am Rand, unterlegte Stellen und der
+  Knopf „Hinweis“
+- `Comments.tsx`: die Anmerkungen von Claude, ihr Abfragen und ihre Liste in der Spalte
 
 Aus dem Rest von Schrittmacher nutzt der Editor die gerenderte Vorschau (`MarkdownView`), den
 Aufruf von Git (`runGit`), das Menü, die Tooltips, die Übergabe vom Kommando (`useRequests`) und
@@ -125,7 +127,41 @@ ungespeichert. Neu geladen werden die Hinweise beim Speichern.
 …“ der Hinweise, beginnt aber mit dem Auftrag, die Datei wie in einem Review zu prüfen und die
 Hinweise dabei zu berücksichtigen. Gibt es ungespeicherte Änderungen, fragt der Editor vorher, ob er
 speichern soll, weil Claude die Datei von der Platte liest. Claude Code startet in iTerm im Worktree
-der Datei, ohne Repo in ihrem Ordner, und antwortet dort.
+der Datei, ohne Repo in ihrem Ordner.
+
+Hinter den Prompt setzt Schrittmacher, wohin Claude seine Anmerkungen schreibt und in welchem Format.
+Dieser Teil steht nicht im Dialog, damit sich das Format nicht versehentlich ändert
+(`commentsFormat` in `src/notes/markdownComments.ts`). Nach dem Start blendet der Editor die
+Hinweise ein.
+
+### Anmerkungen von Claude
+
+Claude schreibt seine Anmerkungen als JSON in eine Datei je Markdown-Datei. Jede Anmerkung besteht
+aus drei Teilen:
+
+- `quote`: der zitierte Text aus der Datei, leer für eine Anmerkung zur ganzen Datei
+- `before`: ein Stück Text direkt davor, damit sich ein Zitat zuordnen lässt, das mehrmals vorkommt
+- `text`: die Anmerkung als Markdown
+
+Der Editor fragt alle anderthalb Sekunden, ob sich die Datei geändert hat. Die Anmerkungen erscheinen
+deshalb, sobald Claude sie geschrieben hat. Sie stehen oben in der Spalte der Hinweise, in Violett
+statt in Gelb. Im Text ist jedes Zitat violett unterstrichen, und am Rand steht eine violette Zahl.
+Ein Klick auf die Zahl hebt die Anmerkung in der Spalte hervor, ein Klick auf ihren Kopf setzt den
+Cursor an die Stelle. Der Haken verwirft eine Anmerkung als erledigt.
+
+Wiedergefunden wird ein Zitat wörtlich im Text des Editors, auch ungespeichert. Fehlt es wörtlich,
+wird es ohne Leerraum am Rand gesucht. Steht es mehrmals da, gilt die Stelle, vor der am meisten von
+`before` übereinstimmt. Lässt es sich nicht finden, bleibt die Anmerkung mit „Stelle nicht gefunden“
+in der Spalte.
+
+Eine neue Prüfung ersetzt die bisherigen Anmerkungen. Vor dem Start von Claude legt der Server sie
+mit Zeitstempel unter `sicherung` ab und entfernt sie, damit bis zum Ergebnis keine alten zu sehen
+sind. Je Datei bleiben die letzten 20 Sicherungen liegen. Wiederherstellen geht vorerst nur von Hand.
+
+Die Anmerkungen liegen unter `~/.config/schrittmacher/hinweise/claude/anmerkungen/`, die Sicherungen
+im Unterordner `sicherung`. Der Name ist derselbe wie bei den Hinweisen der Datei. Sie liegen nicht
+neben den Hinweisen unter `hinweise/markdown`, weil Claude Code über `--add-dir` nur den Ordner
+`claude` erreicht.
 
 ## Abbildungen einfügen
 

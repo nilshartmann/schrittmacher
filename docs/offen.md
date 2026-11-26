@@ -29,3 +29,10 @@
 - Bei Viewer und Editor in zwei Fenstern (`docs/editor.md`) holt `schrittmacher` das passende
   Fenster nach vorn. Mit `open -a` kommt nur das zuletzt benutzte nach vorn; ein bestimmtes geht
   über System Events mit Rechten für die Bedienungshilfen.
+- Anmerkungen von Claude im Editor nach dem ersten Schritt (`docs/editor.md`):
+  - eine Sicherung der Anmerkungen über ein Menü wiederherstellen
+  - auf eine Anmerkung antworten und die Antwort an Claude geben, oder sie als Hinweis übernehmen
+  - einen Vorschlag für den neuen Wortlaut mit einem Klick übernehmen
+  - Arten von Anmerkungen, etwa Fehler, Stil oder Sprache
+  - Prüfung ohne Terminal im Hintergrund mit `claude -p`
+  - Prüfung aus einer laufenden Claude-Session über einen Skill, der das Format kennt

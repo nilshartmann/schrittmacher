@@ -11,6 +11,7 @@ import { changedAt, findRepos, foldersOf } from '../git/repos';
 import { branchScopeOf } from '../git/scope';
 import type { RepoEntry, RepoFolder } from '../git/repos';
 import type { SyncAction } from '../git/types';
+import { commentsFormat } from '../notes/markdownComments';
 import { mdMarkdownOf, mdNoteInputOf } from '../notes/markdownNotes';
 import { markdownOf, noteInputOf } from '../notes/notes';
 import { isOpenApp, openClaude, openIn, openInBrowser, openInPowerPoint } from './apps';
@@ -1045,6 +1046,42 @@ export const openMarkdownNotesInClaude = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     const path = await markdownPath(data.path);
     const saved = await (await markdownNotesStore()).forClaude(path, data.markdown, data.prompt);
+    await openClaude(await markdownClaudeFolder(path), { promptFile: saved.promptFile, addDir: saved.dir });
+    return saved.file;
+  });
+
+/** Die Anmerkungen von Claude zu einer Markdown-Datei, siehe `docs/editor.md`. */
+export const loadMarkdownComments = createServerFn({ method: 'GET' })
+  .validator((data: { path: string }) => ({ path: text(data.path, 'path') }))
+  .handler(async ({ data }) => (await markdownNotesStore()).loadComments(await markdownPath(data.path)));
+
+/** Die letzte Änderung der Anmerkungen zu einer Markdown-Datei; `null`, solange es keine gibt. */
+export const markdownCommentsChanged = createServerFn({ method: 'GET' })
+  .validator((data: { path: string }) => ({ path: text(data.path, 'path') }))
+  .handler(async ({ data }) => (await markdownNotesStore()).commentsChanged(await markdownPath(data.path)));
+
+/** Verwirft eine Anmerkung als erledigt und liefert die übrigen. */
+export const dismissMarkdownComment = createServerFn({ method: 'POST' })
+  .validator((data: { path: string; id: string }) => ({ path: text(data.path, 'path'), id: text(data.id, 'id') }))
+  .handler(async ({ data }) => (await markdownNotesStore()).dismissComment(await markdownPath(data.path), data.id));
+
+/**
+ * Startet eine Prüfung durch Claude: sichert die bisherigen Anmerkungen und entfernt sie, legt die
+ * Hinweise aus dem Dialog als eigene Datei ab und startet Claude Code mit dem Prompt. Hinter den
+ * Prompt setzt Schrittmacher, wohin und in welchem Format Claude die Anmerkungen schreibt.
+ */
+export const openMarkdownReviewInClaude = createServerFn({ method: 'POST' })
+  .validator((data: { path: string; prompt: string; markdown: string }) => ({
+    path: text(data.path, 'path'),
+    prompt: text(data.prompt, 'prompt'),
+    markdown: text(data.markdown, 'markdown'),
+  }))
+  .handler(async ({ data }) => {
+    const path = await markdownPath(data.path);
+    const store = await markdownNotesStore();
+    await store.backupComments(path);
+    const prompt = `${data.prompt.trim()}\n\n${commentsFormat(path, store.commentsFile(path))}`;
+    const saved = await store.forClaude(path, data.markdown, prompt);
     await openClaude(await markdownClaudeFolder(path), { promptFile: saved.promptFile, addDir: saved.dir });
     return saved.file;
   });

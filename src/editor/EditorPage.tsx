@@ -2,7 +2,7 @@ import { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { marksOf, placeScopeOf, scopeLabel, sectionScopeAt } from '../notes/markdownNotes';
 import type { MdMark, MdScope } from '../notes/markdownNotes';
-import { markdownNotesForClaude, openMarkdownNotesInClaude } from '../server/repo.functions';
+import { markdownNotesForClaude, openMarkdownReviewInClaude } from '../server/repo.functions';
 import { CopyIcon, HoverTools } from '../viewer/HoverTools';
 import { CheckMarkIcon, ClaudeIcon, FetchIcon, FolderIcon, GitClientIcon, NoteIcon, PencilIcon } from '../viewer/Icons';
 import { MarkdownView, fileScope } from '../viewer/Markdown';
@@ -18,6 +18,7 @@ import {
   saveEditorHighlights,
 } from './editor.functions';
 import type { EditorApp, EditorFile } from './editor.functions';
+import { CommentList, commentTextMarks, locateComments, useMarkdownComments } from './Comments';
 import { CloseButton, DirtyContext, RecentMenu, useOpen } from './EditorLayout';
 import { FigureDialog } from './FigureDialog';
 import { RenameDialog } from './RenameDialog';
@@ -77,13 +78,14 @@ const NOTES_WIDTH = { initial: 360, min: 260, max: 720, key: 'schrittmacher.edit
 /** So lange bleiben die Hinweise einer angeklickten Zahl am Rand hervorgehoben, in Millisekunden. */
 const FOCUS_DURATION = 1600;
 
-/** Der Prompt, mit dem der Dialog „Von Claude prüfen“ beginnt; davor setzt der Server den Auftrag, die Hinweise zu lesen. */
+/**
+ * Der Prompt, mit dem der Dialog „Von Claude prüfen“ beginnt. Davor setzt der Server den Auftrag, die
+ * Hinweise zu lesen, danach Ort und Format der Anmerkungen.
+ */
 function reviewPrompt(path: string): string {
   return [
     `Prüf die Datei ${path} wie in einem Review: Inhalt, Aufbau, Verständlichkeit und Sprache.`,
     'Berücksichtige dabei die Hinweise.',
-    'Antworte mit deinen Anmerkungen, jeweils mit der Stelle, auf die sie sich beziehen.',
-    'Ändere die Datei nicht.',
   ].join(' ');
 }
 
@@ -314,12 +316,21 @@ export function EditorPage({ file, root }: { file: EditorFile; root: string | nu
   const [resizingNotes, setResizingNotes] = useState(false);
   const [reviewing, setReviewing] = useState(false);
   const noteMarks = useMemo(() => (noting ? marksOf(notes.notes, edited) : []), [noting, notes.notes, edited]);
-  const toggleNoting = () => {
-    setNotingChosen(!notingChosen);
-    store(NOTING_KEY, String(!notingChosen));
+  // Die Anmerkungen von Claude kommen auch bei ausgeblendeten Hinweisen an; gezeigt werden sie mit ihnen.
+  const comments = useMarkdownComments(file.path, markdown && exists);
+  const located = useMemo(() => (noting ? locateComments(comments.comments, edited) : []), [noting, comments.comments, edited]);
+  const [commentLines, setCommentLines] = useState<{ from: number; to: number } | null>(null);
+  const [commentPreview, setCommentPreview] = useState<{ from: number; to: number } | null>(null);
+  const changeNoting = (next: boolean) => {
+    setNotingChosen(next);
+    store(NOTING_KEY, String(next));
     setScope(null);
     setPreview(null);
     setDraft(null);
+    setCommentLines(null);
+  };
+  const toggleNoting = () => {
+    changeNoting(!notingChosen);
   };
   const startDraft = (next: MdScope) => {
     setScope(next);
@@ -343,12 +354,18 @@ export function EditorPage({ file, root }: { file: EditorFile; root: string | nu
   // Der Text zeigt die Zahlen am Rand und den gewählten Bezug; der Knopf „Hinweis“ fehlt, solange
   // ein neuer Hinweis offen ist.
   useEffect(() => {
-    const shown = preview ?? draft ?? scope;
+    const shownNote = preview ?? (commentPreview === null ? (draft ?? scope) : null);
+    const shownComment = commentPreview ?? commentLines;
     editor.current?.setNoteLayer({
-      marks: noteTextMarks(noteMarks),
-      scope: shown === null ? null : { from: shown.from, to: shown.to },
+      marks: [...noteTextMarks(noteMarks), ...commentTextMarks(located)],
+      scope:
+        shownNote !== null
+          ? { from: shownNote.from, to: shownNote.to, kind: 'note' }
+          : shownComment === null
+            ? null
+            : { ...shownComment, kind: 'comment' },
     });
-  }, [noteMarks, preview, draft, scope]);
+  }, [noteMarks, located, preview, commentPreview, draft, scope, commentLines]);
   useEffect(() => {
     editor.current?.setNoting(noting && draft === null);
   }, [noting, draft]);
@@ -362,12 +379,22 @@ export function EditorPage({ file, root }: { file: EditorFile; root: string | nu
     }
   };
   const showNoteMark = (keys: string[]) => {
+    const commentIds = keys.filter((key) => key.startsWith('comment:')).map((key) => key.slice('comment:'.length));
+    if (commentIds.length > 0) {
+      const first = located.find((entry) => commentIds.includes(entry.comment.id));
+      setFocused(commentIds);
+      setScope(null);
+      setCommentLines(first?.lines ?? null);
+      document.querySelector(`[data-comment-id="${commentIds[0] ?? ''}"]`)?.scrollIntoView({ block: 'center' });
+      return;
+    }
     const mark = noteMarks.find((entry) => keys.includes(entry.key));
     if (mark === undefined) {
       return;
     }
     setFocused(mark.ids);
     setScope(mark.scope);
+    setCommentLines(null);
     document.querySelector(`[data-note-id="${mark.ids[0] ?? ''}"]`)?.scrollIntoView({ block: 'center' });
   };
   const openReview = async () => {
@@ -742,7 +769,9 @@ export function EditorPage({ file, root }: { file: EditorFile; root: string | nu
               onClick={toggleNoting}
             >
               <NoteIcon />
-              {noting && notes.notes.length > 0 && <span>{notes.notes.length}</span>}
+              {noting && notes.notes.length + comments.comments.length > 0 && (
+                <span>{notes.notes.length + comments.comments.length}</span>
+              )}
             </button>
           )}
           <div className="font-size" role="group" aria-label="Schriftgröße">
@@ -902,23 +931,47 @@ export function EditorPage({ file, root }: { file: EditorFile; root: string | nu
             file={fileScope(edited)}
             onDraft={startDraft}
             onDraftDone={endDraft}
-            onScope={setScope}
+            onScope={(next) => {
+              setScope(next);
+              setCommentLines(null);
+            }}
             onPreview={setPreview}
             onShow={(line) => {
               editor.current?.revealLine(line);
             }}
             emptyHint="Noch keine Hinweise. Text auswählen und auf „Hinweis“ klicken oder ⌘⌥K drücken, in einer Überschrift ohne Auswahl für den Abschnitt. Das Symbol oben gilt für die ganze Datei."
             style={{ width: `${String(notesWidth)}px` }}
-          />
+          >
+            <CommentList
+              located={located}
+              focused={focused}
+              error={comments.error}
+              onShow={(entry) => {
+                setScope(null);
+                setCommentLines(entry.lines);
+                editor.current?.revealLine(entry.lines?.from ?? 1);
+              }}
+              onPreview={setCommentPreview}
+              onDismiss={comments.dismiss}
+            />
+          </MarkdownNotesColumn>
         )}
       </div>
       {reviewing && (
         <ClaudeDialog
           title="Von Claude prüfen"
-          rows={[{ label: 'Datei', value: file.path }]}
+          rows={[
+            { label: 'Datei', value: file.path },
+            { label: 'Anmerkungen', value: comments.file },
+          ]}
+          promptLabel="Prompt, davor steht „Lies <Datei mit den Hinweisen>.“, danach Ort und Format der Anmerkungen"
           initialPrompt={reviewPrompt(file.path)}
           load={() => markdownNotesForClaude({ data: { path: file.path } })}
-          start={(prompt, markdownText) => openMarkdownNotesInClaude({ data: { path: file.path, prompt, markdown: markdownText } })}
+          start={async (prompt, markdownText) => {
+            await openMarkdownReviewInClaude({ data: { path: file.path, prompt, markdown: markdownText } });
+            // Die Anmerkungen erscheinen in der Spalte, sobald Claude sie geschrieben hat.
+            changeNoting(true);
+          }}
           onClose={() => {
             setReviewing(false);
           }}
