@@ -1,7 +1,8 @@
 # Hinweise zu Markdown-Dateien
 
 In der Markdown-Ansicht unter `/markdown` entstehen Hinweise zu einer Datei. Gesammelt gehen sie an
-Claude Code, ähnlich wie die Hinweise zu Commits (`docs/hinweise.md`).
+Claude Code, ähnlich wie die Hinweise zu Commits (`docs/hinweise.md`). Der Editor zeigt dieselben
+Hinweise und legt sie auf eigenen Wegen an (`docs/editor.md`).
 
 ## Bedienung
 

@@ -4,8 +4,8 @@ Der Editor auf Basis von CodeMirror 6 hat die eigene Seite `/edit`. Sein Schwerp
 bearbeiten lässt sich aber jede Textdatei. Geöffnet wird eine Datei oder ein Workspace mit
 `schrittmacher edit` oder eine Markdown-Datei über den Stift in der Markdown-Ansicht unter
 `/markdown`. Fachlich hängt er nicht vom Rest von Schrittmacher ab und soll später ein eigenes
-Kommando werden. Die Seite hat deshalb keinen Weg zu den Tabs und kennt keine Hinweise. Alle Teile
-liegen unter `src/editor/`:
+Kommando werden. Die Seite hat deshalb keinen Weg zu den Tabs. Alle Teile liegen unter
+`src/editor/`:
 
 - `EditorLayout.tsx`: der Rahmen mit dem Baum eines Workspace und dem Menü „Zuletzt geöffnet“, das
   er mit dem Viewer teilt (`src/viewer/RecentMenu.tsx`)
@@ -18,10 +18,13 @@ liegen unter `src/editor/`:
 - `backup.ts`: die automatische Sicherung
 - `format.ts`: das Formatieren mit Prettier
 - `highlights.ts`: das Speichern und Wiederfinden der Markierungen
+- `noteMarks.ts`: Hinweise im Text, also Zahlen am Rand, unterlegte Stellen und der Knopf „Hinweis“
 
 Aus dem Rest von Schrittmacher nutzt der Editor die gerenderte Vorschau (`MarkdownView`), den
 Aufruf von Git (`runGit`), das Menü, die Tooltips, die Übergabe vom Kommando (`useRequests`) und
-das gemeinsame Menü „Zuletzt geöffnet“ mit Projekten und Ansichten des Viewers.
+das gemeinsame Menü „Zuletzt geöffnet“ mit Projekten und Ansichten des Viewers. Dazu kommen die
+Hinweise zu Markdown-Dateien mit ihrer Spalte und dem Dialog für Claude (`src/viewer/MarkdownNotes.tsx`,
+`src/viewer/NotesClaude.tsx`).
 
 ## Bedienung
 
@@ -45,6 +48,9 @@ das gemeinsame Menü „Zuletzt geöffnet“ mit Projekten und Ansichten des Vie
 | Breite ändern | Strich neben den Zeilennummern ziehen, Escape bricht ab |
 | Normale oder volle Breite | „Normal“ und „Voll“ in der Kopfzeile, bei „Geteilt“ nur „Voll“ |
 | Verhältnis von Text und Vorschau | Trenner zwischen beiden ziehen, Doppelklick halbiert |
+| Hinweise ein- und ausblenden (bei Markdown) | Sprechblase in der Kopfzeile |
+| Hinweis zur Auswahl oder, in einer Überschrift ohne Auswahl, zum Abschnitt | Knopf „Hinweis“ oder ⌘⌥K |
+| Datei von Claude prüfen lassen (bei Markdown) | „Prüfen …“ in der Kopfzeile |
 
 Beim Ziehen am Strich zeigt eine graue Fläche die neue Breite und wie viele Zeichen in eine Zeile
 des Texts passen. Bei „Geteilt“ gilt die Breite für Text und Vorschau zusammen. Der Trenner
@@ -83,6 +89,43 @@ im Editor. Jedes Fenster sagt beim Abholen der Anforderungen, ob es Viewer oder 
 
 Gefragt wird auch im Hintergrund, damit ein verdecktes Fenster seine Anforderung bekommt. Nach vorn
 holt das Kommando nur das zuletzt benutzte Fenster der Web-App.
+
+## Hinweise
+
+Zu einer Markdown-Datei zeigt der Editor dieselben Hinweise wie die Markdown-Ansicht
+(`docs/markdown-hinweise.md`). Sie liegen am selben Ort, ein Hinweis aus der einen Ansicht steht
+also auch in der anderen. Die Sprechblase in der Kopfzeile blendet sie ein und aus, die Zahl daneben
+nennt alle Hinweise der Datei. Der Browser merkt sich die Einstellung. Eine neue Datei bekommt
+Hinweise erst nach dem ersten Speichern.
+
+Eingeblendet stehen die Hinweise rechts in einer eigenen Spalte, neben Text und Vorschau. Der
+Trenner links davon ändert ihre Breite, ein Doppelklick stellt sie zurück. Im Text steht links der
+Zeilennummern je Stelle die Zahl ihrer Hinweise. Die Zeilen einer Stelle sind dezent unterlegt,
+Abschnitte und die ganze Datei haben dagegen eine hohle Zahl ohne Unterlegung. Ein Klick auf die
+Zahl hebt die Hinweise in der Spalte hervor und unterlegt die Stelle kräftiger. Ein Klick auf den
+Kopf eines Hinweises setzt den Cursor an seine Stelle.
+
+Ein neuer Hinweis entsteht auf drei Wegen:
+
+- Text auswählen: Am Ende der Auswahl erscheint der Knopf „Hinweis“, alternativ gilt ⌘⌥K. Der
+  Hinweis bezieht sich auf die ganzen Zeilen. Deckt die Auswahl sie nicht ganz ab, steht der
+  ausgewählte Teil unter „Markiert“.
+- Cursor in eine Überschrift setzen, ohne Auswahl: Derselbe Knopf und ⌘⌥K legen einen Hinweis zum
+  Abschnitt an. Der Knopf erscheint erst, wenn der Cursor dorthin bewegt wurde, nicht beim Öffnen
+  und nicht beim Tippen.
+- Sprechblase oben in der Spalte: Sie legt einen Hinweis zur ganzen Datei an.
+
+Die Bezüge „Absatz“, „Listenpunkt“, „Codeblock“ und „Zitat“ entstehen nur in der Markdown-Ansicht,
+erscheinen aber auch im Editor. Wiedergefunden wird eine Stelle im Text des Editors, auch
+ungespeichert. Neu geladen werden die Hinweise beim Speichern.
+
+### Prüfen durch Claude
+
+„Prüfen …“ in der Kopfzeile öffnet den Dialog „Von Claude prüfen“. Er gleicht dem Dialog „In Claude
+…“ der Hinweise, beginnt aber mit dem Auftrag, die Datei wie in einem Review zu prüfen und die
+Hinweise dabei zu berücksichtigen. Gibt es ungespeicherte Änderungen, fragt der Editor vorher, ob er
+speichern soll, weil Claude die Datei von der Platte liest. Claude Code startet in iTerm im Worktree
+der Datei, ohne Repo in ihrem Ordner, und antwortet dort.
 
 ## Abbildungen einfügen
 

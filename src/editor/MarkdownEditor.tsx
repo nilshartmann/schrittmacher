@@ -10,6 +10,8 @@ import type { PointerEvent as ReactPointerEvent, RefObject } from 'react';
 import { anchorsOf, normalized, resolveAnchors, without } from './highlights';
 import type { Highlight } from './highlights';
 import { languageFor } from './languages';
+import { noteMarks, setNoteLayer, setNoting } from './noteMarks';
+import type { NoteLayer } from './noteMarks';
 
 /** Die Farben des Texts, aus denselben Variablen wie die Hervorhebung im Diff, für Markdown und Code. */
 const HIGHLIGHT = HighlightStyle.define([
@@ -167,6 +169,12 @@ export interface EditorHandle {
    * wo sie als Ziel eines Links `](…)` steht. Alles zusammen ist ein Schritt für ⌘Z.
    */
   replaceReference: (reference: Reference, next: string) => void;
+  /** Ersetzt, was der Text an Hinweisen und Anmerkungen zeigt. */
+  setNoteLayer: (layer: NoteLayer) => void;
+  /** Schaltet den Knopf „Hinweis“ an der Auswahl ein und aus. */
+  setNoting: (enabled: boolean) => void;
+  /** Setzt den Cursor an den Anfang der Zeile, gezählt ab 1, und scrollt sie in die Mitte. */
+  revealLine: (line: number) => void;
 }
 
 /** Eine markierte Referenz auf eine Datei, etwa `abb-002.png` in einem Bild. */
@@ -311,6 +319,8 @@ export function MarkdownEditor({
   onSave,
   onPasteImage,
   onRenameReference,
+  onNoteRequest,
+  onNoteMark,
 }: {
   /** Der Pfad der Datei; seine Endung bestimmt die Hervorhebung. */
   path: string;
@@ -341,6 +351,10 @@ export function MarkdownEditor({
   onPasteImage?: (image: File) => void;
   /** F2 mit einer Auswahl in einer Zeile: Die Auswahl ist eine Referenz auf eine Datei zum Umbenennen. */
   onRenameReference?: (reference: Reference) => void;
+  /** Der Knopf „Hinweis“ oder ⌘⌥K mit der Auswahl, aus der ein neuer Hinweis entstehen soll. */
+  onNoteRequest?: (selection: { from: number; to: number }) => void;
+  /** Ein Klick auf eine Zahl am Rand, mit den Schlüsseln ihrer Stellen. */
+  onNoteMark?: (keys: string[]) => void;
 }) {
   const frame = useRef<HTMLDivElement>(null);
   const host = useRef<HTMLDivElement>(null);
@@ -348,8 +362,8 @@ export function MarkdownEditor({
   const [edge, setEdge] = useState<Edge | null>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
   // Die Rückrufe ändern sich mit jedem Rendern, der Editor wird aber nur einmal angelegt.
-  const callbacks = useRef({ onChange, onSave, onFormat, onCursor, onHighlights, onPasteImage, onRenameReference });
-  callbacks.current = { onChange, onSave, onFormat, onCursor, onHighlights, onPasteImage, onRenameReference };
+  const callbacks = useRef({ onChange, onSave, onFormat, onCursor, onHighlights, onPasteImage, onRenameReference, onNoteRequest, onNoteMark });
+  callbacks.current = { onChange, onSave, onFormat, onCursor, onHighlights, onPasteImage, onRenameReference, onNoteRequest, onNoteMark };
   useEffect(() => {
     if (host.current === null) {
       return;
@@ -373,6 +387,15 @@ export function MarkdownEditor({
           ),
           restoreHighlights,
           SUCHE_DEUTSCH,
+          // Vor den Zeilennummern, damit die Zahlen der Hinweise ganz links stehen.
+          noteMarks({
+            onRequest: (selection) => {
+              callbacks.current.onNoteRequest?.(selection);
+            },
+            onMark: (keys) => {
+              callbacks.current.onNoteMark?.(keys);
+            },
+          }),
           lineNumbers(),
           history(),
           drawSelection(),
@@ -482,6 +505,16 @@ export function MarkdownEditor({
       insert: (text) => {
         view.dispatch(view.state.replaceSelection(text));
         view.focus();
+      },
+      setNoteLayer: (layer) => {
+        view.dispatch({ effects: setNoteLayer.of(layer) });
+      },
+      setNoting: (enabled) => {
+        view.dispatch({ effects: setNoting.of(enabled) });
+      },
+      revealLine: (line) => {
+        const pos = view.state.doc.line(Math.min(view.state.doc.lines, Math.max(1, line))).from;
+        view.dispatch({ selection: { anchor: pos }, effects: EditorView.scrollIntoView(pos, { y: 'center' }) });
       },
       replaceReference: (reference, next) => {
         const doc = view.state.doc.toString();

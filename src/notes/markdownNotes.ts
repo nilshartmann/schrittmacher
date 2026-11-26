@@ -129,6 +129,112 @@ function sectionEnd(lines: string[], start: number, level: number): number {
   return end;
 }
 
+/** Die Ebene einer Überschrift mit `#` in einer Zeile; `null` für eine andere Zeile. */
+function headingLevelOf(line: string): number | null {
+  const found = /^#{1,6}(?=\s|$)/.exec(line);
+  return found === null ? null : found[0].length;
+}
+
+/** Der Text einer Überschrift ohne `#` und ohne die gängigen Zeichen für Hervorhebung und Code. */
+function headingTextOf(line: string): string {
+  return line
+    .replace(/^#{1,6}\s*/, '')
+    .replace(/\s+#+\s*$/, '')
+    .replace(/[*_`]/g, '')
+    .trim();
+}
+
+/** Die Überschriften im Quelltext außerhalb von Codeblöcken, mit Zeile ab 1, Ebene und Text. */
+function headingsIn(lines: string[]): { line: number; level: number; text: string }[] {
+  const headings: { line: number; level: number; text: string }[] = [];
+  let fence = false;
+  lines.forEach((line, index) => {
+    if (/^\s*(```|~~~)/.test(line)) {
+      fence = !fence;
+      return;
+    }
+    const level = fence ? null : headingLevelOf(line);
+    if (level !== null) {
+      headings.push({ line: index + 1, level, text: headingTextOf(line) });
+    }
+  });
+  return headings;
+}
+
+/** Die Überschriften, unter denen eine Zeile steht, von außen nach innen, mit ihr selbst. */
+function headingPathAt(lines: string[], line: number): string[] {
+  const path: { level: number; text: string }[] = [];
+  for (const heading of headingsIn(lines)) {
+    if (heading.line > line) {
+      break;
+    }
+    while ((path.at(-1)?.level ?? 0) >= heading.level) {
+      path.pop();
+    }
+    path.push(heading);
+  }
+  return path.map((heading) => heading.text);
+}
+
+/** Text ohne Unterschiede im Leerraum, damit sich Markierung und Zeilen vergleichen lassen. */
+function squeezed(text: string): string {
+  return text.replace(/\s+/g, ' ').trim();
+}
+
+/** Ob die Zeile, gezählt ab 1, eine Überschrift mit `#` außerhalb eines Codeblocks ist. */
+export function isHeadingLine(text: string, line: number): boolean {
+  return headingsIn(text.split('\n')).some((heading) => heading.line === line);
+}
+
+/**
+ * Der Abschnitt ab der Überschrift in Zeile `line` bis vor die nächste gleicher oder höherer Ebene,
+ * wie ihn der Editor aus dem Quelltext bildet; `null`, wenn dort keine Überschrift steht.
+ */
+export function sectionScopeAt(text: string, line: number): MdScope | null {
+  const lines = text.split('\n');
+  const heading = headingsIn(lines).find((entry) => entry.line === line);
+  if (heading === undefined) {
+    return null;
+  }
+  const to = sectionEnd(lines, line - 1, heading.level);
+  return {
+    kind: 'section',
+    path: headingPathAt(lines, line),
+    from: line,
+    to,
+    marked: null,
+    source: lines.slice(line - 1, to).join('\n'),
+  };
+}
+
+/**
+ * Die Stelle zu einer Auswahl im Quelltext, mit `from` und `to` als Positionen von Zeichen. Sie
+ * umfasst ganze Zeilen; deckt die Auswahl sie nicht ganz ab, steht der ausgewählte Teil in `marked`.
+ * Endet die Auswahl am Anfang einer Zeile, etwa nach einem Dreifachklick, zählt diese Zeile nicht.
+ * `null` für eine Auswahl nur aus Leerraum.
+ */
+export function placeScopeOf(text: string, from: number, to: number): MdScope | null {
+  const selected = text.slice(from, to);
+  if (selected.trim() === '') {
+    return null;
+  }
+  const lines = text.split('\n');
+  const lineAt = (position: number) => text.slice(0, position).split('\n').length;
+  const first = lineAt(from);
+  const end = to > from && text[to - 1] === '\n' ? to - 1 : to;
+  const last = Math.max(first, lineAt(end));
+  const source = lines.slice(first - 1, last).join('\n');
+  const marked = squeezed(selected);
+  return {
+    kind: 'place',
+    path: headingPathAt(lines, first),
+    from: first,
+    to: last,
+    marked: marked === squeezed(source) ? null : marked,
+    source,
+  };
+}
+
 /**
  * Wo ein Bezug im aktuellen Text steht. Passt der Quelltext nicht mehr an seine Zeilen, zählt die
  * nächste Stelle mit demselben Quelltext. Ein Abschnitt wird über seine Überschrift gefunden, weil

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { locateScope, mdNoteHeading, scopeLabel, scopeLines } from '../notes/markdownNotes';
 import type { MdNote, MdNoteInput, MdNotes, MdScope } from '../notes/markdownNotes';
 import {
@@ -114,9 +115,10 @@ function scrollToLine(from: number): void {
 }
 
 /**
- * Die Hinweise als Spalte rechts der Markdown-Ansicht: oben das Feld für einen neuen Hinweis,
- * darunter die Hinweise der Reihe nach, unten die gesammelte Markdown-Datei. Siehe
- * `docs/markdown-hinweise.md`.
+ * Die Hinweise als Spalte rechts der Markdown-Ansicht oder des Editors: oben das Feld für einen
+ * neuen Hinweis, darunter die Hinweise der Reihe nach, unten die gesammelte Markdown-Datei. Siehe
+ * `docs/markdown-hinweise.md`. Der Editor zeigt eine Stelle selbst (`onShow`), setzt einen eigenen
+ * Text für die leere Spalte und stellt mit `children` die Anmerkungen von Claude über die Hinweise.
  */
 export function MarkdownNotesColumn({
   path,
@@ -130,6 +132,10 @@ export function MarkdownNotesColumn({
   onDraftDone,
   onScope,
   onPreview,
+  onShow = scrollToLine,
+  emptyHint = 'Noch keine Hinweise. Text markieren und auf „Hinweis“ klicken oder links neben einem Block das Symbol nehmen. Das Symbol oben gilt für die ganze Datei.',
+  style,
+  children,
 }: {
   path: string;
   name: string;
@@ -143,6 +149,11 @@ export function MarkdownNotesColumn({
   onDraftDone: () => void;
   onScope: (scope: MdScope | null) => void;
   onPreview: (scope: MdScope | null) => void;
+  /** Zeigt die Stelle eines Hinweises ab seiner ersten Zeile. */
+  onShow?: (from: number) => void;
+  emptyHint?: string;
+  style?: CSSProperties;
+  children?: ReactNode;
 }) {
   const [height, setHeight] = useState<number | null>(null);
   const [showGenerated, setShowGenerated] = useState(false);
@@ -156,7 +167,7 @@ export function MarkdownNotesColumn({
     .map((note) => ({ note, where: locateScope(note, text) }))
     .sort((a, b) => (a.where?.from ?? Infinity) - (b.where?.from ?? Infinity) || a.note.created.localeCompare(b.note.created));
   return (
-    <aside className="notes-column md-notes" aria-label="Hinweise">
+    <aside className="notes-column md-notes" aria-label="Hinweise" style={style}>
       <div className="notes-bar">
         <span className="notes-heading">Hinweise</span>
         <button
@@ -183,6 +194,7 @@ export function MarkdownNotesColumn({
         </button>
       </div>
       <div className="notes-list">
+        {children}
         {draft !== null && (
           <article className="note note-draft">
             <div className="note-top">
@@ -216,16 +228,14 @@ export function MarkdownNotesColumn({
             onRemove={store.remove}
             onScope={onScope}
             onPreview={onPreview}
+            onShow={onShow}
             onClaude={() => {
               setClaude({ id: note.id });
             }}
           />
         ))}
         {located.length === 0 && draft === null && (
-          <p className="notes-empty">
-            Noch keine Hinweise. Text markieren und auf „Hinweis“ klicken oder links neben einem Block das Symbol nehmen. Das
-            Symbol oben gilt für die ganze Datei.
-          </p>
+          <p className="notes-empty">{emptyHint}</p>
         )}
       </div>
       {store.error !== null && <p className="notes-error">{store.error}</p>}
@@ -280,6 +290,7 @@ function MdNoteCard({
   onRemove,
   onScope,
   onPreview,
+  onShow,
   onClaude,
 }: {
   note: MdNote;
@@ -293,6 +304,7 @@ function MdNoteCard({
   onRemove: (id: string) => Promise<void>;
   onScope: (scope: MdScope | null) => void;
   onPreview: (scope: MdScope | null) => void;
+  onShow: (from: number) => void;
   onClaude: () => void;
 }) {
   const [editing, setEditing] = useState(false);
@@ -318,7 +330,7 @@ function MdNoteCard({
             if (current !== null) {
               onPreview(null);
               onScope(current);
-              scrollToLine(current.from);
+              onShow(current.from);
             }
           }}
         >

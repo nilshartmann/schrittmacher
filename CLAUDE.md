@@ -62,7 +62,9 @@ Frag vor jeder Bibliothek, die über TanStack, React, Vite, Lezer, CodeMirror un
   ihn. Der Editor (`docs/editor.md`) schreibt die Datei beim Speichern, legt im Workspace neue
   Dateien an, benennt Dateien darin um und sichert ungespeicherten Text als Commit auf dem Branch `sicherung/<branch>`, ohne
   Worktree, Index oder `HEAD` anzufassen.
-- Fenstergröße zum Prüfen: 1194 × 764 pt (Sidecar abzüglich Menü- und Titelleiste der Web-App)
+- Fenstergröße zum Prüfen: 1194 × 764 pt für den Commit-Viewer (Sidecar abzüglich Menü- und
+  Titelleiste der Web-App), 1728 × 1050 pt für Editor und Markdown-Ansicht (MacBook abzüglich
+  Menü- und Titelleiste)
 - Bedienung mit Maus oder Trackpad des MacBooks, nicht mit dem Pencil; mit dem Finger wird nur
   gescrollt.
 - Farben des Diffs, Symbole der Dateiarten und Zeilennummern wie in Fork

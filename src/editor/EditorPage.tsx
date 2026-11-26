@@ -1,8 +1,13 @@
-import { useContext, useEffect, useRef, useState } from 'react';
+import { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
+import { marksOf, placeScopeOf, scopeLabel, sectionScopeAt } from '../notes/markdownNotes';
+import type { MdMark, MdScope } from '../notes/markdownNotes';
+import { markdownNotesForClaude, openMarkdownNotesInClaude } from '../server/repo.functions';
 import { CopyIcon, HoverTools } from '../viewer/HoverTools';
-import { CheckMarkIcon, FetchIcon, FolderIcon, GitClientIcon, PencilIcon } from '../viewer/Icons';
-import { MarkdownView } from '../viewer/Markdown';
+import { CheckMarkIcon, ClaudeIcon, FetchIcon, FolderIcon, GitClientIcon, NoteIcon, PencilIcon } from '../viewer/Icons';
+import { MarkdownView, fileScope } from '../viewer/Markdown';
+import { MarkdownNotesColumn, useMarkdownNotes } from '../viewer/MarkdownNotes';
+import { ClaudeDialog } from '../viewer/NotesClaude';
 import {
   backupEditorText,
   editorFileChanged,
@@ -22,6 +27,7 @@ import { isMarkdownPath } from './languages';
 import { MarkdownEditor } from './MarkdownEditor';
 import { anchorsOf, lineForTop, topForLine } from './scrollSync';
 import type { EditorHandle, Reference } from './MarkdownEditor';
+import type { TextMark } from './noteMarks';
 
 /** Die Schriftgröße in Pixeln, mit ihren Grenzen; gemerkt wird sie im Browser. */
 const FONT_SIZE = { initial: 16, min: 12, max: 28, key: 'schrittmacher.editor.fontSize' };
@@ -61,6 +67,39 @@ const HIGHLIGHT_SAVE_DELAY = 800;
 
 /** So lange zeigt die Kopfzeile nach einer Sicherung, wohin sie ging, in Millisekunden. */
 const BACKUP_FLASH = 4000;
+
+/** Unter diesem Schlüssel merkt sich der Browser, ob die Hinweise eingeblendet sind. */
+const NOTING_KEY = 'schrittmacher.editor.noting';
+
+/** Die Breite der Spalte mit den Hinweisen in Pixeln, mit ihren Grenzen; gemerkt wird sie im Browser. */
+const NOTES_WIDTH = { initial: 360, min: 260, max: 720, key: 'schrittmacher.editor.notesWidth' };
+
+/** So lange bleiben die Hinweise einer angeklickten Zahl am Rand hervorgehoben, in Millisekunden. */
+const FOCUS_DURATION = 1600;
+
+/** Der Prompt, mit dem der Dialog „Von Claude prüfen“ beginnt; davor setzt der Server den Auftrag, die Hinweise zu lesen. */
+function reviewPrompt(path: string): string {
+  return [
+    `Prüf die Datei ${path} wie in einem Review: Inhalt, Aufbau, Verständlichkeit und Sprache.`,
+    'Berücksichtige dabei die Hinweise.',
+    'Antworte mit deinen Anmerkungen, jeweils mit der Stelle, auf die sie sich beziehen.',
+    'Ändere die Datei nicht.',
+  ].join(' ');
+}
+
+/** Die Zahlen am Rand für die Hinweise, wie sie der Text zeigt. */
+function noteTextMarks(marks: MdMark[]): TextMark[] {
+  return marks.map((mark) => ({
+    key: mark.key,
+    kind: 'note',
+    lane: mark.lane,
+    from: mark.scope.from,
+    to: mark.scope.to,
+    count: mark.ids.length,
+    tip: `${mark.ids.length === 1 ? '1 Hinweis' : `${String(mark.ids.length)} Hinweise`}: ${scopeLabel(mark.scope.kind)}`,
+    range: null,
+  }));
+}
 
 /** Die Breite der Textfläche. */
 type EditorWidth = number | 'full';
@@ -131,6 +170,11 @@ function storedWidth(key: string, min: number, fallback: EditorWidth): EditorWid
   return value !== null && width >= min ? width : fallback;
 }
 
+function storedNotesWidth(): number {
+  const value = Number(stored(NOTES_WIDTH.key));
+  return value >= NOTES_WIDTH.min && value <= NOTES_WIDTH.max ? value : NOTES_WIDTH.initial;
+}
+
 function storedRatio(): number {
   const value = Number(stored(SPLIT_RATIO.key));
   return value >= SPLIT_RATIO.min && value <= SPLIT_RATIO.max ? value : SPLIT_RATIO.initial;
@@ -180,8 +224,9 @@ function messageOf(error: unknown): string {
 /**
  * Der Editor für eine Textdatei unter `/edit`, mit Speichern, automatischer Sicherung und
  * Formatieren (`docs/editor.md`). Eine Markdown-Datei zeigt Text, Vorschau oder beides
- * nebeneinander, jede andere nur den Text. Die Seite hängt nicht an den Tabs von Schrittmacher und
- * kennt keine Hinweise. `root` ist der Workspace, in dem die Datei offen ist.
+ * nebeneinander, jede andere nur den Text. Zu einer Markdown-Datei zeigt eine Spalte rechts die
+ * Hinweise, dieselben wie in der Markdown-Ansicht. Die Seite hängt nicht an den Tabs von
+ * Schrittmacher. `root` ist der Workspace, in dem die Datei offen ist.
  */
 export function EditorPage({ file, root }: { file: EditorFile; root: string | null }) {
   const open = useOpen();
@@ -256,6 +301,81 @@ export function EditorPage({ file, root }: { file: EditorFile; root: string | nu
   const [pastedImage, setPastedImage] = useState<File | null>(null);
   // Die markierte Referenz, deren Datei der Dialog nach F2 umbenennt.
   const [renaming, setRenaming] = useState<Reference | null>(null);
+
+  // Hinweise gibt es nur zu einer Markdown-Datei, die schon gespeichert ist.
+  const [notingChosen, setNotingChosen] = useState(() => stored(NOTING_KEY) === 'true');
+  const noting = markdown && exists && notingChosen;
+  const notes = useMarkdownNotes(file.path, saved, noting);
+  const [scope, setScope] = useState<MdScope | null>(null);
+  const [preview, setPreview] = useState<MdScope | null>(null);
+  const [draft, setDraft] = useState<MdScope | null>(null);
+  const [focused, setFocused] = useState<string[]>([]);
+  const [notesWidth, setNotesWidth] = useState(storedNotesWidth);
+  const [resizingNotes, setResizingNotes] = useState(false);
+  const [reviewing, setReviewing] = useState(false);
+  const noteMarks = useMemo(() => (noting ? marksOf(notes.notes, edited) : []), [noting, notes.notes, edited]);
+  const toggleNoting = () => {
+    setNotingChosen(!notingChosen);
+    store(NOTING_KEY, String(!notingChosen));
+    setScope(null);
+    setPreview(null);
+    setDraft(null);
+  };
+  const startDraft = (next: MdScope) => {
+    setScope(next);
+    setDraft(next);
+  };
+  const endDraft = () => {
+    setDraft(null);
+    setScope(null);
+  };
+  useEffect(() => {
+    if (focused.length === 0) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      setFocused([]);
+    }, FOCUS_DURATION);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [focused]);
+  // Der Text zeigt die Zahlen am Rand und den gewählten Bezug; der Knopf „Hinweis“ fehlt, solange
+  // ein neuer Hinweis offen ist.
+  useEffect(() => {
+    const shown = preview ?? draft ?? scope;
+    editor.current?.setNoteLayer({
+      marks: noteTextMarks(noteMarks),
+      scope: shown === null ? null : { from: shown.from, to: shown.to },
+    });
+  }, [noteMarks, preview, draft, scope]);
+  useEffect(() => {
+    editor.current?.setNoting(noting && draft === null);
+  }, [noting, draft]);
+  const requestNote = (selection: { from: number; to: number }) => {
+    const next =
+      selection.from === selection.to
+        ? sectionScopeAt(edited, edited.slice(0, selection.from).split('\n').length)
+        : placeScopeOf(edited, selection.from, selection.to);
+    if (next !== null && draft === null) {
+      startDraft(next);
+    }
+  };
+  const showNoteMark = (keys: string[]) => {
+    const mark = noteMarks.find((entry) => keys.includes(entry.key));
+    if (mark === undefined) {
+      return;
+    }
+    setFocused(mark.ids);
+    setScope(mark.scope);
+    document.querySelector(`[data-note-id="${mark.ids[0] ?? ''}"]`)?.scrollIntoView({ block: 'center' });
+  };
+  const openReview = async () => {
+    if (dirty && window.confirm('Claude liest die Datei, wie sie gespeichert ist. Vorher speichern?')) {
+      await save();
+    }
+    setReviewing(true);
+  };
   const changeMode = (next: Mode) => {
     if (!markdown) {
       return;
@@ -599,6 +719,32 @@ export function EditorPage({ file, root }: { file: EditorFile; root: string | nu
             </div>
           )}
           {mode === 'split' && <WidthControl width={splitWidth} normal={null} onChange={changeSplitWidth} />}
+          {markdown && exists && (
+            <button
+              type="button"
+              className="md-noting editor-review"
+              data-tip="Die Datei von Claude prüfen lassen, mit den Hinweisen"
+              onClick={() => {
+                void openReview();
+              }}
+            >
+              <ClaudeIcon />
+              Prüfen …
+            </button>
+          )}
+          {markdown && exists && (
+            <button
+              type="button"
+              className="md-noting editor-noting"
+              aria-pressed={noting}
+              aria-label="Hinweise"
+              data-tip={noting ? 'Hinweise ausblenden' : 'Hinweise einblenden'}
+              onClick={toggleNoting}
+            >
+              <NoteIcon />
+              {noting && notes.notes.length > 0 && <span>{notes.notes.length}</span>}
+            </button>
+          )}
           <div className="font-size" role="group" aria-label="Schriftgröße">
             <button
               type="button"
@@ -664,6 +810,8 @@ export function EditorPage({ file, root }: { file: EditorFile; root: string | nu
               }}
               onPasteImage={markdown ? setPastedImage : undefined}
               onRenameReference={setRenaming}
+              onNoteRequest={requestNote}
+              onNoteMark={showNoteMark}
             />
           </main>
           {mode === 'split' && (
@@ -715,7 +863,67 @@ export function EditorPage({ file, root }: { file: EditorFile; root: string | nu
             </main>
           )}
         </div>
+        {noting && (
+          <div
+            className={resizingNotes ? 'editor-divider editor-divider-dragging' : 'editor-divider'}
+            data-tip={resizingNotes ? undefined : 'Ziehen ändert die Breite der Hinweise, Doppelklick stellt sie zurück'}
+            onPointerDown={(event) => {
+              event.preventDefault();
+              event.currentTarget.setPointerCapture(event.pointerId);
+              setResizingNotes(true);
+            }}
+            onPointerMove={(event) => {
+              if (resizingNotes) {
+                const next = Math.round(window.innerWidth - event.clientX);
+                setNotesWidth(Math.min(NOTES_WIDTH.max, Math.max(NOTES_WIDTH.min, next)));
+              }
+            }}
+            onPointerUp={() => {
+              setResizingNotes(false);
+              store(NOTES_WIDTH.key, String(notesWidth));
+            }}
+            onPointerCancel={() => {
+              setResizingNotes(false);
+            }}
+            onDoubleClick={() => {
+              setNotesWidth(NOTES_WIDTH.initial);
+              store(NOTES_WIDTH.key, String(NOTES_WIDTH.initial));
+            }}
+          />
+        )}
+        {noting && (
+          <MarkdownNotesColumn
+            path={file.path}
+            name={file.name}
+            text={edited}
+            store={notes}
+            focused={focused}
+            draft={draft}
+            file={fileScope(edited)}
+            onDraft={startDraft}
+            onDraftDone={endDraft}
+            onScope={setScope}
+            onPreview={setPreview}
+            onShow={(line) => {
+              editor.current?.revealLine(line);
+            }}
+            emptyHint="Noch keine Hinweise. Text auswählen und auf „Hinweis“ klicken oder ⌘⌥K drücken, in einer Überschrift ohne Auswahl für den Abschnitt. Das Symbol oben gilt für die ganze Datei."
+            style={{ width: `${String(notesWidth)}px` }}
+          />
+        )}
       </div>
+      {reviewing && (
+        <ClaudeDialog
+          title="Von Claude prüfen"
+          rows={[{ label: 'Datei', value: file.path }]}
+          initialPrompt={reviewPrompt(file.path)}
+          load={() => markdownNotesForClaude({ data: { path: file.path } })}
+          start={(prompt, markdownText) => openMarkdownNotesInClaude({ data: { path: file.path, prompt, markdown: markdownText } })}
+          onClose={() => {
+            setReviewing(false);
+          }}
+        />
+      )}
       {renaming !== null && (
         <RenameDialog
           reference={renaming}
