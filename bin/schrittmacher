@@ -4,6 +4,7 @@
 # Server muss laufen; danach kommt die Web-App nach vorn.
 #
 #   schrittmacher [pfad]          Ordner als Tab, Markdown-Datei als Ansicht
+#   schrittmacher edit            Editor mit dem zuletzt gezeigten Stand
 #   schrittmacher edit <datei>    Datei im Editor, auch eine, die es noch nicht gibt (docs/editor.md)
 #   schrittmacher edit <ordner>   Ordner als Workspace im Editor
 #   schrittmacher edit --neu      neuer Entwurf im Workspace „Entwürfe“
@@ -21,15 +22,18 @@ absolute_file() {
 }
 
 query=""
+# Was sich öffnen soll, für die Fehlermeldung.
+label=""
 case "${1:-}" in
   edit)
     target="${2:-}"
     if [ -z "$target" ]; then
-      echo "schrittmacher: Für 'edit' fehlt eine Datei, ein Ordner oder --neu." >&2
-      exit 1
+      path=""
+      label="Der letzte Stand des Editors"
     elif [ "$target" = "--neu" ]; then
       path=""
       query="?neu"
+      label="Der Entwurf"
     elif [ -d "$target" ]; then
       path="$(cd "$target" && pwd -P)"
     elif [ -d "$(dirname "$target")" ]; then
@@ -54,7 +58,7 @@ esac
 
 # Bei einem Fehler zeigt curl nur die Meldung des Servers; ist er nicht erreichbar, fehlt sie.
 if ! message="$(curl -s --fail-with-body -X POST --data-binary "$path" "$url/api/$endpoint$query")"; then
-  echo "schrittmacher: '${path:-Entwurf}' ließ sich nicht öffnen. ${message:-Läuft der Server unter $url?}" >&2
+  echo "schrittmacher: ${label:-"'$path'"} ließ sich nicht öffnen. ${message:-Läuft der Server unter $url?}" >&2
   exit 1
 fi
 if [ -n "$app" ]; then

@@ -18,6 +18,7 @@ import {
   draftsRoot,
   editorPath,
   kindOf,
+  lastView,
   listWorkspace,
   nextFigureName,
   recentEntries,
@@ -25,12 +26,13 @@ import {
   renameRecent,
   renameWorkspaceFile,
   saveImageBeside,
+  setLastView,
   workspaceOf,
   workspacePath,
 } from './workspace';
-import type { RecentEntry, WorkspaceListing } from './workspace';
+import type { EditorView, RecentEntry, WorkspaceListing } from './workspace';
 
-export type { Draft, RecentEntry, WorkspaceListing } from './workspace';
+export type { Draft, EditorView, RecentEntry, WorkspaceListing } from './workspace';
 
 /**
  * Was der Editor mit einer Datei anfängt: Text bearbeitet er, ein Bild zeigt er an. Andere
@@ -249,6 +251,22 @@ export const touchWorkspace = createServerFn({ method: 'POST' })
     await addRecent({ workspace: await workspacePath(data.root) });
   });
 
+/**
+ * Merkt sich den Stand, den die Seite `/edit` gerade zeigt. Datei und Workspace müssen dem Editor
+ * bekannt sein, damit keine fremde Seite etwas eintragen kann.
+ */
+export const rememberEditorView = createServerFn({ method: 'POST' })
+  .validator((data: EditorView) => data)
+  .handler(async ({ data }): Promise<void> => {
+    await setLastView({
+      path: data.path === null ? null : await editorPath(data.path),
+      root: data.root === null ? null : await workspacePath(data.root),
+    });
+  });
+
+/** Der zuletzt gezeigte Stand des Editors für die Seite `/edit` ohne Angaben, siehe `lastView`. */
+export const loadLastEditorView = createServerFn({ method: 'GET' }).handler(async (): Promise<EditorView | null> => lastView());
+
 /** Die Liste „Zuletzt geöffnet“ für das Menü. */
 export const loadRecent = createServerFn({ method: 'GET' }).handler(
   async (): Promise<{ workspaces: RecentEntry[]; files: RecentEntry[] }> => recentEntries(),
@@ -389,9 +407,14 @@ export const saveFigure = createServerFn({ method: 'POST' })
  * Merkt sich, was `schrittmacher edit <pfad>` im Editor öffnen soll (`bin/schrittmacher`). Ein
  * Ordner öffnet sich als Workspace. Eine Datei öffnet sich in dem bekannten Workspace, in dem sie
  * liegt, sonst allein. Eine Datei, die es noch nicht gibt, entsteht beim ersten Speichern; ihr
- * Ordner muss aber da sein.
+ * Ordner muss aber da sein. Ohne Pfad öffnet sich der zuletzt gezeigte Stand.
  */
 export const requestEdit = createServerOnlyFn(async (value: string): Promise<void> => {
+  if (value === '') {
+    // `schrittmacher edit` ohne Angabe: der zuletzt gezeigte Stand, ohne ihn der leere Editor.
+    requested.next = { kind: 'edit', path: null, root: null, ...(await lastView()) };
+    return;
+  }
   if (!isAbsolute(value)) {
     throw new Error(`Der Pfad '${value}' ist nicht absolut.`);
   }

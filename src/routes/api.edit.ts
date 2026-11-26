@@ -13,7 +13,7 @@ function fromOtherSite(request: Request): boolean {
 
 /**
  * Nimmt vom Kommando `schrittmacher edit <pfad>` den Pfad als Text entgegen und merkt die Datei oder
- * den Workspace für den Editor unter `/edit`. Mit `?neu` legt es stattdessen einen Entwurf an
+ * den Workspace für den Editor unter `/edit`, ohne Pfad den zuletzt gezeigten Stand. Mit `?neu` legt es stattdessen einen Entwurf an
  * (`schrittmacher edit --neu`). Die Seite holt die Anforderung mit `takeRequest` ab.
  */
 export const Route = createFileRoute('/api/edit')({

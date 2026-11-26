@@ -177,6 +177,7 @@ Repos.
 
 | Kommando | Wirkung |
 |---|---|
+| `schrittmacher edit` | öffnet den zuletzt gezeigten Stand, wie `/edit` ohne Angaben |
 | `schrittmacher edit <ordner>` | öffnet den Ordner als Workspace |
 | `schrittmacher edit <datei>` | öffnet die Datei; liegt sie in einem bekannten Workspace, mit dessen Baum |
 | `schrittmacher edit <neue-datei>` | öffnet einen leeren Editor; die Datei entsteht beim ersten ⌘S, ihr Ordner muss es geben |
@@ -228,6 +229,11 @@ zählen als Dateien. Je Liste merkt sich der Server die letzten 20. Die Liste li
 Schrittmacher abhängen soll. Auch `schrittmacher edit` ergänzt sie.
 Eine Datei, die es nicht mehr gibt, steht ausgegraut darin. Ein Klick darauf nimmt sie heraus.
 Ein eigenes Menü zum Wechseln der Workspaces gibt es nicht, weil es dieselbe Liste wäre.
+
+Daneben steht in `editor.json` unter `last` der zuletzt gezeigte Stand, also Datei und Workspace.
+Die Seite `/edit` ohne Angaben öffnet ihn, ebenso `schrittmacher edit` ohne Angabe. Gibt es die
+Datei nicht mehr, öffnet sich nur der Workspace. Fehlt beides, bleibt die Seite leer. Ein Eintrag,
+der aus der Liste verschwindet, verschwindet auch aus dem gemerkten Stand.
 
 Das × in der Kopfzeile schließt die offene Datei. Ungespeicherte Änderungen fragt es vorher ab. Beim
 Schließen passiert Folgendes:

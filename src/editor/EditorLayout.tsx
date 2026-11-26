@@ -13,6 +13,7 @@ import {
   newDraft,
   newWorkspaceFile,
   openWorkspaceIn,
+  rememberEditorView,
   renameEditorFile,
   touchWorkspace,
 } from './editor.functions';
@@ -104,7 +105,7 @@ export function CloseButton({ path, root }: { path: string; root: string | null 
 
 /**
  * Der Rahmen der Seite `/edit`: links der Baum, wenn ein Workspace offen ist, rechts die Datei.
- * Er holt auch die Anforderungen des Kommandos `schrittmacher` ab.
+ * Er holt auch die Anforderungen des Kommandos `schrittmacher` ab und merkt sich den gezeigten Stand.
  */
 export function EditorLayout({ root, current, children }: { root: string | null; current: string | null; children: ReactNode }) {
   const navigate = useNavigate();
@@ -113,6 +114,12 @@ export function EditorLayout({ root, current, children }: { root: string | null;
   });
   const dirty = useRef(false);
   const shown = useMemo(() => ({ path: current, root }), [current, root]);
+  // Gemerkt wird jeder gezeigte Stand, damit `/edit` ohne Angaben ihn wieder öffnet.
+  useEffect(() => {
+    rememberEditorView({ data: { path: current, root } }).catch((failure: unknown) => {
+      console.error('Der Stand des Editors ließ sich nicht merken.', failure);
+    });
+  }, [current, root]);
   return (
     <DirtyContext.Provider value={dirty}>
       <ShownContext.Provider value={shown}>

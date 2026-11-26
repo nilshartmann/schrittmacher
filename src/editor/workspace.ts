@@ -44,10 +44,20 @@ function recentFile(): string {
   return join(configFolder(), 'editor.json');
 }
 
-/** Die Liste „Zuletzt geöffnet“, wie sie in `editor.json` steht, das zuletzt geöffnete zuerst. */
+/** Der zuletzt gezeigte Stand des Editors: eine Datei, ein Workspace oder beides. */
+export interface EditorView {
+  path: string | null;
+  root: string | null;
+}
+
+/**
+ * Die Liste „Zuletzt geöffnet“, wie sie in `editor.json` steht, das zuletzt geöffnete zuerst, dazu
+ * der zuletzt gezeigte Stand.
+ */
 interface Recent {
   workspaces: string[];
   files: string[];
+  last: EditorView | null;
 }
 
 /** Ob eine Datei eine Markdown-Datei ist, nach ihrer Endung. */
@@ -64,13 +74,28 @@ function strings(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === 'string') : [];
 }
 
+/** Ein Pfad aus `editor.json`, wenn er Text ist; sonst `null`. */
+function pathOrNull(value: unknown): string | null {
+  return typeof value === 'string' && value !== '' ? value : null;
+}
+
+/** Der gemerkte Stand aus `editor.json`; ohne Datei und Workspace `null`. */
+function viewOf(value: unknown): EditorView | null {
+  if (typeof value !== 'object' || value === null) {
+    return null;
+  }
+  const { path, root } = value as { path?: unknown; root?: unknown };
+  const view = { path: pathOrNull(path), root: pathOrNull(root) };
+  return view.path === null && view.root === null ? null : view;
+}
+
 async function readRecent(): Promise<Recent> {
   try {
-    const raw = JSON.parse(await readFile(recentFile(), 'utf8')) as { workspaces?: unknown; files?: unknown };
-    return { workspaces: strings(raw.workspaces), files: strings(raw.files) };
+    const raw = JSON.parse(await readFile(recentFile(), 'utf8')) as { workspaces?: unknown; files?: unknown; last?: unknown };
+    return { workspaces: strings(raw.workspaces), files: strings(raw.files), last: viewOf(raw.last) };
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
-      return { workspaces: [], files: [] };
+      return { workspaces: [], files: [], last: null };
     }
     throw new Error(`Die Datei ${recentFile()} lässt sich nicht lesen: ${String(error)}`);
   }
@@ -96,6 +121,7 @@ function first(list: string[], entry: string): string[] {
 /** Merkt sich einen Workspace, eine Datei oder beide als zuletzt geöffnet. Entwürfe zählen nicht als Workspace. */
 export function addRecent(entry: { workspace?: string | null; file?: string | null }): Promise<void> {
   return changeRecent((current) => ({
+    ...current,
     workspaces:
       entry.workspace === undefined || entry.workspace === null || entry.workspace === draftsRoot()
         ? current.workspaces
@@ -104,11 +130,21 @@ export function addRecent(entry: { workspace?: string | null; file?: string | nu
   }));
 }
 
-/** Nimmt einen Workspace oder eine Datei aus der Liste „Zuletzt geöffnet“. */
+/**
+ * Nimmt einen Workspace oder eine Datei aus der Liste „Zuletzt geöffnet“ und aus dem gemerkten
+ * Stand, damit sie sich beim nächsten Öffnen ohne Angabe nicht wieder zeigt.
+ */
 export function removeRecent(path: string): Promise<void> {
   return changeRecent((current) => ({
     workspaces: current.workspaces.filter((other) => other !== path),
     files: current.files.filter((other) => other !== path),
+    last:
+      current.last === null
+        ? null
+        : viewOf({
+            path: current.last.path === path ? null : current.last.path,
+            root: current.last.root === path ? null : current.last.root,
+          }),
   }));
 }
 
@@ -117,7 +153,31 @@ export function renameRecent(from: string, to: string): Promise<void> {
   return changeRecent((current) => ({
     workspaces: current.workspaces,
     files: current.files.filter((other) => other !== to).map((other) => (other === from ? to : other)),
+    last: current.last?.path === from ? { ...current.last, path: to } : current.last,
   }));
+}
+
+/** Merkt sich den gezeigten Stand des Editors; ohne Datei und Workspace bleibt der vorige. */
+export function setLastView(view: EditorView): Promise<void> {
+  const last = viewOf(view);
+  return last === null ? Promise.resolve() : changeRecent((current) => ({ ...current, last }));
+}
+
+/**
+ * Der zuletzt gezeigte Stand des Editors, soweit es ihn noch gibt: Fehlt die Datei, bleibt nur der
+ * Workspace, fehlt der Workspace, nur die Datei. Ohne beides `null`.
+ */
+export async function lastView(): Promise<EditorView | null> {
+  const { last } = await readRecent();
+  if (last === null) {
+    return null;
+  }
+  const isFile = async (path: string | null) => path !== null && (await stat(path).catch(() => null))?.isFile() === true;
+  const isFolder = async (path: string | null) => path !== null && (await stat(path).catch(() => null))?.isDirectory() === true;
+  return viewOf({
+    path: (await isFile(last.path)) ? last.path : null,
+    root: (await isFolder(last.root)) ? last.root : null,
+  });
 }
 
 /** Die bekannten Workspaces: „Entwürfe“ und die zuletzt geöffneten. */

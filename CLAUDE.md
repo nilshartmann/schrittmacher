@@ -21,7 +21,8 @@ Der ursprüngliche Auftrag steht in `docs/auftrag-klick-dummy.md`, offene Punkte
   `SCHRITTMACHER_URL=…`, ohne Web-App mit leerem `SCHRITTMACHER_APP`. Eine Markdown-Datei als
   Pfad zeigt die Web-App gerendert unter `/markdown` an (`src/viewer/Markdown.tsx`).
 - `schrittmacher edit <pfad>`: öffnet eine Datei oder einen Ordner als Workspace im Editor unter
-  `/edit`, `schrittmacher edit --neu` einen neuen Entwurf (`docs/editor.md`)
+  `/edit`, ohne Pfad den zuletzt gezeigten Stand, `schrittmacher edit --neu` einen neuen Entwurf
+  (`docs/editor.md`)
 - `bin/schrittmacher-markdown-installieren`: baut die Helfer-App für „Öffnen mit …“ auf Markdown-Dateien;
   Hinweise zu Markdown-Dateien beschreibt `docs/markdown-hinweise.md`
 - `schrittmacher-start` (`bin/schrittmacher-start`, verlinkt nach `~/.local/bin`): startet
