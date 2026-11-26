@@ -1784,7 +1784,9 @@ span.info-parent {
   cursor: default;
 }
 
-.file-bar .file-path {
+.file-bar .file-path-copy {
+  flex: none;
+  margin-left: -4px;
   margin-right: auto;
 }
 

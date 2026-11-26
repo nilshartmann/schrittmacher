@@ -3,8 +3,8 @@ import type { KeyboardEvent, PointerEvent, ReactNode } from 'react';
 import type { DiffFile } from '../git/types';
 import type { SavedGist } from '../server/store';
 import type { GistCheck } from './GistMenu';
-import { HoverTools, MenuToolButton } from './HoverTools';
-import { NoteIcon } from './Icons';
+import { CopyIcon, HoverTools, MenuToolButton } from './HoverTools';
+import { CheckMarkIcon, NoteIcon } from './Icons';
 import type { CopyTarget } from './HoverTools';
 import { OpenInMenu } from './OpenInMenu';
 import type { MenuCopyTo } from './OpenInMenu';
@@ -313,6 +313,37 @@ export function WidthSplitter({
   );
 }
 
+/** Kopiert den Pfad der Datei, wie ihn die Leiste zeigt, und bestätigt es kurz mit einem Haken. */
+function CopyPathButton({ path }: { path: string }) {
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (!copied) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      setCopied(false);
+    }, 1500);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [copied]);
+  return (
+    <button
+      type="button"
+      className="icon-button file-path-copy"
+      aria-label="Pfad kopieren"
+      data-tip={copied ? 'Kopiert' : 'Pfad kopieren'}
+      onClick={() => {
+        void navigator.clipboard.writeText(path).then(() => {
+          setCopied(true);
+        });
+      }}
+    >
+      {copied ? <CheckMarkIcon /> : <CopyIcon />}
+    </button>
+  );
+}
+
 const PRESETS = [
   { label: '50/50', share: 0.5 },
   { label: '30/70', share: 0.3 },
@@ -352,6 +383,7 @@ export function FileBar(props: FileBarProps) {
       <code className="file-path" data-tip={pathTip(file)}>
         <PathText path={file.path} />
       </code>
+      <CopyPathButton path={file.path} />
       <div className="file-tools">
         {props.onNote !== undefined && (
           <>
