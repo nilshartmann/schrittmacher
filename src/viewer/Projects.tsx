@@ -122,7 +122,7 @@ function NewProjectForm({ tabs, onDone }: { tabs: Tab[]; onDone: () => void }) {
  * Öffnet ein Projekt ohne Tableiste, etwa nachdem alle Tabs geschlossen wurden: Der Server merkt
  * sich seine Tabs als offene, danach zeigt die Seite den ersten.
  */
-async function openWithoutTabs(project: Project, onShow: (view: ViewSearch) => void) {
+export async function openWithoutTabs(project: Project, onShow: (view: ViewSearch) => void) {
   const [first] = project.tabs;
   if (first === undefined) {
     return;

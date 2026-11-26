@@ -1,13 +1,15 @@
 import { useNavigate } from '@tanstack/react-router';
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode, RefObject } from 'react';
-import { ChevronIcon, ClockIcon, CloseIcon, FolderIcon, GitClientIcon, PlusIcon, TerminalIcon } from '../viewer/Icons';
-import { Menu, MenuDivider, MenuItem, MenuNote, MenuSection } from '../viewer/Menu';
+import { ChevronIcon, CloseIcon, FolderIcon, GitClientIcon, PlusIcon, TerminalIcon } from '../viewer/Icons';
+import { Menu, MenuItem, MenuNote, MenuSection } from '../viewer/Menu';
+import type { ViewSearch } from '../server/store';
+import { openWithoutTabs } from '../viewer/Projects';
+import { RecentMenu as SharedRecentMenu } from '../viewer/RecentMenu';
 import { Tooltips } from '../viewer/Tooltips';
 import { editSearch, useRequests } from '../viewer/useRequests';
 import {
   closeEditorFile,
-  forgetRecent,
   loadRecent,
   loadWorkspace,
   newDraft,
@@ -692,67 +694,34 @@ function RenameField({
 }
 
 /**
- * Das Menü „Zuletzt geöffnet“ in der Kopfzeile: oben „Entwürfe“ und die Workspaces, darunter die
- * Dateien. Ein Eintrag, den es nicht mehr gibt, steht ausgegraut darin; ein Klick nimmt ihn heraus.
+ * Das Menü „Zuletzt geöffnet“ im Editor (`src/viewer/RecentMenu.tsx`). Eine Ansicht oder ein Projekt
+ * wechselt zum Viewer; bei ungespeicherten Änderungen fragt es vorher wie beim Wechsel der Datei.
  */
 export function RecentMenu() {
-  return (
-    <Menu button={<ClockIcon />} label="Zuletzt geöffnet" tip="Zuletzt geöffnet" className="bar-tool" panelClassName="editor-recent">
-      {(close) => <RecentList close={close} />}
-    </Menu>
-  );
-}
-
-function RecentList({ close }: { close: () => void }) {
   const open = useOpen();
-  const [recent, setRecent] = useState<{ workspaces: RecentEntry[]; files: RecentEntry[] } | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const load = () => {
-    loadRecent().then(setRecent, (failure: unknown) => {
-      setError(messageOf(failure));
-    });
+  const navigate = useNavigate();
+  const dirty = useContext(DirtyContext);
+  const shown = useContext(ShownContext);
+  const leave = () =>
+    dirty?.current !== true || window.confirm('Ungespeicherte Änderungen verwerfen? Gesichert sind sie trotzdem.');
+  const show = (view: ViewSearch) => {
+    void navigate({ to: '/', search: view });
   };
-  useEffect(load, []);
-  const choose = (entry: RecentEntry, kind: 'workspace' | 'file') => {
-    if (!entry.exists) {
-      forgetRecent({ data: { path: entry.path } }).then(load, (failure: unknown) => {
-        setError(messageOf(failure));
-      });
-      return;
-    }
-    close();
-    if (kind === 'workspace') {
-      open(null, entry.path);
-    } else {
-      open(entry.path, entry.root);
-    }
-  };
-  if (error !== null) {
-    return <MenuNote error>{error}</MenuNote>;
-  }
-  if (recent === null) {
-    return <MenuNote>Lädt …</MenuNote>;
-  }
-  const row = (entry: RecentEntry, kind: 'workspace' | 'file') => (
-    <MenuItem
-      key={entry.path}
-      main={<span className={entry.exists ? undefined : 'editor-recent-missing'}>{entry.name}</span>}
-      sub={entry.exists ? entry.dir : `${entry.dir}, fehlt`}
-      tip={entry.exists ? entry.path : 'Gibt es nicht mehr. Ein Klick nimmt den Eintrag heraus.'}
-      onChoose={() => {
-        choose(entry, kind);
+  return (
+    <SharedRecentMenu
+      currentFile={shown.path}
+      openEdit={open}
+      openView={(view) => {
+        if (leave()) {
+          show(view);
+        }
+      }}
+      openProject={async (project) => {
+        if (leave()) {
+          await openWithoutTabs(project, show);
+        }
       }}
     />
-  );
-  return (
-    <div className="menu-scroll">
-      <MenuDivider>Workspaces</MenuDivider>
-      <MenuSection>{recent.workspaces.map((entry) => row(entry, 'workspace'))}</MenuSection>
-      <MenuDivider>Dateien</MenuDivider>
-      <MenuSection>
-        {recent.files.length === 0 ? <MenuNote>Noch keine.</MenuNote> : recent.files.map((entry) => row(entry, 'file'))}
-      </MenuSection>
-    </div>
   );
 }
 

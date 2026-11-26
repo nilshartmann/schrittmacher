@@ -7,7 +7,8 @@ bearbeiten lässt sich aber jede Textdatei. Geöffnet wird eine Datei oder ein W
 Kommando werden. Die Seite hat deshalb keinen Weg zu den Tabs und kennt keine Hinweise. Alle Teile
 liegen unter `src/editor/`:
 
-- `EditorLayout.tsx`: der Rahmen mit dem Baum eines Workspace und dem Menü „Zuletzt geöffnet“
+- `EditorLayout.tsx`: der Rahmen mit dem Baum eines Workspace und dem Menü „Zuletzt geöffnet“, das
+  er mit dem Viewer teilt (`src/viewer/RecentMenu.tsx`)
 - `EditorPage.tsx`: die Seite mit Kopfzeile, Text und Vorschau
 - `MarkdownEditor.tsx`: der Editor
 - `languages.ts`: die Hervorhebung je Art von Datei
@@ -19,14 +20,15 @@ liegen unter `src/editor/`:
 - `highlights.ts`: das Speichern und Wiederfinden der Markierungen
 
 Aus dem Rest von Schrittmacher nutzt der Editor die gerenderte Vorschau (`MarkdownView`), den
-Aufruf von Git (`runGit`), das Menü, die Tooltips und die Übergabe vom Kommando (`useRequests`).
+Aufruf von Git (`runGit`), das Menü, die Tooltips, die Übergabe vom Kommando (`useRequests`) und
+das gemeinsame Menü „Zuletzt geöffnet“ mit Projekten und Ansichten des Viewers.
 
 ## Bedienung
 
 | Aktion | Auslöser |
 |---|---|
 | Nur Text, Text und Vorschau nebeneinander, nur Vorschau (bei Markdown) | „Text“, „Geteilt“, „Vorschau“ oder ⌘1 bis ⌘3 |
-| Zuletzt geöffnete Workspaces und Dateien | Uhr links in der Kopfzeile |
+| Zuletzt geöffnete Projekte, Ansichten, Workspaces und Dateien | Uhr links in der Kopfzeile |
 | Zur vorherigen Datei, mit jedem weiteren E eine weiter zurück | ⌘E, ⌘ gedrückt halten; ⇧E geht wieder vor, Loslassen von ⌘ öffnet, Escape bricht ab |
 | Workspace in Fork (sein Repo), ForkLift oder iTerm2 öffnen | Pfeil neben dem Namen des Workspace |
 | Neue Datei im Workspace, neuer Entwurf | Plus über dem Baum |
@@ -223,8 +225,20 @@ nicht entfernen.
 
 ### Zuletzt geöffnet
 
-Das Menü „Zuletzt geöffnet“ in der Kopfzeile listet oben Workspaces, darunter Dateien. Entwürfe
-zählen als Dateien. Je Liste merkt sich der Server die letzten 20. Die Liste liegt in
+Das Menü „Zuletzt geöffnet“ unter der Uhr in der Kopfzeile ist in Viewer und Editor gleich. Es hat
+zwei Teile:
+
+- **Schrittmacher:** die Projekte und die zuletzt gemerkten Ansichten des Viewers. Eine Wahl wechselt
+  zum Viewer. Ein Projekt ersetzt dort die Tableiste, eine Ansicht öffnet sich in einem Tab ganz
+  links, wie im Menü der Repos.
+- **Editor:** oben Workspaces, darunter Dateien. Entwürfe zählen als Dateien. Im Viewer wechselt
+  eine Wahl zum Editor.
+
+Bei ungespeicherten Änderungen fragt der Editor vor jedem Wechsel nach. Ansichten, Workspaces und
+Dateien haben beim Überfahren rechts einen Knopf, der sie in einem neuen Fenster der Web-App öffnet.
+Für Projekte gibt es ihn noch nicht.
+
+Für den Teil „Editor“ gilt: Je Liste merkt sich der Server die letzten 20. Die Liste liegt in
 `~/.config/schrittmacher/editor.json` und nicht in `state.json`, weil der Editor nicht vom Rest von
 Schrittmacher abhängen soll. Auch `schrittmacher edit` ergänzt sie.
 Eine Datei, die es nicht mehr gibt, steht ausgegraut darin. Ein Klick darauf nimmt sie heraus.

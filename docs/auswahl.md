@@ -11,6 +11,9 @@ behält ihre feste Höhe. Die Zeilen
 im Menü sind mindestens 36 pt hoch. Ein Suchfeld dient der Tastatur des Macs und wird nie
 zwingend gebraucht.
 
+Ganz links öffnet die Uhr das Menü „Zuletzt geöffnet“ mit Projekten, Ansichten, Workspaces und
+Dateien. Der Editor zeigt dasselbe Menü (`docs/editor.md`).
+
 ## Repo
 
 - In `~/.config/schrittmacher/config.json` stehen Wurzelverzeichnisse, vorgegeben ist

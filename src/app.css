@@ -4562,12 +4562,27 @@ span.info-parent {
   font-size: 13px;
 }
 
-.editor-recent {
-  min-width: 320px;
+.recent-menu {
+  min-width: 340px;
   max-height: 70vh;
 }
 
-.editor-recent-missing {
+/* Die Teile „Schrittmacher“ und „Editor“ im Menü „Zuletzt geöffnet“ */
+.recent-group {
+  margin-top: 8px;
+  padding: 10px 10px 0;
+  border-top: 1px solid var(--border-divider);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.recent-group:first-child {
+  margin-top: 0;
+  border-top: 0;
+}
+
+.recent-missing {
   color: var(--sign);
   text-decoration: line-through;
 }

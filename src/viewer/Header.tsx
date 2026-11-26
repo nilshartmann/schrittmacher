@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import type { ViewSearch } from '../server/store';
 import { InfoIcon, NoteIcon, SidebarIcon } from './Icons';
 import { Timer } from './Timer';
+import { ViewerRecentMenu } from './RecentMenu';
 import { RepoMenu } from './ViewMenus';
 
 /**
@@ -32,7 +33,7 @@ interface HeaderProps {
 }
 
 /**
- * Die schmale Kopfzeile: links die Knöpfe für die Dateiliste und die Angaben zum Commit, nach einem
+ * Die schmale Kopfzeile: links das Menü „Zuletzt geöffnet“, die Knöpfe für die Dateiliste und die Angaben zum Commit, nach einem
  * Trennstrich der für alle Branches und die Knöpfe zum Wechseln von Repo, Worktree und Branch; rechts der Timer für den
  * Vortrag und die Knöpfe für die Schriftgröße, deren Wert der Tooltip nennt. Den gewählten
  * Vergleich zeigt die Commit-Liste, den zweier Commits zusätzlich die Zeile darunter
@@ -42,6 +43,7 @@ export function Header(props: HeaderProps) {
   return (
     <header className="header">
       <div className="header-start">
+        <ViewerRecentMenu />
         <button
           type="button"
           className="bar-tool"
@@ -121,6 +123,7 @@ export function EmptyHeader({ onShow }: { onShow: (view: ViewSearch) => void }) 
   return (
     <header className="header">
       <div className="header-where">
+        <ViewerRecentMenu />
         <RepoMenu info={null} initiallyOpen onShow={onShow} />
       </div>
     </header>

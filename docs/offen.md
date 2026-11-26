@@ -21,11 +21,10 @@
 - Beim Öffnen einer Datei im Editor die neuere Sicherung anbieten, wenn sie vom Stand der Datei
   abweicht. Lädt Vite den Code neu, legt es den Editor neu an und holt den Text von der Platte;
   ungespeicherte Änderungen stehen dann nur noch in der Sicherung.
-- Gemeinsames Menü „Zuletzt geöffnet“ für Viewer und Editor, mit zwei Teilen: „Schrittmacher“ mit
-  den Projekten und den zuletzt gemerkten Ansichten, „Editor“ mit Workspaces und Dateien. Es
-  ersetzt die Uhr im Editor und kommt im Viewer dazu, das Menü der Repos bleibt. Jeder Eintrag
-  lässt sich auch in einem neuen Fenster öffnen. Vorher prüfen, ob `window.open` in der Web-App
-  aus Safari ein neues Fenster der Web-App öffnet.
+- Ein Projekt aus dem Menü „Zuletzt geöffnet“ in einem neuen Fenster öffnen. Dafür braucht die URL
+  einen Parameter für das Projekt.
+- Zwei Fenster des Viewers überschreiben sich gegenseitig die Tableiste in `state.json`, weil jedes
+  seine Tabs selbst hält und bei jeder Änderung zurückschreibt.
 - Die Web-App startet aus dem Dock immer im Viewer, auch wenn zuletzt der Editor offen war.
 - Bei Viewer und Editor in zwei Fenstern (`docs/editor.md`) holt `schrittmacher` das passende
   Fenster nach vorn. Mit `open -a` kommt nur das zuletzt benutzte nach vorn; ein bestimmtes geht
